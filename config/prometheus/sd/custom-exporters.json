@@ -1,0 +1,9 @@
+[
+  {
+    "targets": [],
+    "labels": {
+      "job": "custom-exporters",
+      "env": "development"
+    }
+  }
+]

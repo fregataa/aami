@@ -1,0 +1,187 @@
+groups:
+  # Node Availability Alerts
+  - name: node_availability
+    interval: 30s
+    rules:
+      - alert: NodeDown
+        expr: up{job="node-exporter"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          namespace: infrastructure
+          category: availability
+        annotations:
+          summary: "Node {{ $labels.instance }} is down or unreachable"
+          description: |
+            Node has not responded for more than 2 minutes.
+            - Instance: {{ $labels.instance }}
+            - Primary Group: {{ $labels.primary_group }}
+            - Environment: {{ $labels.environment }}
+            - Last seen: {{ $labels.last_seen }}
+
+      - alert: NodeUnreachable
+        expr: up{job="node-exporter"} == 0
+        for: 30s
+        labels:
+          severity: warning
+          namespace: infrastructure
+          category: availability
+        annotations:
+          summary: "Node {{ $labels.instance }} is temporarily unreachable"
+          description: "Node has been unreachable for more than 30 seconds. This may indicate a network issue."
+
+      - alert: MultipleNodesDown
+        expr: count(up{job="node-exporter"} == 0) > 3
+        for: 1m
+        labels:
+          severity: critical
+          namespace: infrastructure
+          category: availability
+        annotations:
+          summary: "Multiple nodes down simultaneously"
+          description: |
+            {{ $value }} nodes are down simultaneously.
+            This may indicate a cluster-wide infrastructure failure.
+
+  # System Resource Alerts
+  - name: system_resources
+    interval: 1m
+    rules:
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: |
+            CPU usage has exceeded 80% for more than 5 minutes.
+            Current value: {{ $value | humanizePercentage }}
+            Instance: {{ $labels.instance }}
+
+      - alert: CriticalCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 95
+        for: 2m
+        labels:
+          severity: critical
+          category: resources
+        annotations:
+          summary: "Critical CPU usage on {{ $labels.instance }}"
+          description: |
+            CPU usage has exceeded 95% for more than 2 minutes.
+            Current value: {{ $value | humanizePercentage }}
+            Immediate action required.
+
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: |
+            Memory usage has exceeded 90% for more than 5 minutes.
+            Current usage: {{ $value | humanizePercentage }}
+            Available: {{ with query "node_memory_MemAvailable_bytes{instance=~\"$labels.instance\"}" }}{{ . | first | value | humanize1024 }}B{{ end }}
+
+      - alert: CriticalMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          category: resources
+        annotations:
+          summary: "Critical memory usage on {{ $labels.instance }}"
+          description: |
+            Memory usage has exceeded 95% for more than 2 minutes.
+            System may experience OOM conditions.
+            Current usage: {{ $value | humanizePercentage }}
+
+  # Disk Space Alerts
+  - name: disk_space
+    interval: 5m
+    rules:
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.lxcfs|squashfs|devtmpfs"} / node_filesystem_size_bytes) * 100 < 20
+        for: 5m
+        labels:
+          severity: warning
+          category: storage
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: |
+            Disk space is running low on mount point {{ $labels.mountpoint }}.
+            Available: {{ $value | humanizePercentage }}
+            Filesystem: {{ $labels.device }}
+
+      - alert: CriticalDiskSpace
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.lxcfs|squashfs|devtmpfs"} / node_filesystem_size_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: warning
+          category: storage
+        annotations:
+          summary: "Critical disk space on {{ $labels.instance }}"
+          description: |
+            Disk space is critically low on mount point {{ $labels.mountpoint }}.
+            Available: {{ $value | humanizePercentage }}
+            Immediate cleanup or expansion required.
+
+      - alert: DiskFull
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.lxcfs|squashfs|devtmpfs"} / node_filesystem_size_bytes) * 100 < 5
+        for: 1m
+        labels:
+          severity: critical
+          category: storage
+        annotations:
+          summary: "Disk almost full on {{ $labels.instance }}"
+          description: |
+            Disk is almost full on mount point {{ $labels.mountpoint }}.
+            Available: {{ $value | humanizePercentage }}
+            URGENT: System may become unstable.
+
+  # Network Alerts
+  - name: network_issues
+    interval: 1m
+    rules:
+      - alert: HighNetworkErrors
+        expr: rate(node_network_receive_errs_total[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          category: network
+        annotations:
+          summary: "High network errors on {{ $labels.instance }}"
+          description: |
+            Interface {{ $labels.device }} is experiencing high error rates.
+            Error rate: {{ $value | humanize }} errors/sec
+
+      - alert: NetworkInterfaceDown
+        expr: node_network_up == 0
+        for: 1m
+        labels:
+          severity: warning
+          category: network
+        annotations:
+          summary: "Network interface down on {{ $labels.instance }}"
+          description: |
+            Interface {{ $labels.device }} is down.
+            Check network connectivity.
+
+  # System Load Alerts
+  - name: system_load
+    interval: 1m
+    rules:
+      - alert: HighSystemLoad
+        expr: node_load15 / count without(cpu, mode) (node_cpu_seconds_total{mode="idle"}) > 2
+        for: 10m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "High system load on {{ $labels.instance }}"
+          description: |
+            15-minute load average is {{ $value }} times the number of CPUs.
+            System may be overloaded.

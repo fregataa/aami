@@ -1,0 +1,72 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'aami-cluster'
+    environment: 'development'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# Load alert rules
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+
+  # Alertmanager monitoring
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+        labels:
+          service: 'alertmanager'
+
+  # Grafana monitoring
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+        labels:
+          service: 'grafana'
+
+  # Node Exporter - System metrics
+  - job_name: 'node-exporter'
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/sd/node-exporter.json
+        refresh_interval: 30s
+    relabel_configs:
+      # Preserve original instance label
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: localhost:9100  # Node Exporter default port
+
+  # DCGM Exporter - GPU metrics
+  - job_name: 'dcgm-exporter'
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/sd/dcgm-exporter.json
+        refresh_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+
+  # Custom Exporters
+  - job_name: 'custom-exporters'
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/sd/custom-exporters.json
+        refresh_interval: 30s

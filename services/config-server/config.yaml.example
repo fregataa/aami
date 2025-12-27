@@ -1,0 +1,49 @@
+# AAMI Config Server Configuration
+# Copy this file to config.yaml and update with your settings
+
+server:
+  host: 0.0.0.0
+  port: 8080
+
+database:
+  host: localhost
+  port: 5432
+  user: postgres
+  password: changeme
+  dbname: config_server
+  sslmode: disable
+
+redis:
+  host: localhost
+  port: 6379
+  password: ""
+  db: 0
+
+logging:
+  level: info      # debug, info, warn, error
+  format: json     # json or text
+
+service_discovery:
+  output_path: /etc/prometheus/sd
+  refresh_interval: 30s
+
+bootstrap:
+  token_default_expiry: 24h
+  token_default_max_uses: 1
+
+cors:
+  allowed_origins:
+    - "*"
+  allowed_methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+  allowed_headers:
+    - Content-Type
+    - Authorization
+
+application:
+  env: development  # development, staging, production
+  debug: false

@@ -1,0 +1,9 @@
+[
+  {
+    "targets": [],
+    "labels": {
+      "job": "dcgm-exporter",
+      "env": "development"
+    }
+  }
+]
