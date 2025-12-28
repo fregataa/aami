@@ -8,9 +8,9 @@ import (
 
 	"github.com/fregataa/aami/config-server/internal/api/dto"
 	"github.com/fregataa/aami/config-server/internal/domain"
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 	"github.com/fregataa/aami/config-server/internal/repository"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // TargetService handles business logic for targets
@@ -40,11 +40,11 @@ func NewTargetService(
 func (s *TargetService) Create(ctx context.Context, req dto.CreateTargetRequest) (*domain.Target, error) {
 	// Check hostname uniqueness
 	existing, err := s.targetRepo.GetByHostname(ctx, req.Hostname)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err != nil && !errors.Is(err, domainerrors.ErrNotFound) {
 		return nil, err
 	}
 	if existing != nil {
-		return nil, ErrAlreadyExists
+		return nil, domainerrors.ErrAlreadyExists
 	}
 
 	var groupIDs []string
@@ -58,8 +58,8 @@ func (s *TargetService) Create(ctx context.Context, req dto.CreateTargetRequest)
 		for _, gid := range req.GroupIDs {
 			_, err := s.groupRepo.GetByID(ctx, gid)
 			if err != nil {
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					return nil, ErrForeignKeyViolation
+				if errors.Is(err, domainerrors.ErrNotFound) {
+					return nil, domainerrors.ErrForeignKeyViolation
 				}
 				return nil, err
 			}
@@ -141,7 +141,7 @@ func (s *TargetService) getOrCreateDefaultNamespace(ctx context.Context) (*domai
 		return ns, nil
 	}
 
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
+	if !errors.Is(err, domainerrors.ErrNotFound) {
 		return nil, err
 	}
 
@@ -165,8 +165,8 @@ func (s *TargetService) getOrCreateDefaultNamespace(ctx context.Context) (*domai
 func (s *TargetService) GetByID(ctx context.Context, id string) (*domain.Target, error) {
 	target, err := s.targetRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -177,8 +177,8 @@ func (s *TargetService) GetByID(ctx context.Context, id string) (*domain.Target,
 func (s *TargetService) GetByHostname(ctx context.Context, hostname string) (*domain.Target, error) {
 	target, err := s.targetRepo.GetByHostname(ctx, hostname)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -189,8 +189,8 @@ func (s *TargetService) GetByHostname(ctx context.Context, hostname string) (*do
 func (s *TargetService) Update(ctx context.Context, id string, req dto.UpdateTargetRequest) (*domain.Target, error) {
 	target, err := s.targetRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -222,8 +222,8 @@ func (s *TargetService) Update(ctx context.Context, id string, req dto.UpdateTar
 func (s *TargetService) Delete(ctx context.Context, id string) error {
 	_, err := s.targetRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return domainerrors.ErrNotFound
 		}
 		return err
 	}
@@ -255,7 +255,7 @@ func (s *TargetService) GetByGroupID(ctx context.Context, groupID string) ([]dom
 // UpdateStatus updates the status of a target
 func (s *TargetService) UpdateStatus(ctx context.Context, id string, req dto.UpdateTargetStatusRequest) error {
 	if !req.Status.IsValid() {
-		return NewValidationError("status", "invalid status")
+		return domainerrors.NewValidationError("status", "invalid status")
 	}
 
 	return s.targetRepo.UpdateStatus(ctx, id, req.Status)
@@ -271,8 +271,8 @@ func (s *TargetService) AddGroupMapping(ctx context.Context, targetID, groupID s
 	// Validate target exists
 	_, err := s.targetRepo.GetByID(ctx, targetID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return domainerrors.ErrNotFound
 		}
 		return err
 	}
@@ -280,8 +280,8 @@ func (s *TargetService) AddGroupMapping(ctx context.Context, targetID, groupID s
 	// Validate group exists
 	_, err = s.groupRepo.GetByID(ctx, groupID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrForeignKeyViolation
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return domainerrors.ErrForeignKeyViolation
 		}
 		return err
 	}
@@ -292,7 +292,7 @@ func (s *TargetService) AddGroupMapping(ctx context.Context, targetID, groupID s
 		return err
 	}
 	if exists {
-		return ErrAlreadyExists
+		return domainerrors.ErrAlreadyExists
 	}
 
 	// Create mapping
@@ -310,8 +310,8 @@ func (s *TargetService) RemoveGroupMapping(ctx context.Context, targetID, groupI
 	// Check if target exists
 	_, err := s.targetRepo.GetByID(ctx, targetID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return domainerrors.ErrNotFound
 		}
 		return err
 	}
@@ -324,7 +324,7 @@ func (s *TargetService) RemoveGroupMapping(ctx context.Context, targetID, groupI
 
 	// Prevent removal of last group
 	if count <= 1 {
-		return ErrCannotRemoveLastGroup
+		return domainerrors.ErrCannotRemoveLastGroup
 	}
 
 	// Delete mapping
@@ -336,8 +336,8 @@ func (s *TargetService) GetTargetGroups(ctx context.Context, targetID string) ([
 	// Validate target exists
 	target, err := s.targetRepo.GetByID(ctx, targetID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -354,8 +354,8 @@ func (s *TargetService) ReplaceGroupMappings(ctx context.Context, targetID strin
 	// Validate target exists
 	_, err := s.targetRepo.GetByID(ctx, targetID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return domainerrors.ErrNotFound
 		}
 		return err
 	}
@@ -364,8 +364,8 @@ func (s *TargetService) ReplaceGroupMappings(ctx context.Context, targetID strin
 	for _, gid := range groupIDs {
 		_, err := s.groupRepo.GetByID(ctx, gid)
 		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrForeignKeyViolation
+			if errors.Is(err, domainerrors.ErrNotFound) {
+				return domainerrors.ErrForeignKeyViolation
 			}
 			return err
 		}

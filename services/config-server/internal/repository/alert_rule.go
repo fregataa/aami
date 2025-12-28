@@ -138,7 +138,7 @@ func NewAlertRuleRepository(db *gorm.DB) AlertRuleRepository {
 func (r *alertRuleRepository) Create(ctx context.Context, rule *domain.AlertRule) error {
 	model := ToAlertRuleModel(rule)
 	if err := r.db.WithContext(ctx).Create(model).Error; err != nil {
-		return err
+		return fromGormError(err)
 	}
 	*rule = *model.ToDomain()
 	return nil
@@ -150,7 +150,7 @@ func (r *alertRuleRepository) GetByID(ctx context.Context, id string) (*domain.A
 		Preload("Group").
 		First(&model, "id = ?", id).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 	return model.ToDomain(), nil
 }
@@ -163,7 +163,7 @@ func (r *alertRuleRepository) GetByGroupID(ctx context.Context, groupID string) 
 		Order("priority DESC, created_at ASC").
 		Find(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	rules := make([]domain.AlertRule, len(models))
@@ -181,7 +181,7 @@ func (r *alertRuleRepository) GetByTemplateID(ctx context.Context, templateID st
 		Order("priority DESC").
 		Find(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	rules := make([]domain.AlertRule, len(models))
@@ -193,31 +193,31 @@ func (r *alertRuleRepository) GetByTemplateID(ctx context.Context, templateID st
 
 func (r *alertRuleRepository) Update(ctx context.Context, rule *domain.AlertRule) error {
 	model := ToAlertRuleModel(rule)
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Model(&AlertRuleModel{}).
 		Where("id = ?", model.ID).
-		Updates(model).Error
+		Updates(model).Error)
 }
 
 // Delete performs soft delete on an alert rule (sets deleted_at timestamp)
 func (r *alertRuleRepository) Delete(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Delete(&AlertRuleModel{}, "id = ?", id).Error
+	return fromGormError(r.db.WithContext(ctx).Delete(&AlertRuleModel{}, "id = ?", id).Error)
 }
 
 // Purge permanently removes an alert rule from the database
 func (r *alertRuleRepository) Purge(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Unscoped().
-		Delete(&AlertRuleModel{}, "id = ?", id).Error
+		Delete(&AlertRuleModel{}, "id = ?", id).Error)
 }
 
 // Restore restores a soft-deleted alert rule
 func (r *alertRuleRepository) Restore(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Unscoped().
 		Model(&AlertRuleModel{}).
 		Where("id = ?", id).
-		Update("deleted_at", nil).Error
+		Update("deleted_at", nil).Error)
 }
 
 func (r *alertRuleRepository) List(ctx context.Context, page, limit int) ([]domain.AlertRule, int, error) {
@@ -226,7 +226,7 @@ func (r *alertRuleRepository) List(ctx context.Context, page, limit int) ([]doma
 
 	// Get total count
 	if err := r.db.WithContext(ctx).Model(&AlertRuleModel{}).Count(&total).Error; err != nil {
-		return nil, 0, err
+		return nil, 0, fromGormError(err)
 	}
 
 	// Get paginated results
@@ -238,7 +238,7 @@ func (r *alertRuleRepository) List(ctx context.Context, page, limit int) ([]doma
 		Order("priority DESC, created_at DESC").
 		Find(&models).Error
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fromGormError(err)
 	}
 
 	rules := make([]domain.AlertRule, len(models))

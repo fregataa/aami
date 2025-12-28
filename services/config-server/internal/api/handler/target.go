@@ -6,6 +6,7 @@ import (
 	"github.com/fregataa/aami/config-server/internal/api/dto"
 	"github.com/fregataa/aami/config-server/internal/service"
 	"github.com/gin-gonic/gin"
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 )
 
 // TargetHandler handles HTTP requests for targets
@@ -24,10 +25,7 @@ func NewTargetHandler(targetService *service.TargetService) *TargetHandler {
 func (h *TargetHandler) Create(c *gin.Context) {
 	var req dto.CreateTargetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -72,10 +70,7 @@ func (h *TargetHandler) Update(c *gin.Context) {
 
 	var req dto.UpdateTargetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -92,10 +87,7 @@ func (h *TargetHandler) Update(c *gin.Context) {
 func (h *TargetHandler) DeleteResource(c *gin.Context) {
 	var req dto.DeleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -111,10 +103,7 @@ func (h *TargetHandler) DeleteResource(c *gin.Context) {
 func (h *TargetHandler) PurgeResource(c *gin.Context) {
 	var req dto.PurgeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -130,10 +119,7 @@ func (h *TargetHandler) PurgeResource(c *gin.Context) {
 func (h *TargetHandler) RestoreResource(c *gin.Context) {
 	var req dto.RestoreRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -177,10 +163,7 @@ func (h *TargetHandler) UpdateStatus(c *gin.Context) {
 
 	var req dto.UpdateTargetStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 

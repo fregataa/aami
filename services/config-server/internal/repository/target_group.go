@@ -87,7 +87,7 @@ func NewTargetGroupRepository(db *gorm.DB) TargetGroupRepository {
 func (r *targetGroupRepository) Create(ctx context.Context, tg *domain.TargetGroup) error {
 	model := ToTargetGroupModel(tg)
 	if err := r.db.WithContext(ctx).Create(model).Error; err != nil {
-		return err
+		return fromGormError(err)
 	}
 	*tg = *model.ToDomain()
 	return nil
@@ -103,7 +103,7 @@ func (r *targetGroupRepository) CreateBatch(ctx context.Context, tgs []domain.Ta
 		models[i] = *ToTargetGroupModel(&tg)
 	}
 
-	return r.db.WithContext(ctx).Create(&models).Error
+	return fromGormError(r.db.WithContext(ctx).Create(&models).Error)
 }
 
 func (r *targetGroupRepository) GetByTarget(ctx context.Context, targetID string) ([]domain.TargetGroup, error) {
@@ -112,7 +112,7 @@ func (r *targetGroupRepository) GetByTarget(ctx context.Context, targetID string
 		Where("target_id = ?", targetID).
 		Find(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	result := make([]domain.TargetGroup, len(models))
@@ -128,7 +128,7 @@ func (r *targetGroupRepository) GetByGroup(ctx context.Context, groupID string) 
 		Where("group_id = ?", groupID).
 		Find(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	result := make([]domain.TargetGroup, len(models))
@@ -144,7 +144,7 @@ func (r *targetGroupRepository) CountByTarget(ctx context.Context, targetID stri
 		Model(&TargetGroupModel{}).
 		Where("target_id = ?", targetID).
 		Count(&count).Error
-	return count, err
+	return count, fromGormError(err)
 }
 
 func (r *targetGroupRepository) CountByGroup(ctx context.Context, groupID string) (int64, error) {
@@ -153,25 +153,25 @@ func (r *targetGroupRepository) CountByGroup(ctx context.Context, groupID string
 		Model(&TargetGroupModel{}).
 		Where("group_id = ?", groupID).
 		Count(&count).Error
-	return count, err
+	return count, fromGormError(err)
 }
 
 func (r *targetGroupRepository) Delete(ctx context.Context, targetID, groupID string) error {
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Delete(&TargetGroupModel{}, "target_id = ? AND group_id = ?", targetID, groupID).
-		Error
+		Error)
 }
 
 func (r *targetGroupRepository) DeleteByTarget(ctx context.Context, targetID string) error {
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Delete(&TargetGroupModel{}, "target_id = ?", targetID).
-		Error
+		Error)
 }
 
 func (r *targetGroupRepository) DeleteByGroup(ctx context.Context, groupID string) error {
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Delete(&TargetGroupModel{}, "group_id = ?", groupID).
-		Error
+		Error)
 }
 
 func (r *targetGroupRepository) Exists(ctx context.Context, targetID, groupID string) (bool, error) {
@@ -180,5 +180,5 @@ func (r *targetGroupRepository) Exists(ctx context.Context, targetID, groupID st
 		Model(&TargetGroupModel{}).
 		Where("target_id = ? AND group_id = ?", targetID, groupID).
 		Count(&count).Error
-	return count > 0, err
+	return count > 0, fromGormError(err)
 }

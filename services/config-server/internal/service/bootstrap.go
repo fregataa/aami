@@ -7,9 +7,9 @@ import (
 
 	"github.com/fregataa/aami/config-server/internal/api/dto"
 	"github.com/fregataa/aami/config-server/internal/domain"
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 	"github.com/fregataa/aami/config-server/internal/repository"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // BootstrapTokenService handles business logic for bootstrap tokens
@@ -34,8 +34,8 @@ func (s *BootstrapTokenService) Create(ctx context.Context, req dto.CreateBootst
 	// Validate default group exists
 	_, err := s.groupRepo.GetByID(ctx, req.DefaultGroupID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, NewValidationError("default_group_id", "group not found")
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.NewValidationError("default_group_id", "group not found")
 		}
 		return nil, err
 	}
@@ -81,8 +81,8 @@ func (s *BootstrapTokenService) Create(ctx context.Context, req dto.CreateBootst
 func (s *BootstrapTokenService) GetByID(ctx context.Context, id string) (*domain.BootstrapToken, error) {
 	token, err := s.tokenRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -93,8 +93,8 @@ func (s *BootstrapTokenService) GetByID(ctx context.Context, id string) (*domain
 func (s *BootstrapTokenService) GetByToken(ctx context.Context, tokenStr string) (*domain.BootstrapToken, error) {
 	token, err := s.tokenRepo.GetByToken(ctx, tokenStr)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -105,15 +105,15 @@ func (s *BootstrapTokenService) GetByToken(ctx context.Context, tokenStr string)
 func (s *BootstrapTokenService) ValidateAndUse(ctx context.Context, req dto.ValidateTokenRequest) (*domain.BootstrapToken, error) {
 	token, err := s.tokenRepo.GetByToken(ctx, req.Token)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
 
 	// Check if token can be used
 	if !token.CanUse() {
-		return nil, NewValidationError("token", "token is expired or exhausted")
+		return nil, domainerrors.NewValidationError("token", "token is expired or exhausted")
 	}
 
 	// Increment uses
@@ -132,8 +132,8 @@ func (s *BootstrapTokenService) ValidateAndUse(ctx context.Context, req dto.Vali
 func (s *BootstrapTokenService) Update(ctx context.Context, id string, req dto.UpdateBootstrapTokenRequest) (*domain.BootstrapToken, error) {
 	token, err := s.tokenRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -162,8 +162,8 @@ func (s *BootstrapTokenService) Update(ctx context.Context, id string, req dto.U
 func (s *BootstrapTokenService) Delete(ctx context.Context, id string) error {
 	_, err := s.tokenRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return domainerrors.ErrNotFound
 		}
 		return err
 	}

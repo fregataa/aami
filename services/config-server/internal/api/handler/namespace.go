@@ -6,6 +6,7 @@ import (
 	"github.com/fregataa/aami/config-server/internal/api/dto"
 	"github.com/fregataa/aami/config-server/internal/service"
 	"github.com/gin-gonic/gin"
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 )
 
 // NamespaceHandler handles HTTP requests for namespaces
@@ -24,10 +25,7 @@ func NewNamespaceHandler(namespaceService *service.NamespaceService) *NamespaceH
 func (h *NamespaceHandler) Create(c *gin.Context) {
 	var req dto.CreateNamespaceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -72,10 +70,7 @@ func (h *NamespaceHandler) Update(c *gin.Context) {
 
 	var req dto.UpdateNamespaceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -92,10 +87,7 @@ func (h *NamespaceHandler) Update(c *gin.Context) {
 func (h *NamespaceHandler) DeleteResource(c *gin.Context) {
 	var req dto.DeleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -111,10 +103,7 @@ func (h *NamespaceHandler) DeleteResource(c *gin.Context) {
 func (h *NamespaceHandler) PurgeResource(c *gin.Context) {
 	var req dto.PurgeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -130,10 +119,7 @@ func (h *NamespaceHandler) PurgeResource(c *gin.Context) {
 func (h *NamespaceHandler) RestoreResource(c *gin.Context) {
 	var req dto.RestoreRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 

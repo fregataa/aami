@@ -102,7 +102,7 @@ func NewBootstrapTokenRepository(db *gorm.DB) BootstrapTokenRepository {
 func (r *bootstrapTokenRepository) Create(ctx context.Context, token *domain.BootstrapToken) error {
 	model := ToBootstrapTokenModel(token)
 	if err := r.db.WithContext(ctx).Create(model).Error; err != nil {
-		return err
+		return fromGormError(err)
 	}
 	*token = *model.ToDomain()
 	return nil
@@ -114,7 +114,7 @@ func (r *bootstrapTokenRepository) GetByID(ctx context.Context, id string) (*dom
 		Preload("DefaultGroup").
 		First(&model, "id = ?", id).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 	return model.ToDomain(), nil
 }
@@ -125,7 +125,7 @@ func (r *bootstrapTokenRepository) GetByToken(ctx context.Context, tokenStr stri
 		Preload("DefaultGroup").
 		First(&model, "token = ?", tokenStr).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 	return model.ToDomain(), nil
 }
@@ -138,7 +138,7 @@ func (r *bootstrapTokenRepository) GetByGroupID(ctx context.Context, groupID str
 		Order("created_at DESC").
 		Find(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	tokens := make([]domain.BootstrapToken, len(models))
@@ -150,31 +150,31 @@ func (r *bootstrapTokenRepository) GetByGroupID(ctx context.Context, groupID str
 
 func (r *bootstrapTokenRepository) Update(ctx context.Context, token *domain.BootstrapToken) error {
 	model := ToBootstrapTokenModel(token)
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Model(&BootstrapTokenModel{}).
 		Where("id = ?", model.ID).
-		Updates(model).Error
+		Updates(model).Error)
 }
 
 // Delete performs soft delete on a bootstrap token (sets deleted_at timestamp)
 func (r *bootstrapTokenRepository) Delete(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Delete(&BootstrapTokenModel{}, "id = ?", id).Error
+	return fromGormError(r.db.WithContext(ctx).Delete(&BootstrapTokenModel{}, "id = ?", id).Error)
 }
 
 // Purge permanently removes a bootstrap token from the database
 func (r *bootstrapTokenRepository) Purge(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Unscoped().
-		Delete(&BootstrapTokenModel{}, "id = ?", id).Error
+		Delete(&BootstrapTokenModel{}, "id = ?", id).Error)
 }
 
 // Restore restores a soft-deleted bootstrap token
 func (r *bootstrapTokenRepository) Restore(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Unscoped().
 		Model(&BootstrapTokenModel{}).
 		Where("id = ?", id).
-		Update("deleted_at", nil).Error
+		Update("deleted_at", nil).Error)
 }
 
 func (r *bootstrapTokenRepository) List(ctx context.Context, page, limit int) ([]domain.BootstrapToken, int, error) {
@@ -183,7 +183,7 @@ func (r *bootstrapTokenRepository) List(ctx context.Context, page, limit int) ([
 
 	// Get total count
 	if err := r.db.WithContext(ctx).Model(&BootstrapTokenModel{}).Count(&total).Error; err != nil {
-		return nil, 0, err
+		return nil, 0, fromGormError(err)
 	}
 
 	// Get paginated results
@@ -195,7 +195,7 @@ func (r *bootstrapTokenRepository) List(ctx context.Context, page, limit int) ([
 		Order("created_at DESC").
 		Find(&models).Error
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fromGormError(err)
 	}
 
 	tokens := make([]domain.BootstrapToken, len(models))

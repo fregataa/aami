@@ -6,9 +6,9 @@ import (
 
 	"github.com/fregataa/aami/config-server/internal/api/dto"
 	"github.com/fregataa/aami/config-server/internal/domain"
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 	"github.com/fregataa/aami/config-server/internal/repository"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // ExporterService handles business logic for exporters
@@ -33,15 +33,15 @@ func (s *ExporterService) Create(ctx context.Context, req dto.CreateExporterRequ
 	// Validate target exists
 	_, err := s.targetRepo.GetByID(ctx, req.TargetID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, NewValidationError("target_id", "target not found")
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.NewValidationError("target_id", "target not found")
 		}
 		return nil, err
 	}
 
 	// Validate exporter type
 	if !req.Type.IsValid() {
-		return nil, NewValidationError("type", "invalid exporter type")
+		return nil, domainerrors.NewValidationError("type", "invalid exporter type")
 	}
 
 	exporter := &domain.Exporter{
@@ -81,8 +81,8 @@ func (s *ExporterService) Create(ctx context.Context, req dto.CreateExporterRequ
 func (s *ExporterService) GetByID(ctx context.Context, id string) (*domain.Exporter, error) {
 	exporter, err := s.exporterRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -93,15 +93,15 @@ func (s *ExporterService) GetByID(ctx context.Context, id string) (*domain.Expor
 func (s *ExporterService) Update(ctx context.Context, id string, req dto.UpdateExporterRequest) (*domain.Exporter, error) {
 	exporter, err := s.exporterRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
 
 	if req.Type != nil {
 		if !req.Type.IsValid() {
-			return nil, NewValidationError("type", "invalid exporter type")
+			return nil, domainerrors.NewValidationError("type", "invalid exporter type")
 		}
 		exporter.Type = *req.Type
 	}
@@ -135,8 +135,8 @@ func (s *ExporterService) Update(ctx context.Context, id string, req dto.UpdateE
 func (s *ExporterService) Delete(ctx context.Context, id string) error {
 	_, err := s.exporterRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return domainerrors.ErrNotFound
 		}
 		return err
 	}

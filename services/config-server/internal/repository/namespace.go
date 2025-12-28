@@ -87,7 +87,7 @@ func NewNamespaceRepository(db *gorm.DB) NamespaceRepository {
 func (r *namespaceRepository) Create(ctx context.Context, namespace *domain.Namespace) error {
 	model := ToNamespaceModel(namespace)
 	if err := r.db.WithContext(ctx).Create(model).Error; err != nil {
-		return err
+		return fromGormError(err)
 	}
 	*namespace = *model.ToDomain()
 	return nil
@@ -99,7 +99,7 @@ func (r *namespaceRepository) GetByID(ctx context.Context, id string) (*domain.N
 	err := r.db.WithContext(ctx).
 		First(&model, "id = ?", id).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 	return model.ToDomain(), nil
 }
@@ -111,7 +111,7 @@ func (r *namespaceRepository) GetByName(ctx context.Context, name string) (*doma
 		Where("name = ?", name).
 		First(&model).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 	return model.ToDomain(), nil
 }
@@ -119,32 +119,33 @@ func (r *namespaceRepository) GetByName(ctx context.Context, name string) (*doma
 // Update updates an existing namespace
 func (r *namespaceRepository) Update(ctx context.Context, namespace *domain.Namespace) error {
 	model := ToNamespaceModel(namespace)
-	return r.db.WithContext(ctx).
+	err := r.db.WithContext(ctx).
 		Model(&NamespaceModel{}).
 		Where("id = ?", model.ID).
 		Updates(model).Error
+	return fromGormError(err)
 }
 
 // Delete performs soft delete on a namespace (sets deleted_at timestamp)
 func (r *namespaceRepository) Delete(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).
-		Delete(&NamespaceModel{}, "id = ?", id).Error
+	return fromGormError(r.db.WithContext(ctx).
+		Delete(&NamespaceModel{}, "id = ?", id).Error)
 }
 
 // Purge permanently removes a namespace from the database
 func (r *namespaceRepository) Purge(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Unscoped().
-		Delete(&NamespaceModel{}, "id = ?", id).Error
+		Delete(&NamespaceModel{}, "id = ?", id).Error)
 }
 
 // Restore restores a soft-deleted namespace
 func (r *namespaceRepository) Restore(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Unscoped().
 		Model(&NamespaceModel{}).
 		Where("id = ?", id).
-		Update("deleted_at", nil).Error
+		Update("deleted_at", nil).Error)
 }
 
 // List retrieves a paginated list of namespaces
@@ -156,7 +157,7 @@ func (r *namespaceRepository) List(ctx context.Context, page, limit int) ([]doma
 	if err := r.db.WithContext(ctx).
 		Model(&NamespaceModel{}).
 		Count(&total).Error; err != nil {
-		return nil, 0, err
+		return nil, 0, fromGormError(err)
 	}
 
 	// Get paginated results ordered by policy priority (higher = higher priority)
@@ -167,7 +168,7 @@ func (r *namespaceRepository) List(ctx context.Context, page, limit int) ([]doma
 		Limit(limit).
 		Find(&models).Error
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fromGormError(err)
 	}
 
 	// Convert to domain models
@@ -186,7 +187,7 @@ func (r *namespaceRepository) GetAll(ctx context.Context) ([]domain.Namespace, e
 		Order("policy_priority DESC, name ASC").
 		Find(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	// Convert to domain models

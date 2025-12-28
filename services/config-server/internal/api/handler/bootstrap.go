@@ -6,6 +6,7 @@ import (
 	"github.com/fregataa/aami/config-server/internal/api/dto"
 	"github.com/fregataa/aami/config-server/internal/service"
 	"github.com/gin-gonic/gin"
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 )
 
 // BootstrapTokenHandler handles HTTP requests for bootstrap tokens
@@ -24,10 +25,7 @@ func NewBootstrapTokenHandler(tokenService *service.BootstrapTokenService) *Boot
 func (h *BootstrapTokenHandler) Create(c *gin.Context) {
 	var req dto.CreateBootstrapTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -70,10 +68,7 @@ func (h *BootstrapTokenHandler) GetByToken(c *gin.Context) {
 func (h *BootstrapTokenHandler) ValidateAndUse(c *gin.Context) {
 	var req dto.ValidateTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -92,10 +87,7 @@ func (h *BootstrapTokenHandler) Update(c *gin.Context) {
 
 	var req dto.UpdateBootstrapTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -112,10 +104,7 @@ func (h *BootstrapTokenHandler) Update(c *gin.Context) {
 func (h *BootstrapTokenHandler) DeleteResource(c *gin.Context) {
 	var req dto.DeleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -131,10 +120,7 @@ func (h *BootstrapTokenHandler) DeleteResource(c *gin.Context) {
 func (h *BootstrapTokenHandler) PurgeResource(c *gin.Context) {
 	var req dto.PurgeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -150,10 +136,7 @@ func (h *BootstrapTokenHandler) PurgeResource(c *gin.Context) {
 func (h *BootstrapTokenHandler) RestoreResource(c *gin.Context) {
 	var req dto.RestoreRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 

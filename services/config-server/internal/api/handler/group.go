@@ -6,6 +6,7 @@ import (
 	"github.com/fregataa/aami/config-server/internal/api/dto"
 	"github.com/fregataa/aami/config-server/internal/service"
 	"github.com/gin-gonic/gin"
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 )
 
 // GroupHandler handles HTTP requests for groups
@@ -24,10 +25,7 @@ func NewGroupHandler(groupService *service.GroupService) *GroupHandler {
 func (h *GroupHandler) Create(c *gin.Context) {
 	var req dto.CreateGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -59,10 +57,7 @@ func (h *GroupHandler) Update(c *gin.Context) {
 
 	var req dto.UpdateGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -79,10 +74,7 @@ func (h *GroupHandler) Update(c *gin.Context) {
 func (h *GroupHandler) DeleteResource(c *gin.Context) {
 	var req dto.DeleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -98,10 +90,7 @@ func (h *GroupHandler) DeleteResource(c *gin.Context) {
 func (h *GroupHandler) PurgeResource(c *gin.Context) {
 	var req dto.PurgeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -117,10 +106,7 @@ func (h *GroupHandler) PurgeResource(c *gin.Context) {
 func (h *GroupHandler) RestoreResource(c *gin.Context) {
 	var req dto.RestoreRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 

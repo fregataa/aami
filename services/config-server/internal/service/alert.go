@@ -6,9 +6,9 @@ import (
 
 	"github.com/fregataa/aami/config-server/internal/api/dto"
 	"github.com/fregataa/aami/config-server/internal/domain"
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 	"github.com/fregataa/aami/config-server/internal/repository"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // AlertTemplateService handles business logic for alert templates
@@ -27,15 +27,15 @@ func NewAlertTemplateService(templateRepo repository.AlertTemplateRepository) *A
 func (s *AlertTemplateService) Create(ctx context.Context, req dto.CreateAlertTemplateRequest) (*domain.AlertTemplate, error) {
 	// Validate severity
 	if !req.Severity.IsValid() {
-		return nil, NewValidationError("severity", "invalid severity value")
+		return nil, domainerrors.NewValidationError("severity", "invalid severity value")
 	}
 
 	// Check if template ID already exists
 	existing, err := s.templateRepo.GetByID(ctx, req.ID)
 	if err == nil && existing != nil {
-		return nil, ErrAlreadyExists
+		return nil, domainerrors.ErrAlreadyExists
 	}
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err != nil && !errors.Is(err, domainerrors.ErrNotFound) {
 		return nil, err
 	}
 
@@ -64,8 +64,8 @@ func (s *AlertTemplateService) Create(ctx context.Context, req dto.CreateAlertTe
 func (s *AlertTemplateService) GetByID(ctx context.Context, id string) (*domain.AlertTemplate, error) {
 	template, err := s.templateRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -76,8 +76,8 @@ func (s *AlertTemplateService) GetByID(ctx context.Context, id string) (*domain.
 func (s *AlertTemplateService) Update(ctx context.Context, id string, req dto.UpdateAlertTemplateRequest) (*domain.AlertTemplate, error) {
 	template, err := s.templateRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (s *AlertTemplateService) Update(ctx context.Context, id string, req dto.Up
 
 	if req.Severity != nil {
 		if !req.Severity.IsValid() {
-			return nil, NewValidationError("severity", "invalid severity value")
+			return nil, domainerrors.NewValidationError("severity", "invalid severity value")
 		}
 		template.Severity = *req.Severity
 	}
@@ -116,8 +116,8 @@ func (s *AlertTemplateService) Update(ctx context.Context, id string, req dto.Up
 func (s *AlertTemplateService) Delete(ctx context.Context, id string) error {
 	_, err := s.templateRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return domainerrors.ErrNotFound
 		}
 		return err
 	}
@@ -144,7 +144,7 @@ func (s *AlertTemplateService) List(ctx context.Context, pagination dto.Paginati
 // GetBySeverity retrieves alert templates by severity
 func (s *AlertTemplateService) GetBySeverity(ctx context.Context, severity domain.AlertSeverity) ([]domain.AlertTemplate, error) {
 	if !severity.IsValid() {
-		return nil, NewValidationError("severity", "invalid severity value")
+		return nil, domainerrors.NewValidationError("severity", "invalid severity value")
 	}
 	return s.templateRepo.GetBySeverity(ctx, severity)
 }
@@ -170,8 +170,8 @@ func (s *AlertRuleService) Create(ctx context.Context, req dto.CreateAlertRuleRe
 	// Validate group exists
 	_, err := s.groupRepo.GetByID(ctx, req.GroupID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrForeignKeyViolation
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrForeignKeyViolation
 		}
 		return nil, err
 	}
@@ -199,8 +199,8 @@ func (s *AlertRuleService) Create(ctx context.Context, req dto.CreateAlertRuleRe
 		// Option 1: Create from template
 		template, err := s.templateRepo.GetByID(ctx, *req.TemplateID)
 		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, ErrForeignKeyViolation
+			if errors.Is(err, domainerrors.ErrNotFound) {
+				return nil, domainerrors.ErrForeignKeyViolation
 			}
 			return nil, err
 		}
@@ -242,8 +242,8 @@ func (s *AlertRuleService) Create(ctx context.Context, req dto.CreateAlertRuleRe
 func (s *AlertRuleService) GetByID(ctx context.Context, id string) (*domain.AlertRule, error) {
 	rule, err := s.ruleRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -254,8 +254,8 @@ func (s *AlertRuleService) GetByID(ctx context.Context, id string) (*domain.Aler
 func (s *AlertRuleService) Update(ctx context.Context, id string, req dto.UpdateAlertRuleRequest) (*domain.AlertRule, error) {
 	rule, err := s.ruleRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -287,8 +287,8 @@ func (s *AlertRuleService) Update(ctx context.Context, id string, req dto.Update
 func (s *AlertRuleService) Delete(ctx context.Context, id string) error {
 	_, err := s.ruleRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return domainerrors.ErrNotFound
 		}
 		return err
 	}
@@ -316,8 +316,8 @@ func (s *AlertRuleService) List(ctx context.Context, pagination dto.PaginationRe
 func (s *AlertRuleService) GetByGroupID(ctx context.Context, groupID string) ([]domain.AlertRule, error) {
 	_, err := s.groupRepo.GetByID(ctx, groupID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrForeignKeyViolation
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrForeignKeyViolation
 		}
 		return nil, err
 	}
@@ -328,8 +328,8 @@ func (s *AlertRuleService) GetByGroupID(ctx context.Context, groupID string) ([]
 func (s *AlertRuleService) GetByTemplateID(ctx context.Context, templateID string) ([]domain.AlertRule, error) {
 	_, err := s.templateRepo.GetByID(ctx, templateID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrForeignKeyViolation
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrForeignKeyViolation
 		}
 		return nil, err
 	}

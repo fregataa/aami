@@ -147,7 +147,7 @@ func NewGroupRepository(db *gorm.DB) GroupRepository {
 func (r *groupRepository) Create(ctx context.Context, group *domain.Group) error {
 	model := ToGroupModel(group)
 	if err := r.db.WithContext(ctx).Create(model).Error; err != nil {
-		return err
+		return fromGormError(err)
 	}
 	*group = *model.ToDomain()
 	return nil
@@ -162,7 +162,7 @@ func (r *groupRepository) GetByID(ctx context.Context, id string) (*domain.Group
 		Preload("Children").
 		First(&model, "id = ?", id).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 	return model.ToDomain(), nil
 }
@@ -176,7 +176,7 @@ func (r *groupRepository) GetByNamespaceID(ctx context.Context, namespaceID stri
 		Order("name ASC").
 		Find(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	groups := make([]domain.Group, len(models))
@@ -189,31 +189,31 @@ func (r *groupRepository) GetByNamespaceID(ctx context.Context, namespaceID stri
 // Update updates an existing group
 func (r *groupRepository) Update(ctx context.Context, group *domain.Group) error {
 	model := ToGroupModel(group)
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Model(&GroupModel{}).
 		Where("id = ?", model.ID).
-		Updates(model).Error
+		Updates(model).Error)
 }
 
 // Delete performs soft delete on a group (sets deleted_at timestamp)
 func (r *groupRepository) Delete(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Delete(&GroupModel{}, "id = ?", id).Error
+	return fromGormError(r.db.WithContext(ctx).Delete(&GroupModel{}, "id = ?", id).Error)
 }
 
 // Purge permanently removes a group from the database
 func (r *groupRepository) Purge(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Unscoped().
-		Delete(&GroupModel{}, "id = ?", id).Error
+		Delete(&GroupModel{}, "id = ?", id).Error)
 }
 
 // Restore restores a soft-deleted group
 func (r *groupRepository) Restore(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Unscoped().
 		Model(&GroupModel{}).
 		Where("id = ?", id).
-		Update("deleted_at", nil).Error
+		Update("deleted_at", nil).Error)
 }
 
 // List retrieves groups with pagination
@@ -223,7 +223,7 @@ func (r *groupRepository) List(ctx context.Context, page, limit int) ([]domain.G
 
 	// Get total count
 	if err := r.db.WithContext(ctx).Model(&GroupModel{}).Count(&total).Error; err != nil {
-		return nil, 0, err
+		return nil, 0, fromGormError(err)
 	}
 
 	// Get paginated results
@@ -234,7 +234,7 @@ func (r *groupRepository) List(ctx context.Context, page, limit int) ([]domain.G
 		Order("name ASC").
 		Find(&models).Error
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fromGormError(err)
 	}
 
 	groups := make([]domain.Group, len(models))
@@ -253,7 +253,7 @@ func (r *groupRepository) GetChildren(ctx context.Context, parentID string) ([]d
 		Order("name ASC").
 		Find(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	children := make([]domain.Group, len(models))
@@ -284,7 +284,7 @@ func (r *groupRepository) GetAncestors(ctx context.Context, groupID string) ([]d
 
 	err := r.db.WithContext(ctx).Raw(query, groupID, groupID).Scan(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	ancestors := make([]domain.Group, len(models))
@@ -301,5 +301,5 @@ func (r *groupRepository) CountByNamespaceID(ctx context.Context, namespaceID st
 		Model(&GroupModel{}).
 		Where("namespace_id = ?", namespaceID).
 		Count(&count).Error
-	return count, err
+	return count, fromGormError(err)
 }

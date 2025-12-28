@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/fregataa/aami/config-server/internal/domain"
+	"github.com/fregataa/aami/config-server/internal/errors"
 	"gorm.io/gorm"
 )
 
@@ -151,7 +152,7 @@ func NewTargetRepository(db *gorm.DB) TargetRepository {
 func (r *targetRepository) Create(ctx context.Context, target *domain.Target) error {
 	model := ToTargetModel(target)
 	if err := r.db.WithContext(ctx).Create(model).Error; err != nil {
-		return err
+		return fromGormError(err)
 	}
 	*target = *model.ToDomain()
 	return nil
@@ -165,7 +166,7 @@ func (r *targetRepository) GetByID(ctx context.Context, id string) (*domain.Targ
 		Preload("Exporters").
 		First(&model, "id = ?", id).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 	return model.ToDomain(), nil
 }
@@ -178,7 +179,7 @@ func (r *targetRepository) GetByHostname(ctx context.Context, hostname string) (
 		Preload("Exporters").
 		First(&model, "hostname = ?", hostname).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 	return model.ToDomain(), nil
 }
@@ -186,31 +187,34 @@ func (r *targetRepository) GetByHostname(ctx context.Context, hostname string) (
 // Update updates an existing target
 func (r *targetRepository) Update(ctx context.Context, target *domain.Target) error {
 	model := ToTargetModel(target)
-	return r.db.WithContext(ctx).
+	err := r.db.WithContext(ctx).
 		Model(&TargetModel{}).
 		Where("id = ?", model.ID).
 		Updates(model).Error
+	return fromGormError(err)
 }
 
 // Delete performs soft delete on a target (sets deleted_at timestamp)
 func (r *targetRepository) Delete(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Delete(&TargetModel{}, "id = ?", id).Error
+	return fromGormError(r.db.WithContext(ctx).Delete(&TargetModel{}, "id = ?", id).Error)
 }
 
 // Purge permanently removes a target from the database
 func (r *targetRepository) Purge(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).
+	err := r.db.WithContext(ctx).
 		Unscoped().
 		Delete(&TargetModel{}, "id = ?", id).Error
+	return fromGormError(err)
 }
 
 // Restore restores a soft-deleted target
 func (r *targetRepository) Restore(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).
+	err := r.db.WithContext(ctx).
 		Unscoped().
 		Model(&TargetModel{}).
 		Where("id = ?", id).
 		Update("deleted_at", nil).Error
+	return fromGormError(err)
 }
 
 // List retrieves targets with pagination
@@ -220,7 +224,7 @@ func (r *targetRepository) List(ctx context.Context, page, limit int) ([]domain.
 
 	// Get total count
 	if err := r.db.WithContext(ctx).Model(&TargetModel{}).Count(&total).Error; err != nil {
-		return nil, 0, err
+		return nil, 0, fromGormError(err)
 	}
 
 	// Get paginated results
@@ -233,7 +237,7 @@ func (r *targetRepository) List(ctx context.Context, page, limit int) ([]domain.
 		Order("hostname ASC").
 		Find(&models).Error
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fromGormError(err)
 	}
 
 	targets := make([]domain.Target, len(models))
@@ -255,7 +259,7 @@ func (r *targetRepository) GetByGroupID(ctx context.Context, groupID string) ([]
 		Order("hostname ASC").
 		Find(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	targets := make([]domain.Target, len(models))
@@ -267,24 +271,26 @@ func (r *targetRepository) GetByGroupID(ctx context.Context, groupID string) ([]
 
 // UpdateStatus updates the status of a target
 func (r *targetRepository) UpdateStatus(ctx context.Context, id string, status domain.TargetStatus) error {
-	return r.db.WithContext(ctx).
+	err := r.db.WithContext(ctx).
 		Model(&TargetModel{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
 			"status":     string(status),
 			"updated_at": time.Now(),
 		}).Error
+	return fromGormError(err)
 }
 
 // UpdateLastSeen updates the last_seen timestamp of a target
 func (r *targetRepository) UpdateLastSeen(ctx context.Context, id string, lastSeen time.Time) error {
-	return r.db.WithContext(ctx).
+	err := r.db.WithContext(ctx).
 		Model(&TargetModel{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
 			"last_seen":  lastSeen,
 			"updated_at": time.Now(),
 		}).Error
+	return fromGormError(err)
 }
 
 // CountByNamespaceID counts the number of targets that belong to at least one group in a specific namespace
@@ -297,7 +303,7 @@ func (r *targetRepository) CountByNamespaceID(ctx context.Context, namespaceID s
 		Where("groups.namespace_id = ?", namespaceID).
 		Distinct("targets.id").
 		Count(&count).Error
-	return count, err
+	return count, fromGormError(err)
 }
 
 // GetEffectiveCheckInstances retrieves all effective check instances for a target
@@ -311,11 +317,11 @@ func (r *targetRepository) GetEffectiveCheckInstances(ctx context.Context, targe
 		}).
 		First(&target, "id = ?", targetID).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	if len(target.Groups) == 0 {
-		return nil, gorm.ErrRecordNotFound
+		return nil, errors.ErrNotFound
 	}
 
 	// Collect unique namespace IDs from all groups
@@ -356,7 +362,7 @@ func (r *targetRepository) getNamespaceInstances(ctx context.Context, namespaceI
 			Order("scope DESC, priority DESC"). // Group > Namespace > Global, then by priority (higher = higher priority)
 			Find(&instances).Error
 		if err != nil {
-			return nil, err
+			return nil, fromGormError(err)
 		}
 		namespaceInstanceModels = append(namespaceInstanceModels, instances...)
 	}
@@ -394,7 +400,7 @@ func (r *targetRepository) getGroupInstances(ctx context.Context, groups []Group
 			Order("scope DESC, priority DESC"). // Group > Namespace > Global, then by priority (higher = higher priority)
 			Find(&instances).Error
 		if err != nil {
-			return nil, err
+			return nil, fromGormError(err)
 		}
 
 		// Add to results with deduplication

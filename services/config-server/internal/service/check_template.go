@@ -6,9 +6,9 @@ import (
 
 	"github.com/fregataa/aami/config-server/internal/api/dto"
 	"github.com/fregataa/aami/config-server/internal/domain"
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 	"github.com/fregataa/aami/config-server/internal/repository"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // CheckTemplateService handles business logic for check templates
@@ -37,11 +37,11 @@ func (s *CheckTemplateService) Create(ctx context.Context, req dto.CreateCheckTe
 
 	// Check if template name already exists
 	existing, err := s.templateRepo.GetByName(ctx, req.Name)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err != nil && !errors.Is(err, domainerrors.ErrNotFound) {
 		return nil, err
 	}
 	if existing != nil {
-		return nil, ErrAlreadyExists
+		return nil, domainerrors.ErrAlreadyExists
 	}
 
 	template := &domain.CheckTemplate{
@@ -74,8 +74,8 @@ func (s *CheckTemplateService) Create(ctx context.Context, req dto.CreateCheckTe
 func (s *CheckTemplateService) GetByID(ctx context.Context, id string) (*domain.CheckTemplate, error) {
 	template, err := s.templateRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -86,8 +86,8 @@ func (s *CheckTemplateService) GetByID(ctx context.Context, id string) (*domain.
 func (s *CheckTemplateService) GetByName(ctx context.Context, name string) (*domain.CheckTemplate, error) {
 	template, err := s.templateRepo.GetByName(ctx, name)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -103,8 +103,8 @@ func (s *CheckTemplateService) GetByCheckType(ctx context.Context, checkType str
 func (s *CheckTemplateService) Update(ctx context.Context, id string, req dto.UpdateCheckTemplateRequest) (*domain.CheckTemplate, error) {
 	template, err := s.templateRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -145,8 +145,8 @@ func (s *CheckTemplateService) Delete(ctx context.Context, id string) error {
 	// Check if template exists
 	_, err := s.templateRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return domainerrors.ErrNotFound
 		}
 		return err
 	}
@@ -157,7 +157,7 @@ func (s *CheckTemplateService) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	if len(instances) > 0 {
-		return ErrInUse
+		return domainerrors.ErrInUse
 	}
 
 	return s.templateRepo.Delete(ctx, id)

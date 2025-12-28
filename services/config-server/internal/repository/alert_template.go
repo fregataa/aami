@@ -88,7 +88,7 @@ func NewAlertTemplateRepository(db *gorm.DB) AlertTemplateRepository {
 func (r *alertTemplateRepository) Create(ctx context.Context, template *domain.AlertTemplate) error {
 	model := ToAlertTemplateModel(template)
 	if err := r.db.WithContext(ctx).Create(model).Error; err != nil {
-		return err
+		return fromGormError(err)
 	}
 	*template = *model.ToDomain()
 	return nil
@@ -98,7 +98,7 @@ func (r *alertTemplateRepository) GetByID(ctx context.Context, id string) (*doma
 	var model AlertTemplateModel
 	err := r.db.WithContext(ctx).First(&model, "id = ?", id).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 	return model.ToDomain(), nil
 }
@@ -110,7 +110,7 @@ func (r *alertTemplateRepository) GetBySeverity(ctx context.Context, severity do
 		Order("name ASC").
 		Find(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	templates := make([]domain.AlertTemplate, len(models))
@@ -126,7 +126,7 @@ func (r *alertTemplateRepository) List(ctx context.Context, page, limit int) ([]
 
 	// Get total count
 	if err := r.db.WithContext(ctx).Model(&AlertTemplateModel{}).Count(&total).Error; err != nil {
-		return nil, 0, err
+		return nil, 0, fromGormError(err)
 	}
 
 	// Get paginated results
@@ -137,7 +137,7 @@ func (r *alertTemplateRepository) List(ctx context.Context, page, limit int) ([]
 		Order("severity ASC, name ASC").
 		Find(&models).Error
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fromGormError(err)
 	}
 
 	templates := make([]domain.AlertTemplate, len(models))
@@ -150,29 +150,29 @@ func (r *alertTemplateRepository) List(ctx context.Context, page, limit int) ([]
 
 func (r *alertTemplateRepository) Update(ctx context.Context, template *domain.AlertTemplate) error {
 	model := ToAlertTemplateModel(template)
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Model(&AlertTemplateModel{}).
 		Where("id = ?", model.ID).
-		Updates(model).Error
+		Updates(model).Error)
 }
 
 // Delete performs soft delete on an alert template (sets deleted_at timestamp)
 func (r *alertTemplateRepository) Delete(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Delete(&AlertTemplateModel{}, "id = ?", id).Error
+	return fromGormError(r.db.WithContext(ctx).Delete(&AlertTemplateModel{}, "id = ?", id).Error)
 }
 
 // Purge permanently removes an alert template from the database
 func (r *alertTemplateRepository) Purge(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Unscoped().
-		Delete(&AlertTemplateModel{}, "id = ?", id).Error
+		Delete(&AlertTemplateModel{}, "id = ?", id).Error)
 }
 
 // Restore restores a soft-deleted alert template
 func (r *alertTemplateRepository) Restore(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Unscoped().
 		Model(&AlertTemplateModel{}).
 		Where("id = ?", id).
-		Update("deleted_at", nil).Error
+		Update("deleted_at", nil).Error)
 }

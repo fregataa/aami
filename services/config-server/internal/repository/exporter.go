@@ -98,7 +98,7 @@ func NewExporterRepository(db *gorm.DB) ExporterRepository {
 func (r *exporterRepository) Create(ctx context.Context, exporter *domain.Exporter) error {
 	model := ToExporterModel(exporter)
 	if err := r.db.WithContext(ctx).Create(model).Error; err != nil {
-		return err
+		return fromGormError(err)
 	}
 	*exporter = *model.ToDomain()
 	return nil
@@ -108,7 +108,7 @@ func (r *exporterRepository) GetByID(ctx context.Context, id string) (*domain.Ex
 	var model ExporterModel
 	err := r.db.WithContext(ctx).First(&model, "id = ?", id).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 	return model.ToDomain(), nil
 }
@@ -120,7 +120,7 @@ func (r *exporterRepository) GetByTargetID(ctx context.Context, targetID string)
 		Order("type ASC").
 		Find(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	exporters := make([]domain.Exporter, len(models))
@@ -137,7 +137,7 @@ func (r *exporterRepository) GetByType(ctx context.Context, exporterType domain.
 		Order("created_at DESC").
 		Find(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	exporters := make([]domain.Exporter, len(models))
@@ -149,31 +149,31 @@ func (r *exporterRepository) GetByType(ctx context.Context, exporterType domain.
 
 func (r *exporterRepository) Update(ctx context.Context, exporter *domain.Exporter) error {
 	model := ToExporterModel(exporter)
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Model(&ExporterModel{}).
 		Where("id = ?", model.ID).
-		Updates(model).Error
+		Updates(model).Error)
 }
 
 // Delete performs soft delete on an exporter (sets deleted_at timestamp)
 func (r *exporterRepository) Delete(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Delete(&ExporterModel{}, "id = ?", id).Error
+	return fromGormError(r.db.WithContext(ctx).Delete(&ExporterModel{}, "id = ?", id).Error)
 }
 
 // Purge permanently removes an exporter from the database
 func (r *exporterRepository) Purge(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Unscoped().
-		Delete(&ExporterModel{}, "id = ?", id).Error
+		Delete(&ExporterModel{}, "id = ?", id).Error)
 }
 
 // Restore restores a soft-deleted exporter
 func (r *exporterRepository) Restore(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Unscoped().
 		Model(&ExporterModel{}).
 		Where("id = ?", id).
-		Update("deleted_at", nil).Error
+		Update("deleted_at", nil).Error)
 }
 
 func (r *exporterRepository) List(ctx context.Context, page, limit int) ([]domain.Exporter, int, error) {
@@ -182,7 +182,7 @@ func (r *exporterRepository) List(ctx context.Context, page, limit int) ([]domai
 
 	// Get total count
 	if err := r.db.WithContext(ctx).Model(&ExporterModel{}).Count(&total).Error; err != nil {
-		return nil, 0, err
+		return nil, 0, fromGormError(err)
 	}
 
 	// Get paginated results
@@ -193,7 +193,7 @@ func (r *exporterRepository) List(ctx context.Context, page, limit int) ([]domai
 		Order("created_at DESC").
 		Find(&models).Error
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fromGormError(err)
 	}
 
 	exporters := make([]domain.Exporter, len(models))

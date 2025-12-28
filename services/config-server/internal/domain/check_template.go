@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"time"
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 )
 
 // CheckTemplate represents a reusable check script definition
@@ -42,38 +43,20 @@ func (ct *CheckTemplate) VerifyHash() bool {
 // Validate performs basic validation on the check template
 func (ct *CheckTemplate) Validate() error {
 	if ct.Name == "" {
-		return NewValidationError("name", "name is required")
+		return domainerrors.NewValidationError("name", "name is required")
 	}
 	if ct.CheckType == "" {
-		return NewValidationError("check_type", "check_type is required")
+		return domainerrors.NewValidationError("check_type", "check_type is required")
 	}
 	if ct.ScriptContent == "" {
-		return NewValidationError("script_content", "script_content is required")
+		return domainerrors.NewValidationError("script_content", "script_content is required")
 	}
 	if ct.Language == "" {
-		return NewValidationError("language", "language is required")
+		return domainerrors.NewValidationError("language", "language is required")
 	}
 	if ct.Version == "" {
-		return NewValidationError("version", "version is required")
+		return domainerrors.NewValidationError("version", "version is required")
 	}
 
 	return nil
-}
-
-// NewValidationError creates a validation error
-func NewValidationError(field, message string) error {
-	return &ValidationError{
-		Field:   field,
-		Message: message,
-	}
-}
-
-// ValidationError represents a validation error
-type ValidationError struct {
-	Field   string
-	Message string
-}
-
-func (e *ValidationError) Error() string {
-	return e.Field + ": " + e.Message
 }

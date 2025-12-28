@@ -6,9 +6,9 @@ import (
 
 	"github.com/fregataa/aami/config-server/internal/api/dto"
 	"github.com/fregataa/aami/config-server/internal/domain"
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 	"github.com/fregataa/aami/config-server/internal/repository"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // GroupService handles business logic for groups
@@ -30,8 +30,8 @@ func (s *GroupService) Create(ctx context.Context, req dto.CreateGroupRequest) (
 	// Validate namespace exists
 	namespace, err := s.namespaceRepo.GetByID(ctx, req.NamespaceID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, NewValidationError("namespace_id", "namespace not found")
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.NewValidationError("namespace_id", "namespace not found")
 		}
 		return nil, err
 	}
@@ -40,15 +40,15 @@ func (s *GroupService) Create(ctx context.Context, req dto.CreateGroupRequest) (
 	if req.ParentID != nil {
 		parent, err := s.groupRepo.GetByID(ctx, *req.ParentID)
 		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, ErrForeignKeyViolation
+			if errors.Is(err, domainerrors.ErrNotFound) {
+				return nil, domainerrors.ErrForeignKeyViolation
 			}
 			return nil, err
 		}
 
 		// Ensure parent is in the same namespace
 		if parent.NamespaceID != req.NamespaceID {
-			return nil, NewValidationError("parent_id", "parent must be in the same namespace")
+			return nil, domainerrors.NewValidationError("parent_id", "parent must be in the same namespace")
 		}
 
 		// Check for circular references
@@ -93,8 +93,8 @@ func (s *GroupService) Create(ctx context.Context, req dto.CreateGroupRequest) (
 func (s *GroupService) GetByID(ctx context.Context, id string) (*domain.Group, error) {
 	group, err := s.groupRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -106,8 +106,8 @@ func (s *GroupService) Update(ctx context.Context, id string, req dto.UpdateGrou
 	// Get existing group
 	group, err := s.groupRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -121,15 +121,15 @@ func (s *GroupService) Update(ctx context.Context, id string, req dto.UpdateGrou
 		// Validate parent exists
 		parent, err := s.groupRepo.GetByID(ctx, *req.ParentID)
 		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, ErrForeignKeyViolation
+			if errors.Is(err, domainerrors.ErrNotFound) {
+				return nil, domainerrors.ErrForeignKeyViolation
 			}
 			return nil, err
 		}
 
 		// Ensure parent is in the same namespace
 		if parent.Namespace != group.Namespace {
-			return nil, NewValidationError("parent_id", "parent must be in the same namespace")
+			return nil, domainerrors.NewValidationError("parent_id", "parent must be in the same namespace")
 		}
 
 		// Check for circular references
@@ -165,8 +165,8 @@ func (s *GroupService) Delete(ctx context.Context, id string) error {
 	// Check if group exists
 	_, err := s.groupRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return domainerrors.ErrNotFound
 		}
 		return err
 	}
@@ -177,7 +177,7 @@ func (s *GroupService) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	if len(children) > 0 {
-		return ErrInUse
+		return domainerrors.ErrInUse
 	}
 
 	return s.groupRepo.Delete(ctx, id)
@@ -204,8 +204,8 @@ func (s *GroupService) GetByNamespaceID(ctx context.Context, namespaceID string)
 	// Validate namespace exists
 	_, err := s.namespaceRepo.GetByID(ctx, namespaceID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, NewValidationError("namespace_id", "namespace not found")
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.NewValidationError("namespace_id", "namespace not found")
 		}
 		return nil, err
 	}
@@ -234,7 +234,7 @@ func (s *GroupService) GetAncestors(ctx context.Context, id string) ([]domain.Gr
 func (s *GroupService) checkCircularReference(ctx context.Context, parentID, currentID string) error {
 	// If we're setting the parent to be the current group itself
 	if parentID == currentID {
-		return ErrCircularReference
+		return domainerrors.ErrCircularReference
 	}
 
 	// Get all ancestors of the proposed parent
@@ -246,7 +246,7 @@ func (s *GroupService) checkCircularReference(ctx context.Context, parentID, cur
 	// Check if any ancestor is the current group (would create a cycle)
 	for _, ancestor := range ancestors {
 		if ancestor.ID == currentID {
-			return ErrCircularReference
+			return domainerrors.ErrCircularReference
 		}
 	}
 

@@ -6,6 +6,7 @@ import (
 	"github.com/fregataa/aami/config-server/internal/api/dto"
 	"github.com/fregataa/aami/config-server/internal/service"
 	"github.com/gin-gonic/gin"
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 )
 
 // CheckTemplateHandler handles HTTP requests for check templates
@@ -24,10 +25,7 @@ func NewCheckTemplateHandler(templateService *service.CheckTemplateService) *Che
 func (h *CheckTemplateHandler) Create(c *gin.Context) {
 	var req dto.CreateCheckTemplateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -85,10 +83,7 @@ func (h *CheckTemplateHandler) Update(c *gin.Context) {
 
 	var req dto.UpdateCheckTemplateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -105,10 +100,7 @@ func (h *CheckTemplateHandler) Update(c *gin.Context) {
 func (h *CheckTemplateHandler) DeleteResource(c *gin.Context) {
 	var req dto.DeleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -124,10 +116,7 @@ func (h *CheckTemplateHandler) DeleteResource(c *gin.Context) {
 func (h *CheckTemplateHandler) PurgeResource(c *gin.Context) {
 	var req dto.PurgeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
@@ -143,10 +132,7 @@ func (h *CheckTemplateHandler) PurgeResource(c *gin.Context) {
 func (h *CheckTemplateHandler) RestoreResource(c *gin.Context) {
 	var req dto.RestoreRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error: err.Error(),
-			Code:  "INVALID_REQUEST",
-		})
+		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 

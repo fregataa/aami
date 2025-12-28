@@ -173,7 +173,7 @@ func NewCheckInstanceRepository(db *gorm.DB) CheckInstanceRepository {
 func (r *checkInstanceRepository) Create(ctx context.Context, instance *domain.CheckInstance) error {
 	model := ToCheckInstanceModel(instance)
 	if err := r.db.WithContext(ctx).Create(model).Error; err != nil {
-		return err
+		return fromGormError(err)
 	}
 	*instance = *model.ToDomain()
 	return nil
@@ -188,7 +188,7 @@ func (r *checkInstanceRepository) GetByID(ctx context.Context, id string) (*doma
 		Preload("Group").
 		First(&model, "id = ?", id).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 	return model.ToDomain(), nil
 }
@@ -204,7 +204,7 @@ func (r *checkInstanceRepository) GetByTemplateID(ctx context.Context, templateI
 		Order("priority DESC, created_at ASC").
 		Find(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	instances := make([]domain.CheckInstance, len(models))
@@ -224,7 +224,7 @@ func (r *checkInstanceRepository) GetGlobalInstances(ctx context.Context) ([]dom
 		Order("priority DESC").
 		Find(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	instances := make([]domain.CheckInstance, len(models))
@@ -246,7 +246,7 @@ func (r *checkInstanceRepository) GetByNamespaceID(ctx context.Context, namespac
 		Order("priority DESC").
 		Find(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	instances := make([]domain.CheckInstance, len(models))
@@ -269,7 +269,7 @@ func (r *checkInstanceRepository) GetByGroupID(ctx context.Context, groupID stri
 		Order("priority DESC").
 		Find(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	instances := make([]domain.CheckInstance, len(models))
@@ -300,7 +300,7 @@ func (r *checkInstanceRepository) GetEffectiveInstance(ctx context.Context, temp
 			return model.ToDomain(), nil
 		}
 		if err != gorm.ErrRecordNotFound {
-			return nil, err
+			return nil, fromGormError(err)
 		}
 	}
 
@@ -319,7 +319,7 @@ func (r *checkInstanceRepository) GetEffectiveInstance(ctx context.Context, temp
 			return model.ToDomain(), nil
 		}
 		if err != gorm.ErrRecordNotFound {
-			return nil, err
+			return nil, fromGormError(err)
 		}
 	}
 
@@ -332,7 +332,7 @@ func (r *checkInstanceRepository) GetEffectiveInstance(ctx context.Context, temp
 		Order("priority DESC").
 		First(&model).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	return model.ToDomain(), nil
@@ -354,7 +354,7 @@ func (r *checkInstanceRepository) GetEffectiveInstancesByNamespace(ctx context.C
 		Order("scope DESC, priority DESC").  // Group first, then Namespace, then Global; higher priority first
 		Find(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	// Deduplicate by created_from_template_id, keeping the highest priority (first occurrence)
@@ -397,7 +397,7 @@ func (r *checkInstanceRepository) GetEffectiveInstancesByGroup(ctx context.Conte
 		Order("scope DESC, priority DESC").  // Group first, then Namespace, then Global; higher priority first
 		Find(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	// Deduplicate by created_from_template_id, keeping the highest priority (first occurrence)
@@ -433,7 +433,7 @@ func (r *checkInstanceRepository) ListActive(ctx context.Context) ([]domain.Chec
 		Order("priority DESC, created_at ASC").
 		Find(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	instances := make([]domain.CheckInstance, len(models))
@@ -446,31 +446,31 @@ func (r *checkInstanceRepository) ListActive(ctx context.Context) ([]domain.Chec
 // Update updates an existing check instance
 func (r *checkInstanceRepository) Update(ctx context.Context, instance *domain.CheckInstance) error {
 	model := ToCheckInstanceModel(instance)
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Model(&CheckInstanceModel{}).
 		Where("id = ?", model.ID).
-		Updates(model).Error
+		Updates(model).Error)
 }
 
 // Delete performs soft delete on a check instance (sets deleted_at timestamp)
 func (r *checkInstanceRepository) Delete(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Delete(&CheckInstanceModel{}, "id = ?", id).Error
+	return fromGormError(r.db.WithContext(ctx).Delete(&CheckInstanceModel{}, "id = ?", id).Error)
 }
 
 // Purge permanently removes a check instance from the database
 func (r *checkInstanceRepository) Purge(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Unscoped().
-		Delete(&CheckInstanceModel{}, "id = ?", id).Error
+		Delete(&CheckInstanceModel{}, "id = ?", id).Error)
 }
 
 // Restore restores a soft-deleted check instance
 func (r *checkInstanceRepository) Restore(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Unscoped().
 		Model(&CheckInstanceModel{}).
 		Where("id = ?", id).
-		Update("deleted_at", nil).Error
+		Update("deleted_at", nil).Error)
 }
 
 // List retrieves check instances with pagination
@@ -480,7 +480,7 @@ func (r *checkInstanceRepository) List(ctx context.Context, page, limit int) ([]
 
 	// Get total count
 	if err := r.db.WithContext(ctx).Model(&CheckInstanceModel{}).Count(&total).Error; err != nil {
-		return nil, 0, err
+		return nil, 0, fromGormError(err)
 	}
 
 	// Get paginated results
@@ -494,7 +494,7 @@ func (r *checkInstanceRepository) List(ctx context.Context, page, limit int) ([]
 		Order("priority DESC, created_at ASC").
 		Find(&models).Error
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fromGormError(err)
 	}
 
 	instances := make([]domain.CheckInstance, len(models))

@@ -6,9 +6,9 @@ import (
 
 	"github.com/fregataa/aami/config-server/internal/api/dto"
 	"github.com/fregataa/aami/config-server/internal/domain"
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 	"github.com/fregataa/aami/config-server/internal/repository"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // CheckInstanceService handles business logic for check instances
@@ -47,8 +47,8 @@ func (s *CheckInstanceService) Create(ctx context.Context, req dto.CreateCheckIn
 	// Verify namespace exists if namespace-level or group-level
 	if req.NamespaceID != nil {
 		if _, err := s.namespaceRepo.GetByID(ctx, *req.NamespaceID); err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, ErrForeignKeyViolation
+			if errors.Is(err, domainerrors.ErrNotFound) {
+				return nil, domainerrors.ErrForeignKeyViolation
 			}
 			return nil, err
 		}
@@ -57,8 +57,8 @@ func (s *CheckInstanceService) Create(ctx context.Context, req dto.CreateCheckIn
 	// Verify group exists if group-level
 	if req.GroupID != nil {
 		if _, err := s.groupRepo.GetByID(ctx, *req.GroupID); err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, ErrForeignKeyViolation
+			if errors.Is(err, domainerrors.ErrNotFound) {
+				return nil, domainerrors.ErrForeignKeyViolation
 			}
 			return nil, err
 		}
@@ -71,8 +71,8 @@ func (s *CheckInstanceService) Create(ctx context.Context, req dto.CreateCheckIn
 		// Option 1: Create from template
 		template, err := s.templateRepo.GetByID(ctx, *req.TemplateID)
 		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, ErrForeignKeyViolation
+			if errors.Is(err, domainerrors.ErrNotFound) {
+				return nil, domainerrors.ErrForeignKeyViolation
 			}
 			return nil, err
 		}
@@ -125,8 +125,8 @@ func (s *CheckInstanceService) Create(ctx context.Context, req dto.CreateCheckIn
 func (s *CheckInstanceService) GetByID(ctx context.Context, id string) (*domain.CheckInstance, error) {
 	instance, err := s.instanceRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -158,8 +158,8 @@ func (s *CheckInstanceService) GetByGroupID(ctx context.Context, groupID string)
 func (s *CheckInstanceService) GetEffectiveInstance(ctx context.Context, templateID, namespaceID, groupID string) (*domain.CheckInstance, error) {
 	instance, err := s.instanceRepo.GetEffectiveInstance(ctx, templateID, namespaceID, groupID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -172,8 +172,8 @@ func (s *CheckInstanceService) GetEffectiveChecksByTargetID(ctx context.Context,
 	// Get effective check instances from repository (handles priority resolution)
 	result, err := s.targetRepo.GetEffectiveCheckInstances(ctx, targetID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -206,8 +206,8 @@ func (s *CheckInstanceService) GetEffectiveChecksByTargetID(ctx context.Context,
 func (s *CheckInstanceService) GetEffectiveChecksByNamespace(ctx context.Context, namespaceID string) ([]domain.CheckInstance, error) {
 	// Verify namespace exists
 	if _, err := s.namespaceRepo.GetByID(ctx, namespaceID); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -220,15 +220,15 @@ func (s *CheckInstanceService) GetEffectiveChecksByGroup(ctx context.Context, na
 	// Verify group exists
 	group, err := s.groupRepo.GetByID(ctx, groupID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
 
 	// Verify group belongs to namespace
 	if group.NamespaceID != namespaceID {
-		return nil, NewValidationError("namespace_id", "group does not belong to the specified namespace")
+		return nil, domainerrors.NewValidationError("namespace_id", "group does not belong to the specified namespace")
 	}
 
 	return s.instanceRepo.GetEffectiveInstancesByGroup(ctx, namespaceID, groupID)
@@ -238,8 +238,8 @@ func (s *CheckInstanceService) GetEffectiveChecksByGroup(ctx context.Context, na
 func (s *CheckInstanceService) Update(ctx context.Context, id string, req dto.UpdateCheckInstanceRequest) (*domain.CheckInstance, error) {
 	instance, err := s.instanceRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -272,8 +272,8 @@ func (s *CheckInstanceService) Delete(ctx context.Context, id string) error {
 	// Check if instance exists
 	_, err := s.instanceRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return domainerrors.ErrNotFound
 		}
 		return err
 	}

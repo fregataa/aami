@@ -2,6 +2,7 @@ package dto
 
 import (
 	"github.com/fregataa/aami/config-server/internal/domain"
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 )
 
 // CreateCheckInstanceRequest represents a request to create a new check instance
@@ -43,24 +44,24 @@ func (req *CreateCheckInstanceRequest) Validate() error {
 	switch req.Scope {
 	case domain.ScopeGlobal:
 		if req.NamespaceID != nil || req.GroupID != nil {
-			return NewValidationError("scope", "global scope must not have namespace_id or group_id")
+			return domainerrors.NewValidationError("scope", "global scope must not have namespace_id or group_id")
 		}
 	case domain.ScopeNamespace:
 		if req.NamespaceID == nil {
-			return NewValidationError("namespace_id", "namespace_id is required for namespace scope")
+			return domainerrors.NewValidationError("namespace_id", "namespace_id is required for namespace scope")
 		}
 		if req.GroupID != nil {
-			return NewValidationError("group_id", "namespace scope must not have group_id")
+			return domainerrors.NewValidationError("group_id", "namespace scope must not have group_id")
 		}
 	case domain.ScopeGroup:
 		if req.GroupID == nil {
-			return NewValidationError("group_id", "group_id is required for group scope")
+			return domainerrors.NewValidationError("group_id", "group_id is required for group scope")
 		}
 		if req.NamespaceID == nil {
-			return NewValidationError("namespace_id", "namespace_id is required for group scope")
+			return domainerrors.NewValidationError("namespace_id", "namespace_id is required for group scope")
 		}
 	default:
-		return NewValidationError("scope", "invalid scope value")
+		return domainerrors.NewValidationError("scope", "invalid scope value")
 	}
 
 	return nil
@@ -114,25 +115,6 @@ type EffectiveCheckResponse struct {
 	Version       string                 `json:"version"`
 	Hash          string                 `json:"hash"`
 	InstanceID    string                 `json:"instance_id"`
-}
-
-// NewValidationError creates a validation error from field and message
-func NewValidationError(field, message string) error {
-	return &ValidationError{
-		Field:   field,
-		Message: message,
-	}
-}
-
-// ValidationError represents a validation error
-type ValidationError struct {
-	Field   string
-	Message string
-}
-
-// Error implements the error interface
-func (e *ValidationError) Error() string {
-	return e.Field + ": " + e.Message
 }
 
 // ToCheckInstanceResponse converts a domain.CheckInstance to CheckInstanceResponse

@@ -6,9 +6,9 @@ import (
 
 	"github.com/fregataa/aami/config-server/internal/api/dto"
 	"github.com/fregataa/aami/config-server/internal/domain"
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 	"github.com/fregataa/aami/config-server/internal/repository"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // NamespaceService handles business logic for namespaces
@@ -35,16 +35,16 @@ func NewNamespaceService(
 func (s *NamespaceService) Create(ctx context.Context, req dto.CreateNamespaceRequest) (*domain.Namespace, error) {
 	// Validate merge strategy
 	if !domain.IsValidMergeStrategy(req.MergeStrategy) {
-		return nil, NewValidationError("merge_strategy", "invalid merge strategy")
+		return nil, domainerrors.NewValidationError("merge_strategy", "invalid merge strategy")
 	}
 
 	// Check if namespace name already exists
 	existing, err := s.namespaceRepo.GetByName(ctx, req.Name)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err != nil && !errors.Is(err, domainerrors.ErrNotFound) {
 		return nil, err
 	}
 	if existing != nil {
-		return nil, ErrAlreadyExists
+		return nil, domainerrors.ErrAlreadyExists
 	}
 
 	namespace := &domain.Namespace{
@@ -66,8 +66,8 @@ func (s *NamespaceService) Create(ctx context.Context, req dto.CreateNamespaceRe
 func (s *NamespaceService) GetByID(ctx context.Context, id string) (*domain.Namespace, error) {
 	namespace, err := s.namespaceRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -78,8 +78,8 @@ func (s *NamespaceService) GetByID(ctx context.Context, id string) (*domain.Name
 func (s *NamespaceService) GetByName(ctx context.Context, name string) (*domain.Namespace, error) {
 	namespace, err := s.namespaceRepo.GetByName(ctx, name)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -90,8 +90,8 @@ func (s *NamespaceService) GetByName(ctx context.Context, name string) (*domain.
 func (s *NamespaceService) Update(ctx context.Context, id string, req dto.UpdateNamespaceRequest) (*domain.Namespace, error) {
 	namespace, err := s.namespaceRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func (s *NamespaceService) Update(ctx context.Context, id string, req dto.Update
 	}
 	if req.MergeStrategy != nil {
 		if !domain.IsValidMergeStrategy(*req.MergeStrategy) {
-			return nil, NewValidationError("merge_strategy", "invalid merge strategy")
+			return nil, domainerrors.NewValidationError("merge_strategy", "invalid merge strategy")
 		}
 		namespace.MergeStrategy = *req.MergeStrategy
 	}
@@ -122,8 +122,8 @@ func (s *NamespaceService) Delete(ctx context.Context, id string) error {
 	// Check if namespace exists
 	_, err := s.namespaceRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return domainerrors.ErrNotFound
 		}
 		return err
 	}
@@ -134,7 +134,7 @@ func (s *NamespaceService) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	if groupCount > 0 {
-		return ErrInUse
+		return domainerrors.ErrInUse
 	}
 
 	return s.namespaceRepo.Delete(ctx, id)
@@ -165,8 +165,8 @@ func (s *NamespaceService) GetAll(ctx context.Context) ([]domain.Namespace, erro
 func (s *NamespaceService) GetStats(ctx context.Context, id string) (*dto.NamespaceStatsResponse, error) {
 	namespace, err := s.namespaceRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
 		}
 		return nil, err
 	}

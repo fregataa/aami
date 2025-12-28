@@ -2,6 +2,7 @@ package domain
 
 import (
 	"time"
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 )
 
 // CheckInstance represents an application of a check at a specific scope
@@ -111,50 +112,50 @@ func (ci *CheckInstance) GetScopeIdentifier() string {
 func (ci *CheckInstance) Validate() error {
 	// Validate required fields
 	if ci.Name == "" {
-		return NewValidationError("name", "name is required")
+		return domainerrors.NewValidationError("name", "name is required")
 	}
 	if ci.CheckType == "" {
-		return NewValidationError("check_type", "check_type is required")
+		return domainerrors.NewValidationError("check_type", "check_type is required")
 	}
 	if ci.ScriptContent == "" {
-		return NewValidationError("script_content", "script_content is required")
+		return domainerrors.NewValidationError("script_content", "script_content is required")
 	}
 	if ci.Language == "" {
-		return NewValidationError("language", "language is required")
+		return domainerrors.NewValidationError("language", "language is required")
 	}
 	if ci.Version == "" {
-		return NewValidationError("version", "version is required")
+		return domainerrors.NewValidationError("version", "version is required")
 	}
 	if ci.Hash == "" {
-		return NewValidationError("hash", "hash is required")
+		return domainerrors.NewValidationError("hash", "hash is required")
 	}
 
 	if ci.Scope == "" {
-		return NewValidationError("scope", "scope is required")
+		return domainerrors.NewValidationError("scope", "scope is required")
 	}
 
 	// Validate scope consistency
 	switch ci.Scope {
 	case ScopeGlobal:
 		if ci.NamespaceID != nil || ci.GroupID != nil {
-			return NewValidationError("scope", "global scope must not have namespace_id or group_id")
+			return domainerrors.NewValidationError("scope", "global scope must not have namespace_id or group_id")
 		}
 	case ScopeNamespace:
 		if ci.NamespaceID == nil {
-			return NewValidationError("namespace_id", "namespace_id is required for namespace scope")
+			return domainerrors.NewValidationError("namespace_id", "namespace_id is required for namespace scope")
 		}
 		if ci.GroupID != nil {
-			return NewValidationError("group_id", "namespace scope must not have group_id")
+			return domainerrors.NewValidationError("group_id", "namespace scope must not have group_id")
 		}
 	case ScopeGroup:
 		if ci.GroupID == nil {
-			return NewValidationError("group_id", "group_id is required for group scope")
+			return domainerrors.NewValidationError("group_id", "group_id is required for group scope")
 		}
 		if ci.NamespaceID == nil {
-			return NewValidationError("namespace_id", "namespace_id is required for group scope")
+			return domainerrors.NewValidationError("namespace_id", "namespace_id is required for group scope")
 		}
 	default:
-		return NewValidationError("scope", "invalid scope value")
+		return domainerrors.NewValidationError("scope", "invalid scope value")
 	}
 
 	return nil

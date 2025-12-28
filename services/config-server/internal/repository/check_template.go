@@ -101,7 +101,7 @@ func NewCheckTemplateRepository(db *gorm.DB) CheckTemplateRepository {
 func (r *checkTemplateRepository) Create(ctx context.Context, template *domain.CheckTemplate) error {
 	model := ToCheckTemplateModel(template)
 	if err := r.db.WithContext(ctx).Create(model).Error; err != nil {
-		return err
+		return fromGormError(err)
 	}
 	*template = *model.ToDomain()
 	return nil
@@ -113,7 +113,7 @@ func (r *checkTemplateRepository) GetByID(ctx context.Context, id string) (*doma
 	err := r.db.WithContext(ctx).
 		First(&model, "id = ?", id).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 	return model.ToDomain(), nil
 }
@@ -125,7 +125,7 @@ func (r *checkTemplateRepository) GetByName(ctx context.Context, name string) (*
 		Where("name = ?", name).
 		First(&model).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 	return model.ToDomain(), nil
 }
@@ -138,7 +138,7 @@ func (r *checkTemplateRepository) GetByCheckType(ctx context.Context, checkType 
 		Order("name ASC").
 		Find(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	templates := make([]domain.CheckTemplate, len(models))
@@ -155,7 +155,7 @@ func (r *checkTemplateRepository) ListActive(ctx context.Context) ([]domain.Chec
 		Order("name ASC").
 		Find(&models).Error
 	if err != nil {
-		return nil, err
+		return nil, fromGormError(err)
 	}
 
 	templates := make([]domain.CheckTemplate, len(models))
@@ -168,31 +168,31 @@ func (r *checkTemplateRepository) ListActive(ctx context.Context) ([]domain.Chec
 // Update updates an existing check template
 func (r *checkTemplateRepository) Update(ctx context.Context, template *domain.CheckTemplate) error {
 	model := ToCheckTemplateModel(template)
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Model(&CheckTemplateModel{}).
 		Where("id = ?", model.ID).
-		Updates(model).Error
+		Updates(model).Error)
 }
 
 // Delete performs soft delete on a check template (sets deleted_at timestamp)
 func (r *checkTemplateRepository) Delete(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Delete(&CheckTemplateModel{}, "id = ?", id).Error
+	return fromGormError(r.db.WithContext(ctx).Delete(&CheckTemplateModel{}, "id = ?", id).Error)
 }
 
 // Purge permanently removes a check template from the database
 func (r *checkTemplateRepository) Purge(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Unscoped().
-		Delete(&CheckTemplateModel{}, "id = ?", id).Error
+		Delete(&CheckTemplateModel{}, "id = ?", id).Error)
 }
 
 // Restore restores a soft-deleted check template
 func (r *checkTemplateRepository) Restore(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).
+	return fromGormError(r.db.WithContext(ctx).
 		Unscoped().
 		Model(&CheckTemplateModel{}).
 		Where("id = ?", id).
-		Update("deleted_at", nil).Error
+		Update("deleted_at", nil).Error)
 }
 
 // List retrieves check templates with pagination
@@ -202,7 +202,7 @@ func (r *checkTemplateRepository) List(ctx context.Context, page, limit int) ([]
 
 	// Get total count
 	if err := r.db.WithContext(ctx).Model(&CheckTemplateModel{}).Count(&total).Error; err != nil {
-		return nil, 0, err
+		return nil, 0, fromGormError(err)
 	}
 
 	// Get paginated results
@@ -213,7 +213,7 @@ func (r *checkTemplateRepository) List(ctx context.Context, page, limit int) ([]
 		Order("name ASC").
 		Find(&models).Error
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fromGormError(err)
 	}
 
 	templates := make([]domain.CheckTemplate, len(models))
