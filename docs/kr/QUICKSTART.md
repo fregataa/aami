@@ -27,7 +27,7 @@
 ### 1단계: 저장소 클론
 
 ```bash
-git clone https://github.com/your-org/aami.git
+git clone https://github.com/fregataa/aami.git
 cd aami
 ```
 
@@ -435,6 +435,6 @@ docker-compose down -v
 ---
 
 **도움이 필요하신가요?**
-- [GitHub Issues](https://github.com/your-org/aami/issues)
+- [GitHub Issues](https://github.com/fregataa/aami/issues)
 - [문서](../../README.md)
-- [커뮤니티 토론](https://github.com/your-org/aami/discussions)
+- [커뮤니티 토론](https://github.com/fregataa/aami/discussions)

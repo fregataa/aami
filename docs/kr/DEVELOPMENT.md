@@ -86,7 +86,7 @@ golangci-lint --version
 ### 1. 저장소 클론
 
 ```bash
-git clone https://github.com/your-org/aami.git
+git clone https://github.com/fregataa/aami.git
 cd aami
 ```
 
@@ -429,7 +429,7 @@ go run cmd/migrate/main.go up
 
 문제가 발생하면 다음을 확인하세요:
 
-1. [GitHub Issues](https://github.com/your-org/aami/issues)
+1. [GitHub Issues](https://github.com/fregataa/aami/issues)
 2. [Troubleshooting Guide](./TROUBLESHOOTING.md)
 3. Slack 채널: #aami-dev
 

@@ -4,7 +4,7 @@
 
 AAMI is an integrated monitoring solution designed to efficiently monitor and manage large-scale AI accelerator infrastructure (GPUs, NPUs, etc.). Built on the Prometheus ecosystem, it supports group-based hierarchical structure, dynamic target management, and customizable alert rules.
 
-[![CI](https://github.com/your-org/aami/workflows/CI/badge.svg)](https://github.com/your-org/aami/actions)
+[![CI](https://github.com/fregataa/aami/workflows/CI/badge.svg)](https://github.com/fregataa/aami/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go)](https://go.dev/)
 
@@ -85,7 +85,7 @@ AAMI is an integrated monitoring solution designed to efficiently monitor and ma
 #### Option 1: Docker Compose (Recommended for Quick Start)
 
 ```bash
-git clone https://github.com/your-org/aami.git
+git clone https://github.com/fregataa/aami.git
 cd aami/deploy/docker-compose
 
 cp .env.example .env
@@ -136,7 +136,7 @@ See [examples/](examples/) for cloud-init and Terraform configurations.
 
 ```bash
 # Clone repository
-git clone https://github.com/your-org/aami.git
+git clone https://github.com/fregataa/aami.git
 cd aami
 
 # Start dependencies
@@ -231,9 +231,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/your-org/aami/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/aami/discussions)
-- **Documentation**: [Wiki](https://github.com/your-org/aami/wiki)
+- **Issues**: [GitHub Issues](https://github.com/fregataa/aami/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/fregataa/aami/discussions)
+- **Documentation**: [Wiki](https://github.com/fregataa/aami/wiki)
 
 ---
 

@@ -27,7 +27,7 @@ Before you begin, ensure you have:
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/your-org/aami.git
+git clone https://github.com/fregataa/aami.git
 cd aami
 ```
 
@@ -435,6 +435,6 @@ docker-compose down -v
 ---
 
 **Need Help?**
-- [GitHub Issues](https://github.com/your-org/aami/issues)
+- [GitHub Issues](https://github.com/fregataa/aami/issues)
 - [Documentation](../../README.md)
-- [Community Discussions](https://github.com/your-org/aami/discussions)
+- [Community Discussions](https://github.com/fregataa/aami/discussions)
