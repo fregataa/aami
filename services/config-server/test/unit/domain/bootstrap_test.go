@@ -165,13 +165,11 @@ func TestBootstrapToken_IncrementUses(t *testing.T) {
 }
 
 func TestBootstrapToken_Creation(t *testing.T) {
-	groupID := "group-123"
-	token := testutil.NewTestBootstrapToken("test-token", groupID)
+	token := testutil.NewTestBootstrapToken("test-token")
 
 	assert.NotEmpty(t, token.ID)
 	assert.NotEmpty(t, token.Token)
 	assert.Equal(t, "test-token", token.Name)
-	assert.Equal(t, groupID, token.DefaultGroupID)
 	assert.Equal(t, 10, token.MaxUses)
 	assert.Equal(t, 0, token.Uses)
 	assert.True(t, token.ExpiresAt.After(time.Now()))

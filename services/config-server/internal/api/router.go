@@ -47,7 +47,7 @@ func (s *Server) SetupRouter() *gin.Engine {
 	alertRuleService := service.NewAlertRuleService(s.rm.AlertRule, s.rm.AlertTemplate, s.rm.Group)
 	checkTemplateService := service.NewCheckTemplateService(s.rm.CheckTemplate, s.rm.CheckInstance)
 	checkInstanceService := service.NewCheckInstanceService(s.rm.CheckInstance, s.rm.CheckTemplate, s.rm.Namespace, s.rm.Group, s.rm.Target)
-	bootstrapTokenService := service.NewBootstrapTokenService(s.rm.BootstrapToken, s.rm.Group)
+	bootstrapTokenService := service.NewBootstrapTokenService(s.rm.BootstrapToken, s.rm.Group, targetService)
 	serviceDiscoveryService := service.NewServiceDiscoveryService(s.rm.Target)
 
 	// Initialize handlers
@@ -161,11 +161,11 @@ func (s *Server) SetupRouter() *gin.Engine {
 			bootstrapTokens.GET("/:id", bootstrapTokenHandler.GetByID)
 			bootstrapTokens.GET("/token/:token", bootstrapTokenHandler.GetByToken)
 			bootstrapTokens.POST("/validate", bootstrapTokenHandler.ValidateAndUse)
+			bootstrapTokens.POST("/register", bootstrapTokenHandler.RegisterNode)
 			bootstrapTokens.PUT("/:id", bootstrapTokenHandler.Update)
 			bootstrapTokens.POST("/delete", bootstrapTokenHandler.DeleteResource)
 			bootstrapTokens.POST("/purge", bootstrapTokenHandler.PurgeResource)
 			bootstrapTokens.POST("/restore", bootstrapTokenHandler.RestoreResource)
-			bootstrapTokens.GET("/group/:group_id", bootstrapTokenHandler.GetByGroupID)
 		}
 
 		// Check template routes

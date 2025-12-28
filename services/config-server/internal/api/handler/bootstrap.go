@@ -81,6 +81,29 @@ func (h *BootstrapTokenHandler) ValidateAndUse(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.ToBootstrapTokenResponse(token))
 }
 
+// RegisterNode handles POST /bootstrap-tokens/register
+func (h *BootstrapTokenHandler) RegisterNode(c *gin.Context) {
+	var req dto.BootstrapRegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, domainerrors.NewBindingError(err))
+		return
+	}
+
+	target, token, err := h.tokenService.RegisterNode(c.Request.Context(), req)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+
+	resp := dto.BootstrapRegisterResponse{
+		Target:        dto.ToTargetResponse(target),
+		TokenUsage:    token.Uses,
+		RemainingUses: token.RemainingUses(),
+	}
+
+	c.JSON(http.StatusCreated, resp)
+}
+
 // Update handles PUT /bootstrap-tokens/:id
 func (h *BootstrapTokenHandler) Update(c *gin.Context) {
 	id := c.Param("id")
@@ -159,17 +182,4 @@ func (h *BootstrapTokenHandler) List(c *gin.Context) {
 	}
 
 	respondList(c, dto.ToBootstrapTokenResponseList(tokens), total, pagination)
-}
-
-// GetByGroupID handles GET /bootstrap-tokens/group/:group_id
-func (h *BootstrapTokenHandler) GetByGroupID(c *gin.Context) {
-	groupID := c.Param("group_id")
-
-	tokens, err := h.tokenService.GetByGroupID(c.Request.Context(), groupID)
-	if err != nil {
-		respondError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, dto.ToBootstrapTokenResponseList(tokens))
 }

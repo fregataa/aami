@@ -9,18 +9,16 @@ import (
 
 // BootstrapToken represents a token used for auto-registration of new nodes
 type BootstrapToken struct {
-	ID             string            `json:"id"`
-	Token          string            `json:"token"`
-	Name           string            `json:"name"`
-	DefaultGroupID string            `json:"default_group_id"`
-	DefaultGroup   Group             `json:"default_group,omitempty"`
-	MaxUses        int               `json:"max_uses"`
-	Uses           int               `json:"uses"`
-	ExpiresAt      time.Time         `json:"expires_at"`
-	Labels         map[string]string `json:"labels"`
-	DeletedAt      *time.Time        `json:"deleted_at,omitempty"`
-	CreatedAt      time.Time         `json:"created_at"`
-	UpdatedAt      time.Time         `json:"updated_at"`
+	ID        string            `json:"id"`
+	Token     string            `json:"token"`
+	Name      string            `json:"name"`
+	MaxUses   int               `json:"max_uses"`
+	Uses      int               `json:"uses"`
+	ExpiresAt time.Time         `json:"expires_at"`
+	Labels    map[string]string `json:"labels"`
+	DeletedAt *time.Time        `json:"deleted_at,omitempty"`
+	CreatedAt time.Time         `json:"created_at"`
+	UpdatedAt time.Time         `json:"updated_at"`
 }
 
 // IsValid checks if the token is valid (not expired and has remaining uses)
@@ -79,19 +77,18 @@ func GenerateToken() (string, error) {
 }
 
 // NewBootstrapToken creates a new bootstrap token with generated token string
-func NewBootstrapToken(name string, defaultGroupID string, maxUses int, expiresAt time.Time) (*BootstrapToken, error) {
+func NewBootstrapToken(name string, maxUses int, expiresAt time.Time) (*BootstrapToken, error) {
 	token, err := GenerateToken()
 	if err != nil {
 		return nil, err
 	}
 
 	return &BootstrapToken{
-		Token:          token,
-		Name:           name,
-		DefaultGroupID: defaultGroupID,
-		MaxUses:        maxUses,
-		Uses:           0,
-		ExpiresAt:      expiresAt,
-		Labels:         make(map[string]string),
+		Token:     token,
+		Name:      name,
+		MaxUses:   maxUses,
+		Uses:      0,
+		ExpiresAt: expiresAt,
+		Labels:    make(map[string]string),
 	}, nil
 }

@@ -173,19 +173,18 @@ func NewTestCheckSetting(groupID string, checkType string) *domain.CheckSetting 
 }
 
 // NewTestBootstrapToken creates a test bootstrap token
-func NewTestBootstrapToken(name string, defaultGroupID string) *domain.BootstrapToken {
+func NewTestBootstrapToken(name string) *domain.BootstrapToken {
 	token, _ := domain.GenerateToken()
 	return &domain.BootstrapToken{
-		ID:             uuid.New().String(),
-		Token:          token,
-		Name:           name,
-		DefaultGroupID: defaultGroupID,
-		MaxUses:        10,
-		Uses:           0,
-		ExpiresAt:      time.Now().Add(24 * time.Hour),
-		Labels:         make(map[string]string),
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
+		ID:        uuid.New().String(),
+		Token:     token,
+		Name:      name,
+		MaxUses:   10,
+		Uses:      0,
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+		Labels:    make(map[string]string),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 }
 

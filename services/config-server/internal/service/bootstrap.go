@@ -14,32 +14,26 @@ import (
 
 // BootstrapTokenService handles business logic for bootstrap tokens
 type BootstrapTokenService struct {
-	tokenRepo repository.BootstrapTokenRepository
-	groupRepo repository.GroupRepository
+	tokenRepo     repository.BootstrapTokenRepository
+	groupRepo     repository.GroupRepository
+	targetService *TargetService
 }
 
 // NewBootstrapTokenService creates a new BootstrapTokenService
 func NewBootstrapTokenService(
 	tokenRepo repository.BootstrapTokenRepository,
 	groupRepo repository.GroupRepository,
+	targetService *TargetService,
 ) *BootstrapTokenService {
 	return &BootstrapTokenService{
-		tokenRepo: tokenRepo,
-		groupRepo: groupRepo,
+		tokenRepo:     tokenRepo,
+		groupRepo:     groupRepo,
+		targetService: targetService,
 	}
 }
 
 // Create creates a new bootstrap token
 func (s *BootstrapTokenService) Create(ctx context.Context, req dto.CreateBootstrapTokenRequest) (*domain.BootstrapToken, error) {
-	// Validate default group exists
-	_, err := s.groupRepo.GetByID(ctx, req.DefaultGroupID)
-	if err != nil {
-		if errors.Is(err, domainerrors.ErrNotFound) {
-			return nil, domainerrors.NewValidationError("default_group_id", "group not found")
-		}
-		return nil, err
-	}
-
 	// Generate token
 	tokenStr, err := domain.GenerateToken()
 	if err != nil {
@@ -53,14 +47,13 @@ func (s *BootstrapTokenService) Create(ctx context.Context, req dto.CreateBootst
 	}
 
 	token := &domain.BootstrapToken{
-		ID:             uuid.New().String(),
-		Token:          tokenStr,
-		Name:           req.Name,
-		DefaultGroupID: req.DefaultGroupID,
-		MaxUses:        req.MaxUses,
-		Uses:           0,
-		ExpiresAt:      expiresAt,
-		Labels:         req.Labels,
+		ID:        uuid.New().String(),
+		Token:     tokenStr,
+		Name:      req.Name,
+		MaxUses:   req.MaxUses,
+		Uses:      0,
+		ExpiresAt: expiresAt,
+		Labels:    req.Labels,
 	}
 
 	if token.MaxUses == 0 {
@@ -187,7 +180,41 @@ func (s *BootstrapTokenService) List(ctx context.Context, pagination dto.Paginat
 	return s.tokenRepo.List(ctx, pagination.Page, pagination.Limit)
 }
 
-// GetByGroupID retrieves all bootstrap tokens for a group
-func (s *BootstrapTokenService) GetByGroupID(ctx context.Context, groupID string) ([]domain.BootstrapToken, error) {
-	return s.tokenRepo.GetByGroupID(ctx, groupID)
+// RegisterNode validates token and creates target with specified or own group
+func (s *BootstrapTokenService) RegisterNode(
+	ctx context.Context,
+	req dto.BootstrapRegisterRequest,
+) (*domain.Target, *domain.BootstrapToken, error) {
+	// 1. Validate and use token
+	token, err := s.ValidateAndUse(ctx, dto.ValidateTokenRequest{
+		Token: req.Token,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// 2. Prepare group IDs
+	var groupIDs []string
+	if req.GroupID != "" {
+		// Use specified group
+		groupIDs = []string{req.GroupID}
+	}
+	// If GroupID is empty, target service will create own group automatically
+
+	// 3. Create target
+	target, err := s.targetService.Create(ctx, dto.CreateTargetRequest{
+		Hostname:  req.Hostname,
+		IPAddress: req.IPAddress,
+		GroupIDs:  groupIDs,
+		Labels:    req.Labels,
+		Metadata:  req.Metadata,
+	})
+	if err != nil {
+		// Rollback: Decrement token usage on failure
+		token.Uses--
+		_ = s.tokenRepo.Update(ctx, token)
+		return nil, nil, err
+	}
+
+	return target, token, nil
 }

@@ -25,7 +25,7 @@ func TestBootstrapTokenRepository_Create(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a bootstrap token
-	token := testutil.NewTestBootstrapToken("test-token", group.ID)
+	token := testutil.NewTestBootstrapToken("test-token")
 
 	err = tokenRepo.Create(ctx, token)
 	require.NoError(t, err)
@@ -45,7 +45,7 @@ func TestBootstrapTokenRepository_GetByID(t *testing.T) {
 	group := testutil.NewTestGroup("staging", domain.NamespaceEnvironment)
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	token := testutil.NewTestBootstrapToken("staging-token", group.ID)
+	token := testutil.NewTestBootstrapToken("staging-token")
 	require.NoError(t, tokenRepo.Create(ctx, token))
 
 	// Retrieve it
@@ -80,7 +80,7 @@ func TestBootstrapTokenRepository_GetByToken(t *testing.T) {
 	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	token := testutil.NewTestBootstrapToken("prod-token", group.ID)
+	token := testutil.NewTestBootstrapToken("prod-token")
 	require.NoError(t, tokenRepo.Create(ctx, token))
 
 	// Retrieve by token string
@@ -113,7 +113,7 @@ func TestBootstrapTokenRepository_Update(t *testing.T) {
 	group := testutil.NewTestGroup("dev", domain.NamespaceEnvironment)
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	token := testutil.NewTestBootstrapToken("dev-token", group.ID)
+	token := testutil.NewTestBootstrapToken("dev-token")
 	require.NoError(t, tokenRepo.Create(ctx, token))
 
 	// Update it
@@ -143,7 +143,7 @@ func TestBootstrapTokenRepository_Delete(t *testing.T) {
 	group := testutil.NewTestGroup("temp", domain.NamespaceEnvironment)
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	token := testutil.NewTestBootstrapToken("temp-token", group.ID)
+	token := testutil.NewTestBootstrapToken("temp-token")
 	require.NoError(t, tokenRepo.Create(ctx, token))
 
 	// Delete it
@@ -168,9 +168,9 @@ func TestBootstrapTokenRepository_List(t *testing.T) {
 	require.NoError(t, groupRepo.Create(ctx, group))
 
 	// Create multiple tokens
-	token1 := testutil.NewTestBootstrapToken("token1", group.ID)
-	token2 := testutil.NewTestBootstrapToken("token2", group.ID)
-	token3 := testutil.NewTestBootstrapToken("token3", group.ID)
+	token1 := testutil.NewTestBootstrapToken("token1")
+	token2 := testutil.NewTestBootstrapToken("token2")
+	token3 := testutil.NewTestBootstrapToken("token3")
 
 	require.NoError(t, tokenRepo.Create(ctx, token1))
 	require.NoError(t, tokenRepo.Create(ctx, token2))
@@ -196,16 +196,16 @@ func TestBootstrapTokenRepository_IsValid(t *testing.T) {
 	require.NoError(t, groupRepo.Create(ctx, group))
 
 	// Create valid token
-	validToken := testutil.NewTestBootstrapToken("valid-token", group.ID)
+	validToken := testutil.NewTestBootstrapToken("valid-token")
 	require.NoError(t, tokenRepo.Create(ctx, validToken))
 
 	// Create expired token
-	expiredToken := testutil.NewTestBootstrapToken("expired-token", group.ID)
+	expiredToken := testutil.NewTestBootstrapToken("expired-token")
 	expiredToken.ExpiresAt = time.Now().Add(-1 * time.Hour)
 	require.NoError(t, tokenRepo.Create(ctx, expiredToken))
 
 	// Create exhausted token
-	exhaustedToken := testutil.NewTestBootstrapToken("exhausted-token", group.ID)
+	exhaustedToken := testutil.NewTestBootstrapToken("exhausted-token")
 	exhaustedToken.Uses = exhaustedToken.MaxUses
 	require.NoError(t, tokenRepo.Create(ctx, exhaustedToken))
 
@@ -227,7 +227,7 @@ func TestBootstrapTokenRepository_CanUse(t *testing.T) {
 	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	token := testutil.NewTestBootstrapToken("test-token", group.ID)
+	token := testutil.NewTestBootstrapToken("test-token")
 	require.NoError(t, tokenRepo.Create(ctx, token))
 
 	// Should be usable initially
@@ -260,7 +260,7 @@ func TestBootstrapTokenRepository_IncrementUses(t *testing.T) {
 	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	token := testutil.NewTestBootstrapToken("test-token", group.ID)
+	token := testutil.NewTestBootstrapToken("test-token")
 	require.NoError(t, tokenRepo.Create(ctx, token))
 	assert.Equal(t, 0, token.Uses)
 
@@ -303,7 +303,7 @@ func TestBootstrapTokenRepository_IncrementUses_Exhausted(t *testing.T) {
 	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	token := testutil.NewTestBootstrapToken("test-token", group.ID)
+	token := testutil.NewTestBootstrapToken("test-token")
 	token.Uses = token.MaxUses // Already exhausted
 	require.NoError(t, tokenRepo.Create(ctx, token))
 
@@ -326,13 +326,13 @@ func TestBootstrapTokenRepository_IsExpired(t *testing.T) {
 	require.NoError(t, groupRepo.Create(ctx, group))
 
 	// Create token that expires in the future
-	futureToken := testutil.NewTestBootstrapToken("future-token", group.ID)
+	futureToken := testutil.NewTestBootstrapToken("future-token")
 	futureToken.ExpiresAt = time.Now().Add(24 * time.Hour)
 	require.NoError(t, tokenRepo.Create(ctx, futureToken))
 	assert.False(t, futureToken.IsExpired())
 
 	// Create token that expired in the past
-	pastToken := testutil.NewTestBootstrapToken("past-token", group.ID)
+	pastToken := testutil.NewTestBootstrapToken("past-token")
 	pastToken.ExpiresAt = time.Now().Add(-24 * time.Hour)
 	require.NoError(t, tokenRepo.Create(ctx, pastToken))
 	assert.True(t, pastToken.IsExpired())
@@ -350,7 +350,7 @@ func TestBootstrapTokenRepository_RemainingUses(t *testing.T) {
 	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	token := testutil.NewTestBootstrapToken("test-token", group.ID)
+	token := testutil.NewTestBootstrapToken("test-token")
 	require.NoError(t, tokenRepo.Create(ctx, token))
 
 	// Initially: 0 uses, 10 max
@@ -383,7 +383,7 @@ func TestBootstrapTokenRepository_UsageScenario(t *testing.T) {
 	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	token := testutil.NewTestBootstrapToken("limited-token", group.ID)
+	token := testutil.NewTestBootstrapToken("limited-token")
 	token.MaxUses = 3
 	require.NoError(t, tokenRepo.Create(ctx, token))
 
@@ -427,9 +427,9 @@ func TestBootstrapTokenRepository_GetByGroupID(t *testing.T) {
 	require.NoError(t, groupRepo.Create(ctx, group2))
 
 	// Create tokens for different groups
-	token1 := testutil.NewTestBootstrapToken("token1", group1.ID)
-	token2 := testutil.NewTestBootstrapToken("token2", group1.ID)
-	token3 := testutil.NewTestBootstrapToken("token3", group2.ID)
+	token1 := testutil.NewTestBootstrapToken("token1")
+	token2 := testutil.NewTestBootstrapToken("token2")
+	token3 := testutil.NewTestBootstrapToken("token3")
 
 	require.NoError(t, tokenRepo.Create(ctx, token1))
 	require.NoError(t, tokenRepo.Create(ctx, token2))
