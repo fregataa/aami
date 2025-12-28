@@ -27,7 +27,7 @@ The Config Server follows a Clean Architecture pattern with clear separation of 
 - **Dependency Rule**: Dependencies flow downward (API → Service → Repository → Domain)
 - **ORM Separation**: Repository layer uses ORM models that convert to/from domain models
 
-📖 **For Developers**: See [AGENT.md](./.agent/docs/AGENT.md) for detailed architecture guidelines and coding patterns.
+📖 **For Developers**: See [ARCHITECTURE.md](./.agent/ARCHITECTURE.md) for detailed architecture guidelines and coding patterns.
 
 ## Features
 
@@ -357,7 +357,7 @@ database:
 - Performance optimization
 - Backup and recovery
 
-📖 **Sprint Planning**: See [SPRINT_PLAN.md](./.agent/docs/SPRINT_PLAN.md) for detailed sprint roadmap.
+📖 **Sprint Planning**: See [Sprint Tracker](../../.agent/planning/TRACKER.md) for project sprint roadmap.
 
 ## Development Guidelines
 
