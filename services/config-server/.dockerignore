@@ -1,0 +1,73 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Agent documents
+.agent
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+config-server
+*.test
+*.out
+
+# Test files
+coverage.html
+coverage.txt
+test/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Logs
+*.log
+logs/
+
+# Config files (use environment variables instead)
+config.local.yaml
+*.local.yaml
+config.yaml
+.env
+.env.local
+.env.*.local
+*.env
+
+# Documentation (not needed in runtime)
+README.md
+LICENSE
+*.md
+docs/
+
+# Docker files (not needed in image)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+dump.sql
+backup.sql

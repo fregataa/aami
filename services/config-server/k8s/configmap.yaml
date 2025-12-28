@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-server-config
+  namespace: aami
+data:
+  # Server configuration
+  PORT: "8080"
+  GIN_MODE: "release"
+
+  # Database configuration
+  DB_HOST: "postgres.aami.svc.cluster.local"
+  DB_PORT: "5432"
+  DB_NAME: "aami_config"
+  DB_SSLMODE: "disable"
+
+  # Logging configuration
+  LOG_LEVEL: "info"

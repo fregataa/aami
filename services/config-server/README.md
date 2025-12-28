@@ -18,7 +18,7 @@ The Config Server follows a Clean Architecture pattern with clear separation of 
 └─────────────────────────────────────┘
          ↓
 ┌─────────────────────────────────────┐
-│  Database (PostgreSQL + Redis)      │
+│  Database (PostgreSQL)              │
 └─────────────────────────────────────┘
 ```
 
@@ -41,38 +41,43 @@ The Config Server follows a Clean Architecture pattern with clear separation of 
 
 ## Getting Started
 
-### Prerequisites
+📚 **Quick Start Guide**: [QUICKSTART.md](./QUICKSTART.md) - 상세한 구동 방법 (로컬/클라우드)
 
-- Go 1.21+
-- PostgreSQL 15+
-- Redis 7+
-
-### Installation
+### Fastest Way - Docker Compose (권장)
 
 ```bash
-# Clone the repository
+# 1. Clone the repository
 git clone https://github.com/fregataa/aami.git
 cd aami/services/config-server
 
-# Install dependencies
+# 2. Start all services (PostgreSQL + Config Server)
+docker-compose up -d
+
+# 3. Check health
+curl http://localhost:8080/health
+
+# 4. Test API
+curl http://localhost:8080/api/v1/namespaces
+```
+
+### Alternative - Direct Installation
+
+**Prerequisites**: Go 1.21+, PostgreSQL 15+
+
+```bash
+# 1. Install dependencies
 go mod download
 
-# Set up configuration
-# Option 1: Using environment variables
+# 2. Set up environment
 cp .env.example .env
-# Edit .env with your settings
+# Edit .env with your database settings
 
-# Option 2: Using config file
-cp config.yaml.example config.yaml
-# Edit config.yaml with your settings
-
-# Run database migrations
-psql -U postgres -f migrations/001_initial_schema.sql
-
-# Build and run
-go build -o config-server ./cmd/server
+# 3. Build and run
+go build -o config-server ./cmd/config-server
 ./config-server
 ```
+
+자세한 구동 방법은 [QUICKSTART.md](./QUICKSTART.md)를 참조하세요.
 
 ### Development
 
@@ -188,9 +193,60 @@ POST   /api/v1/bootstrap/register      # Auto-register using token
 ### Service Discovery
 
 ```
-GET    /api/v1/sd/prometheus           # Prometheus HTTP SD endpoint
-GET    /api/v1/sd/prometheus/file      # Generate Prometheus file SD
+# Prometheus HTTP Service Discovery
+GET    /api/v1/sd/prometheus                      # All targets (with filters)
+GET    /api/v1/sd/prometheus/active               # Active targets only
+GET    /api/v1/sd/prometheus/group/:groupId       # Group-specific targets
+GET    /api/v1/sd/prometheus/namespace/:nsId      # Namespace-specific targets
+
+# Prometheus File Service Discovery
+POST   /api/v1/sd/prometheus/file                 # Generate file SD (custom filter)
+POST   /api/v1/sd/prometheus/file/active          # Generate file SD (active only)
+POST   /api/v1/sd/prometheus/file/group/:groupId  # Generate file SD (by group)
+POST   /api/v1/sd/prometheus/file/namespace/:nsId # Generate file SD (by namespace)
+
+# Health Check
+GET    /health                                    # Complete health status
+GET    /health/ready                              # Readiness probe (K8s)
+GET    /health/live                               # Liveness probe (K8s)
 ```
+
+## Docker & Kubernetes
+
+### Docker Compose
+
+```bash
+# Production environment
+docker-compose up -d
+
+# Development environment (with hot reload)
+docker-compose -f docker-compose.dev.yml up -d
+
+# View logs
+docker-compose logs -f config-server
+
+# Stop services
+docker-compose down
+```
+
+### Kubernetes
+
+```bash
+# Deploy to Kubernetes
+kubectl apply -k k8s/
+
+# Check status
+kubectl get pods -n aami
+kubectl get svc -n aami
+
+# View logs
+kubectl logs -f deployment/config-server -n aami
+
+# Port forward for testing
+kubectl port-forward svc/config-server 8080:80 -n aami
+```
+
+자세한 내용은 [k8s/README.md](./k8s/README.md)를 참조하세요.
 
 ## Configuration
 
@@ -213,12 +269,6 @@ DB_USER=postgres
 DB_PASSWORD=postgres
 DB_NAME=config_server
 DB_SSLMODE=disable
-
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
-REDIS_DB=0
 ```
 
 ### Config File Example
@@ -235,23 +285,18 @@ database:
   password: postgres
   dbname: config_server
   sslmode: disable
-
-redis:
-  host: localhost
-  port: 6379
-  password: ""
-  db: 0
 ```
 
 ## Current Implementation Status
 
-### ✅ Completed
+### ✅ Completed (Sprint 1-5)
 
+**Core Features**:
 - Project structure and dependencies
 - Domain models with business logic
 - Database migrations and schema management
 - Repository interfaces and GORM implementations
-- Database connection (PostgreSQL + Redis)
+- Database connection (PostgreSQL)
 - Configuration management
 - Error handling utilities
 - DTOs and validation
@@ -262,15 +307,14 @@ redis:
 - Target-Group relationship with junction table
 - Priority system (higher number = higher priority)
 
-### 🚧 In Progress (Sprint 5)
+**Sprint 5 - Operations Ready**:
+- ✅ **Service Discovery**: Prometheus HTTP SD & File SD
+- ✅ **Health Check**: Readiness/Liveness probes with detailed component status
+- ✅ **Containerization**: Optimized Dockerfile with security best practices
+- ✅ **Docker Compose**: Development and production environments
+- ✅ **Kubernetes**: Complete manifests (Deployment, Service, Ingress, HPA)
 
-- Service Discovery generation
-- Health check enhancements
-- Docker support
-- Kubernetes deployment manifests
-- Structured logging
-
-### 📋 Backlog (Future Sprints)
+### 📋 Backlog (Sprint 6+)
 
 - Unit tests and integration tests
 - API documentation (OpenAPI/Swagger)

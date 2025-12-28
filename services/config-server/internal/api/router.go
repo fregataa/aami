@@ -29,10 +29,14 @@ func (s *Server) SetupRouter() *gin.Engine {
 	s.router.Use(middleware.Logger())
 	s.router.Use(middleware.CORS())
 
-	// Health check endpoint
-	s.router.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
-	})
+	// Initialize health service
+	healthService := service.NewHealthService(s.rm.GetDB(), "v1.0.0", s.rm)
+	healthHandler := handler.NewHealthHandler(healthService)
+
+	// Health check endpoints
+	s.router.GET("/health", healthHandler.CheckHealth)
+	s.router.GET("/health/ready", healthHandler.CheckReadiness)
+	s.router.GET("/health/live", healthHandler.CheckLiveness)
 
 	// Initialize services
 	namespaceService := service.NewNamespaceService(s.rm.Namespace, s.rm.Group, s.rm.Target)
@@ -44,6 +48,7 @@ func (s *Server) SetupRouter() *gin.Engine {
 	checkTemplateService := service.NewCheckTemplateService(s.rm.CheckTemplate, s.rm.CheckInstance)
 	checkInstanceService := service.NewCheckInstanceService(s.rm.CheckInstance, s.rm.CheckTemplate, s.rm.Namespace, s.rm.Group, s.rm.Target)
 	bootstrapTokenService := service.NewBootstrapTokenService(s.rm.BootstrapToken, s.rm.Group)
+	serviceDiscoveryService := service.NewServiceDiscoveryService(s.rm.Target)
 
 	// Initialize handlers
 	namespaceHandler := handler.NewNamespaceHandler(namespaceService)
@@ -55,6 +60,7 @@ func (s *Server) SetupRouter() *gin.Engine {
 	checkTemplateHandler := handler.NewCheckTemplateHandler(checkTemplateService)
 	checkInstanceHandler := handler.NewCheckInstanceHandler(checkInstanceService)
 	bootstrapTokenHandler := handler.NewBootstrapTokenHandler(bootstrapTokenService)
+	serviceDiscoveryHandler := handler.NewServiceDiscoveryHandler(serviceDiscoveryService)
 
 	// API v1 routes
 	v1 := s.router.Group("/api/v1")
@@ -201,6 +207,22 @@ func (s *Server) SetupRouter() *gin.Engine {
 		checks := v1.Group("/checks")
 		{
 			checks.GET("/target/:targetId", checkInstanceHandler.GetEffectiveChecksByTargetID)
+		}
+
+		// Service Discovery routes
+		sd := v1.Group("/sd")
+		{
+			// Prometheus HTTP Service Discovery
+			sd.GET("/prometheus", serviceDiscoveryHandler.GetPrometheusTargets)
+			sd.GET("/prometheus/active", serviceDiscoveryHandler.GetActivePrometheusTargets)
+			sd.GET("/prometheus/group/:groupId", serviceDiscoveryHandler.GetPrometheusTargetsByGroup)
+			sd.GET("/prometheus/namespace/:namespaceId", serviceDiscoveryHandler.GetPrometheusTargetsByNamespace)
+
+			// Prometheus File Service Discovery
+			sd.POST("/prometheus/file", serviceDiscoveryHandler.GenerateFileSD)
+			sd.POST("/prometheus/file/active", serviceDiscoveryHandler.GenerateActiveFileSD)
+			sd.POST("/prometheus/file/group/:groupId", serviceDiscoveryHandler.GenerateGroupFileSD)
+			sd.POST("/prometheus/file/namespace/:namespaceId", serviceDiscoveryHandler.GenerateNamespaceFileSD)
 		}
 	}
 

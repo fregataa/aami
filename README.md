@@ -36,7 +36,7 @@ AAMI is an integrated monitoring solution designed to efficiently monitor and ma
 
 ### Enterprise Ready
 - **Microservice Architecture**: Independent scaling of components
-- **High Availability**: PostgreSQL + Redis for reliability
+- **High Availability**: PostgreSQL for reliable data storage
 - **Air-Gapped Support**: Complete offline installation packages
 - **Hybrid Deployment**: Kubernetes, Docker Compose, or bare metal
 
@@ -46,12 +46,12 @@ AAMI is an integrated monitoring solution designed to efficiently monitor and ma
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Config Server API                          │
 │  (Go) - Group/Target Management, Dynamic SD, Alert Customization│
-└──────────────┬───────────────────────────────┬──────────────────┘
-               │                               │
-       ┌───────▼────────┐            ┌────────▼─────────┐
-       │   PostgreSQL   │            │      Redis       │
-       │   (Metadata)   │            │   (SD Cache)     │
-       └────────────────┘            └──────────────────┘
+└──────────────┬──────────────────────────────────────────────────┘
+               │
+       ┌───────▼────────┐
+       │   PostgreSQL   │
+       │   (Metadata)   │
+       └────────────────┘
                │
        ┌───────▼──────────────────────────────────────────────────┐
        │              Prometheus (TSDB)                           │
@@ -78,7 +78,7 @@ AAMI is an integrated monitoring solution designed to efficiently monitor and ma
 
 - Docker 20.10+ and Docker Compose v2.0+
 - Go 1.21+ (for development)
-- PostgreSQL 15+ and Redis 7+ (or use Docker)
+- PostgreSQL 15+ (or use Docker)
 
 ### Installation
 
@@ -141,7 +141,7 @@ cd aami
 
 # Start dependencies
 cd deploy/docker-compose
-docker-compose up -d postgres redis
+docker-compose up -d postgres
 
 # Run Config Server
 cd ../../services/config-server
@@ -203,7 +203,7 @@ aami/
 
 ## Technology Stack
 
-**Backend**: Go 1.21+, Gin, PostgreSQL 15, Redis 7, GORM v2
+**Backend**: Go 1.21+, Gin, PostgreSQL 15, GORM v2
 **Monitoring**: Prometheus 2.45+, Grafana 10.0+, Alertmanager 0.26+
 **Deployment**: Docker, Kubernetes, Ansible
 **CI/CD**: GitHub Actions

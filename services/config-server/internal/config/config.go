@@ -11,7 +11,6 @@ import (
 type Config struct {
 	Server   ServerConfig
 	Database database.Config
-	Redis    database.RedisConfig
 }
 
 // ServerConfig holds server configuration
@@ -31,11 +30,6 @@ func Load() (*Config, error) {
 	viper.SetDefault("database.password", "postgres")
 	viper.SetDefault("database.dbname", "config_server")
 	viper.SetDefault("database.sslmode", "disable")
-
-	viper.SetDefault("redis.host", "localhost")
-	viper.SetDefault("redis.port", 6379)
-	viper.SetDefault("redis.password", "")
-	viper.SetDefault("redis.db", 0)
 
 	// Environment variables
 	viper.AutomaticEnv()

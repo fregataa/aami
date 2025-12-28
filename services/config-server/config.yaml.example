@@ -13,12 +13,6 @@ database:
   dbname: config_server
   sslmode: disable
 
-redis:
-  host: localhost
-  port: 6379
-  password: ""
-  db: 0
-
 logging:
   level: info      # debug, info, warn, error
   format: json     # json or text
