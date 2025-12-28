@@ -48,9 +48,9 @@ The Config Server follows a Clean Architecture pattern with clear separation of 
 ```bash
 # 1. Clone the repository
 git clone https://github.com/fregataa/aami.git
-cd aami/services/config-server
+cd aami/deploy/docker-compose
 
-# 2. Start all services (PostgreSQL + Config Server)
+# 2. Start all services (PostgreSQL + Config Server + Monitoring Stack)
 docker-compose up -d
 
 # 3. Check health
@@ -62,7 +62,7 @@ curl http://localhost:8080/api/v1/namespaces
 
 ### Alternative - Direct Installation
 
-**Prerequisites**: Go 1.21+, PostgreSQL 15+
+**Prerequisites**: Go 1.25+, PostgreSQL 16+
 
 ```bash
 # 1. Install dependencies
@@ -251,18 +251,20 @@ GET    /health/live                               # Liveness probe (K8s)
 ### Docker Compose
 
 ```bash
-# Production environment
+# Navigate to deployment directory
+cd ../../deploy/docker-compose
+
+# Start all services (full stack)
 docker-compose up -d
 
-# Development environment (with hot reload)
-docker-compose -f docker-compose.dev.yml up -d
-
-# View logs
+# View Config Server logs
 docker-compose logs -f config-server
 
 # Stop services
 docker-compose down
 ```
+
+**Note**: Docker Compose files are located in `deploy/docker-compose/` to manage the complete AAMI stack.
 
 ### Kubernetes
 

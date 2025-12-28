@@ -6,12 +6,11 @@ AAMI 프로젝트 개발 환경 설정 및 개발 가이드입니다.
 
 ### 필수 도구
 
-- **Go 1.21+**: Config Server 백엔드 개발
+- **Go 1.25+**: Config Server 백엔드 개발
 - **Node.js 20+**: Config Server UI 개발 (선택)
 - **Docker 20.10+**: 컨테이너 빌드 및 실행
 - **Docker Compose v2.0+**: 로컬 개발 환경
-- **PostgreSQL 15+**: 데이터베이스 (또는 Docker로 실행)
-- **Redis 7+**: 캐싱 (또는 Docker로 실행)
+- **PostgreSQL 16+**: 데이터베이스 (또는 Docker로 실행)
 
 ### 선택 도구
 

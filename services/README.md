@@ -14,7 +14,7 @@ services/
 ## Services Overview
 
 ### Config Server
-- **Language**: Go 1.21+
+- **Language**: Go 1.25+
 - **Framework**: Gin
 - **Database**: PostgreSQL 15, Redis 7
 - **Purpose**: Central management API for targets, groups, and alert rules
@@ -72,10 +72,10 @@ See [exporters/README.md](exporters/README.md) for details.
 ## Development
 
 ### Prerequisites
-- Go 1.21+ (for Go services)
+- Go 1.25+ (for Go services)
 - Node.js 20+ and pnpm (for UI)
 - Docker (for local testing)
-- PostgreSQL 15+ and Redis 7+ (or Docker)
+- PostgreSQL 16+ (or Docker)
 
 ### Running Locally
 

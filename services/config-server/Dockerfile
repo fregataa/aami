@@ -3,7 +3,7 @@
 # ==========================================
 # Stage 1: Builder
 # ==========================================
-FROM golang:1.21-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git make ca-certificates tzdata

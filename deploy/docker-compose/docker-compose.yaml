@@ -1,9 +1,7 @@
-version: '3.8'
-
 services:
   # Prometheus - Time Series Database and Monitoring System
   prometheus:
-    image: prom/prometheus:v2.45.0
+    image: prom/prometheus:v3.7.3
     container_name: aami-prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -29,7 +27,7 @@ services:
 
   # Grafana - Visualization and Dashboarding
   grafana:
-    image: grafana/grafana:10.0.0
+    image: grafana/grafana:12.3
     container_name: aami-grafana
     ports:
       - "${GRAFANA_PORT:-3000}:3000"
@@ -57,7 +55,7 @@ services:
 
   # Alertmanager - Alert Management and Routing
   alertmanager:
-    image: prom/alertmanager:v0.26.0
+    image: prom/alertmanager:v0.28.1
     container_name: aami-alertmanager
     command:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
@@ -80,7 +78,7 @@ services:
 
   # PostgreSQL - Metadata Storage for Config Server
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: aami-postgres
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-config_server}
@@ -100,6 +98,71 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+
+  # Database Migration - Runs schema migrations before Config Server starts
+  migration:
+    image: postgres:16-alpine
+    container_name: aami-migration
+    environment:
+      - PGHOST=postgres
+      - PGPORT=5432
+      - PGUSER=${POSTGRES_USER:-admin}
+      - PGPASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - PGDATABASE=${POSTGRES_DB:-config_server}
+    volumes:
+      - ../../services/config-server/migrations:/migrations:ro
+    networks:
+      - aami-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo '=== Running database migrations ==='
+        psql -f /migrations/001_initial_schema.sql
+        if [ $$? -eq 0 ]; then
+          echo '✓ Database migrations completed successfully'
+          exit 0
+        else
+          echo '✗ Database migration failed'
+          exit 1
+        fi
+      "
+    restart: "no"
+
+  # Config Server - Configuration Management API
+  config-server:
+    build:
+      context: ../../services/config-server
+      dockerfile: Dockerfile
+    container_name: aami-config-server
+    environment:
+      # Server configuration
+      - PORT=${CONFIG_SERVER_PORT:-8080}
+
+      # Database configuration
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER:-admin}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - DB_NAME=${POSTGRES_DB:-config_server}
+      - DB_SSLMODE=disable
+    ports:
+      - "${CONFIG_SERVER_PORT:-8080}:8080"
+    networks:
+      - aami-network
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migration:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health/live"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
 networks:
   aami-network:

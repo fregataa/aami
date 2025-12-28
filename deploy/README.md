@@ -74,7 +74,7 @@ cd offline
 - Docker 20.10+ & Docker Compose v2.0+
 - Kubernetes 1.24+ (for k8s deployment)
 - Ansible 2.9+ (for Ansible deployment)
-- Go 1.21+ (for building from source)
+- Go 1.25+ (for building from source)
 
 ## Quick Links
 

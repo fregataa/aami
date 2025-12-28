@@ -77,8 +77,8 @@ AAMI is an integrated monitoring solution designed to efficiently monitor and ma
 ### Prerequisites
 
 - Docker 20.10+ and Docker Compose v2.0+
-- Go 1.21+ (for development)
-- PostgreSQL 15+ (or use Docker)
+- Go 1.25+ (for development)
+- PostgreSQL 16+ (or use Docker)
 
 ### Installation
 
@@ -204,8 +204,8 @@ aami/
 
 ## Technology Stack
 
-**Backend**: Go 1.21+, Gin, PostgreSQL 15, GORM v2
-**Monitoring**: Prometheus 2.45+, Grafana 10.0+, Alertmanager 0.26+
+**Backend**: Go 1.25+, Gin, PostgreSQL 16, GORM v2
+**Monitoring**: Prometheus 3.7+, Grafana 12.3+, Alertmanager 0.28+
 **Deployment**: Docker, Kubernetes, Ansible
 **CI/CD**: GitHub Actions
 

@@ -75,7 +75,7 @@ Run directly in a Go development environment.
 
 ### Prerequisites
 
-- Go 1.21 or higher
+- Go 1.25 or higher
 - PostgreSQL 15 or higher (running)
 
 ### Step 1: PostgreSQL Setup
@@ -580,16 +580,38 @@ docker-compose logs postgres
 docker-compose exec postgres psql -U postgres -c "CREATE DATABASE aami_config;"
 ```
 
-### Migration Errors
+### Migration Issues
 
-**Issue**: Missing migration files
+**Note**: Database migrations are handled automatically by the migration init container when using Docker Compose. For detailed migration procedures, troubleshooting, and production deployment, see [docs/MIGRATION.md](./docs/MIGRATION.md).
+
+**Issue**: Migration container fails or schema validation error
 
 ```bash
-# Check migration files
-ls -la migrations/
+# Check migration container status
+docker-compose ps migration
 
-# Run migrations manually
-docker-compose exec postgres psql -U postgres -d aami_config -f /migrations/001_initial_schema.sql
+# View migration logs
+docker-compose logs migration
+
+# Verify database tables
+docker-compose exec postgres psql -U admin -d config_server -c "\dt"
+
+# Re-run migration manually if needed
+docker-compose exec postgres psql -U admin -d config_server -f /migrations/001_initial_schema.sql
+
+# Restart config-server after fixing
+docker-compose restart config-server
+```
+
+**Issue**: Config server fails with "missing required tables" error
+
+```bash
+# This means migrations didn't run successfully
+# Check migration container logs
+docker-compose logs migration
+
+# Run migration manually
+docker-compose exec postgres psql -U admin -d config_server -f /migrations/001_initial_schema.sql
 ```
 
 ---
@@ -604,4 +626,5 @@ docker-compose exec postgres psql -U postgres -d aami_config -f /migrations/001_
 For more details, see:
 - [README.md](./README.md) - Project overview
 - [AGENT.md](./.agent/docs/AGENT.md) - Architecture guide
+- [MIGRATION.md](./docs/MIGRATION.md) - Database migration guide
 - [k8s/README.md](./k8s/README.md) - Kubernetes deployment guide
