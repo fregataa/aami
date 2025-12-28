@@ -37,9 +37,9 @@ func (h *HealthCheckResponse) IsHealthy() bool {
 
 // IsReady returns true if critical components are healthy
 func (h *HealthCheckResponse) IsReady() bool {
-	// Check critical components (database and redis)
+	// Check critical components (database)
 	for _, component := range h.Components {
-		if component.Name == "database" || component.Name == "redis" {
+		if component.Name == "database" {
 			if component.Status == HealthStatusUnhealthy {
 				return false
 			}
