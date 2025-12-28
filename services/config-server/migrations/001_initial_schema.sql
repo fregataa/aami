@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS targets (
 CREATE TABLE IF NOT EXISTS target_groups (
     target_id UUID NOT NULL REFERENCES targets(id) ON DELETE CASCADE,
     group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    is_default_own BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     PRIMARY KEY (target_id, group_id)
 );

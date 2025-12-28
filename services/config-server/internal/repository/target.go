@@ -16,7 +16,7 @@ type TargetModel struct {
 	ID        string          `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 	Hostname  string          `gorm:"not null;uniqueIndex"`
 	IPAddress string          `gorm:"not null"`
-	Groups    []GroupModel    `gorm:"many2many:target_groups;"`
+	Groups    []GroupModel    `gorm:"many2many:target_groups;joinForeignKey:TargetID;joinReferences:GroupID"`
 	Status    string          `gorm:"not null;default:'inactive'"`
 	Exporters []ExporterModel `gorm:"foreignKey:TargetID"`
 	Labels    StringMap       `gorm:"type:jsonb;default:'{}'"`

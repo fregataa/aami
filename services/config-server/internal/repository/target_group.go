@@ -14,9 +14,6 @@ type TargetGroupModel struct {
 	GroupID      string    `gorm:"primaryKey;type:uuid;not null"`
 	IsDefaultOwn bool      `gorm:"not null;default:false;index"`
 	CreatedAt    time.Time `gorm:"autoCreateTime"`
-
-	Target TargetModel `gorm:"foreignKey:TargetID;references:ID;constraint:OnDelete:CASCADE"`
-	Group  GroupModel  `gorm:"foreignKey:GroupID;references:ID;constraint:OnDelete:CASCADE"`
 }
 
 func (TargetGroupModel) TableName() string {
