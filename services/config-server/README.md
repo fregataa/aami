@@ -79,6 +79,41 @@ go build -o config-server ./cmd/config-server
 
 자세한 구동 방법은 [QUICKSTART.md](./QUICKSTART.md)를 참조하세요.
 
+## CLI Tool
+
+AAMI provides a command-line interface for easy management of the monitoring infrastructure.
+
+### Install CLI
+
+```bash
+# Build from source
+cd ../../cli
+go build -o aami cmd/aami/main.go
+
+# Install to system path (optional)
+sudo cp aami /usr/local/bin/
+```
+
+### Quick Start
+
+```bash
+# Initialize configuration
+aami config init
+aami config set server http://localhost:8080
+
+# Create namespace and group
+aami namespace create --name=production --priority=100
+aami group create --name=web-tier --namespace=<ns-id>
+
+# Register a target
+aami target create --hostname=web-01 --ip=10.0.1.100 --group=<group-id>
+
+# Create bootstrap token for automated registration
+aami bootstrap-token create --name=prod-token --max-uses=50 --expires=30d
+```
+
+📖 **Full CLI Documentation**: See [CLI directory](../../cli/) for complete documentation
+
 ### Development
 
 ```bash

@@ -182,6 +182,7 @@ For detailed development setup, see [Development Guide](docs/en/DEVELOPMENT.md) 
 
 ```
 aami/
+├── cli/                      # Command-line interface
 ├── config/                   # Configuration files (Prometheus, Grafana, Alertmanager)
 ├── deploy/                   # Deployment configurations
 │   ├── docker-compose/       # Docker Compose setup
