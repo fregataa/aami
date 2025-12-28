@@ -6,21 +6,30 @@ This directory contains comprehensive documentation for the AAMI project.
 
 ```
 docs/
-├── en/                 # English documentation
-│   └── DEVELOPMENT.md  # Development guide (English)
-├── kr/                 # Korean documentation
-│   └── DEVELOPMENT.md  # Development guide (Korean)
-├── diagrams/           # Architecture diagrams
-└── README.md           # This file
+├── en/                            # English documentation
+│   ├── API.md                     # API documentation
+│   ├── CHECK-MANAGEMENT.md        # Check management guide
+│   ├── CLOUD-INIT.md              # Cloud-init integration guide
+│   ├── DEVELOPMENT.md             # Development guide
+│   ├── MIGRATION-GUIDE-CHECK-SYSTEM.md  # Check system migration
+│   ├── NODE-REGISTRATION.md       # Node registration guide
+│   └── QUICKSTART.md              # Quick start guide
+├── kr/                            # Korean documentation
+├── diagrams/                      # Architecture diagrams
+└── README.md                      # This file
 ```
 
-## Language-Specific Documentation
+## Available Documentation
 
-### English (`en/`)
+- **QUICKSTART.md** - Quick start guide
 - **DEVELOPMENT.md** - Development environment setup and guidelines
+- **API.md** - API documentation and examples
+- **CHECK-MANAGEMENT.md** - Check system management
+- **NODE-REGISTRATION.md** - Node registration process
+- **CLOUD-INIT.md** - Cloud-init integration guide
+- **MIGRATION-GUIDE-CHECK-SYSTEM.md** - Check system migration guide
 
-### Korean (`kr/`)
-- **DEVELOPMENT.md** - 개발 환경 설정 및 가이드
+**Note**: Documentation is available in multiple languages. See `en/` for English and `kr/` for Korean versions.
 
 ## Planned Documentation
 
@@ -47,8 +56,9 @@ docs/
 ## Quick Links
 
 - [Main README](../README.md) - Project overview
-- [PLAN.md](../PLAN.md) - Project plan and requirements
-- [sprint-plan.md](../sprint-plan.md) - Sprint execution plan
+- [Agent Documentation](../.agent/README.md) - Documentation for AI coding agents
+- [Project Plan](../.agent/planning/PLAN.md) - Project plan and requirements
+- [Sprint Plans](../.agent/planning/sprints/) - Sprint execution plans
 
 ## Contributing to Documentation
 

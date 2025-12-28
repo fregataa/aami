@@ -4,6 +4,8 @@ PLAN.md
 sprint*-plan.md
 SPRINT*
 .serena
+AGENT.md
+.agent
 
 # IDE
 .idea/
@@ -14,3 +16,6 @@ SPRINT*
 .project
 .classpath
 .settings/
+
+# tmp files
+tmp/
