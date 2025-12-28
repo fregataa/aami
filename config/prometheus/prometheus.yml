@@ -40,10 +40,10 @@ scrape_configs:
           service: 'grafana'
 
   # Node Exporter - System metrics
+  # Uses HTTP Service Discovery from Config Server
   - job_name: 'node-exporter'
-    file_sd_configs:
-      - files:
-          - /etc/prometheus/sd/node-exporter.json
+    http_sd_configs:
+      - url: 'http://config-server:8080/api/v1/sd/prometheus/active?exporter_type=node_exporter'
         refresh_interval: 30s
     relabel_configs:
       # Preserve original instance label
@@ -55,18 +55,18 @@ scrape_configs:
         replacement: localhost:9100  # Node Exporter default port
 
   # DCGM Exporter - GPU metrics
+  # Uses HTTP Service Discovery from Config Server
   - job_name: 'dcgm-exporter'
-    file_sd_configs:
-      - files:
-          - /etc/prometheus/sd/dcgm-exporter.json
+    http_sd_configs:
+      - url: 'http://config-server:8080/api/v1/sd/prometheus/active?exporter_type=dcgm_exporter'
         refresh_interval: 30s
     relabel_configs:
       - source_labels: [__address__]
         target_label: instance
 
   # Custom Exporters
+  # Uses HTTP Service Discovery from Config Server
   - job_name: 'custom-exporters'
-    file_sd_configs:
-      - files:
-          - /etc/prometheus/sd/custom-exporters.json
+    http_sd_configs:
+      - url: 'http://config-server:8080/api/v1/sd/prometheus/active?exporter_type=custom'
         refresh_interval: 30s

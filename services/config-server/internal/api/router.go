@@ -33,10 +33,13 @@ func (s *Server) SetupRouter() *gin.Engine {
 	healthService := service.NewHealthService(s.rm.GetDB(), "v1.0.0", s.rm)
 	healthHandler := handler.NewHealthHandler(healthService)
 
-	// Health check endpoints
+	// Health check endpoints (support both GET and HEAD for compatibility)
 	s.router.GET("/health", healthHandler.CheckHealth)
+	s.router.HEAD("/health", healthHandler.CheckHealth)
 	s.router.GET("/health/ready", healthHandler.CheckReadiness)
+	s.router.HEAD("/health/ready", healthHandler.CheckReadiness)
 	s.router.GET("/health/live", healthHandler.CheckLiveness)
+	s.router.HEAD("/health/live", healthHandler.CheckLiveness)
 
 	// Initialize services
 	namespaceService := service.NewNamespaceService(s.rm.Namespace, s.rm.Group, s.rm.Target)
