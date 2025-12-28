@@ -27,7 +27,7 @@ The Config Server follows a Clean Architecture pattern with clear separation of 
 - **Dependency Rule**: Dependencies flow downward (API → Service → Repository → Domain)
 - **ORM Separation**: Repository layer uses ORM models that convert to/from domain models
 
-📖 **For Developers**: See [AGENT.md](./AGENT.md) for detailed architecture guidelines and coding patterns.
+📖 **For Developers**: See [AGENT.md](./.agent/docs/AGENT.md) for detailed architecture guidelines and coding patterns.
 
 ## Features
 
@@ -108,7 +108,8 @@ make run
 - **exporters**: Metric collector configurations
 - **alert_templates**: Reusable alert definitions
 - **alert_rules**: Group-specific alert configurations
-- **check_settings**: Configuration settings at group level
+- **check_templates**: Reusable check script definitions
+- **check_instances**: Scope-specific check template applications (Global/Namespace/Group)
 - **bootstrap_tokens**: Auto-registration tokens
 
 ### Relationships
@@ -116,7 +117,7 @@ make run
 - Targets belong to one primary group and multiple secondary groups
 - Exporters belong to targets
 - Alert rules reference templates and belong to groups
-- Check settings belong to groups
+- Check instances reference templates and can be scoped to Global/Namespace/Group
 - Bootstrap tokens reference a default group
 
 ## API Endpoints
@@ -152,6 +153,27 @@ GET    /api/v1/alert-templates/:id     # Get template by ID
 POST   /api/v1/groups/:id/alert-rules  # Apply alert rule to group
 GET    /api/v1/groups/:id/alert-rules  # Get group's alert rules
 DELETE /api/v1/alert-rules/:id         # Delete alert rule
+```
+
+### Check Management
+
+```
+# Check Templates
+GET    /api/v1/check-templates         # List check templates
+POST   /api/v1/check-templates         # Create check template
+GET    /api/v1/check-templates/:id     # Get template by ID
+PUT    /api/v1/check-templates/:id     # Update template
+DELETE /api/v1/check-templates/:id     # Soft delete template
+
+# Check Instances
+GET    /api/v1/check-instances         # List check instances
+POST   /api/v1/check-instances         # Create check instance
+GET    /api/v1/check-instances/:id     # Get instance by ID
+PUT    /api/v1/check-instances/:id     # Update instance
+DELETE /api/v1/check-instances/:id     # Soft delete instance
+
+# Node API
+GET    /api/v1/checks/node/:hostname   # Get effective checks for node
 ```
 
 ### Bootstrap
@@ -227,29 +249,36 @@ redis:
 
 - Project structure and dependencies
 - Domain models with business logic
-- Database migrations
+- Database migrations and schema management
 - Repository interfaces and GORM implementations
 - Database connection (PostgreSQL + Redis)
 - Configuration management
 - Error handling utilities
-
-### 🚧 In Progress
-
 - DTOs and validation
 - Service layer implementation
 - API handlers and routing
-- Service Discovery generation
 - Bootstrap functionality
-- Main server entrypoint
+- CheckTemplate/CheckInstance system
+- Target-Group relationship with junction table
+- Priority system (higher number = higher priority)
 
-### 📋 TODO
+### 🚧 In Progress (Sprint 5)
 
-- Authentication and authorization
-- API documentation (OpenAPI/Swagger)
-- Unit tests
-- Integration tests
+- Service Discovery generation
+- Health check enhancements
 - Docker support
 - Kubernetes deployment manifests
+- Structured logging
+
+### 📋 Backlog (Future Sprints)
+
+- Unit tests and integration tests
+- API documentation (OpenAPI/Swagger)
+- Authentication and authorization
+- Performance optimization
+- Backup and recovery
+
+📖 **Sprint Planning**: See [SPRINT_PLAN.md](./.agent/docs/SPRINT_PLAN.md) for detailed sprint roadmap.
 
 ## Development Guidelines
 

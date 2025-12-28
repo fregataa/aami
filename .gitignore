@@ -3,3 +3,14 @@
 PLAN.md
 sprint*-plan.md
 SPRINT*
+.serena
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/

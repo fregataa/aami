@@ -23,9 +23,10 @@ Authorization: Bearer YOUR_API_KEY
 2. [Groups API](#groups-api)
 3. [Targets API](#targets-api)
 4. [Alert Rules API](#alert-rules-api)
-5. [Service Discovery API](#service-discovery-api)
-6. [Bootstrap API](#bootstrap-api)
-7. [Error Responses](#error-responses)
+5. [Check Management API](#check-management-api)
+6. [Service Discovery API](#service-discovery-api)
+7. [Bootstrap API](#bootstrap-api)
+8. [Error Responses](#error-responses)
 
 ---
 
@@ -506,6 +507,238 @@ curl http://localhost:8080/api/v1/targets/660e8400-e29b-41d4-a716-446655440001/a
   ]
 }
 ```
+
+---
+
+## Check Management API
+
+Manages the dynamic check system. Use CheckTemplate (reusable check definitions) and CheckInstance (scope-specific template applications) to manage node-level checks.
+
+### Create Check Template
+
+**Endpoint:** `POST /check-templates`
+
+Creates a reusable check script template.
+
+**Request Body:**
+```json
+{
+  "name": "disk-usage-check",
+  "check_type": "disk",
+  "script_content": "#!/bin/bash\ndf -h / | tail -1 | awk '{print \"disk_usage_percent{mount=\\\"/\\\"} \"$5}' | sed 's/%//'",
+  "language": "bash",
+  "default_config": {
+    "threshold": 80,
+    "mount": "/"
+  },
+  "description": "Disk usage check",
+  "version": "1.0.0"
+}
+```
+
+**Example:**
+```bash
+curl -X POST http://localhost:8080/api/v1/check-templates \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "disk-usage-check",
+    "check_type": "disk",
+    "script_content": "#!/bin/bash\ndf -h / | tail -1",
+    "language": "bash",
+    "default_config": {"threshold": 80},
+    "version": "1.0.0"
+  }'
+```
+
+**Response:**
+```json
+{
+  "id": "880e8400-e29b-41d4-a716-446655440003",
+  "name": "disk-usage-check",
+  "check_type": "disk",
+  "script_content": "...",
+  "language": "bash",
+  "default_config": {"threshold": 80},
+  "hash": "a1b2c3d4...",
+  "version": "1.0.0",
+  "created_at": "2024-01-01T12:00:00Z"
+}
+```
+
+### List Check Templates
+
+**Endpoint:** `GET /check-templates`
+
+**Query Parameters:**
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 20)
+
+**Example:**
+```bash
+curl http://localhost:8080/api/v1/check-templates
+```
+
+### Get Check Template
+
+**Endpoint:** `GET /check-templates/:id`
+
+**Example:**
+```bash
+curl http://localhost:8080/api/v1/check-templates/880e8400-e29b-41d4-a716-446655440003
+```
+
+### Create Check Instance
+
+**Endpoint:** `POST /check-instances`
+
+Applies a check template to a specific scope (Global/Namespace/Group).
+
+**Request Body:**
+```json
+{
+  "template_id": "880e8400-e29b-41d4-a716-446655440003",
+  "scope": "global",
+  "config": {
+    "threshold": 85
+  },
+  "priority": 100,
+  "is_active": true
+}
+```
+
+**Scope-Specific Parameters:**
+- **Global**: `scope: "global"` (no namespace_id or group_id required)
+- **Namespace**: `scope: "namespace"`, requires `namespace_id`
+- **Group**: `scope: "group"`, requires both `namespace_id` and `group_id`
+
+**Example (Global):**
+```bash
+curl -X POST http://localhost:8080/api/v1/check-instances \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template_id": "880e8400-e29b-41d4-a716-446655440003",
+    "scope": "global",
+    "config": {"threshold": 85},
+    "priority": 100,
+    "is_active": true
+  }'
+```
+
+**Example (Group - Override):**
+```bash
+curl -X POST http://localhost:8080/api/v1/check-instances \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template_id": "880e8400-e29b-41d4-a716-446655440003",
+    "scope": "group",
+    "namespace_id": "550e8400-e29b-41d4-a716-446655440000",
+    "group_id": "660e8400-e29b-41d4-a716-446655440001",
+    "config": {"threshold": 70},
+    "priority": 50,
+    "is_active": true
+  }'
+```
+
+### Get Node Effective Checks
+
+**Endpoint:** `GET /checks/node/:hostname`
+
+Retrieves all checks applied to a node based on priority (Group > Namespace > Global).
+
+**Example:**
+```bash
+curl http://localhost:8080/api/v1/checks/node/gpu-node-01.example.com
+```
+
+**Response:**
+```json
+[
+  {
+    "check_type": "disk",
+    "script_content": "#!/bin/bash\n...",
+    "language": "bash",
+    "config": {
+      "threshold": 70,
+      "mount": "/"
+    },
+    "version": "1.0.0",
+    "hash": "a1b2c3d4...",
+    "template_id": "880e8400-e29b-41d4-a716-446655440003",
+    "instance_id": "990e8400-e29b-41d4-a716-446655440004"
+  }
+]
+```
+
+**Note:** The config field is the merged result of the template's default_config and the instance's config.
+
+### List Check Instances
+
+**Endpoint:** `GET /check-instances`
+
+**Query Parameters:**
+- `scope` (optional): Filter by scope (global, namespace, group)
+- `namespace_id` (optional): Filter by namespace
+- `group_id` (optional): Filter by group
+
+**Example:**
+```bash
+# List all
+curl http://localhost:8080/api/v1/check-instances
+
+# Global instances only
+curl http://localhost:8080/api/v1/check-instances?scope=global
+
+# Specific group instances
+curl http://localhost:8080/api/v1/check-instances?group_id=660e8400-e29b-41d4-a716-446655440001
+```
+
+### Update Check Template
+
+**Endpoint:** `PUT /check-templates/:id`
+
+**Example:**
+```bash
+curl -X PUT http://localhost:8080/api/v1/check-templates/880e8400-e29b-41d4-a716-446655440003 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "description": "Updated disk check",
+    "version": "1.1.0"
+  }'
+```
+
+### Update Check Instance
+
+**Endpoint:** `PUT /check-instances/:id`
+
+**Example:**
+```bash
+curl -X PUT http://localhost:8080/api/v1/check-instances/990e8400-e29b-41d4-a716-446655440004 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "config": {"threshold": 75},
+    "is_active": true
+  }'
+```
+
+### Delete Check Template (Soft Delete)
+
+**Endpoint:** `DELETE /check-templates/:id`
+
+**Example:**
+```bash
+curl -X DELETE http://localhost:8080/api/v1/check-templates/880e8400-e29b-41d4-a716-446655440003
+```
+
+### Delete Check Instance (Soft Delete)
+
+**Endpoint:** `DELETE /check-instances/:id`
+
+**Example:**
+```bash
+curl -X DELETE http://localhost:8080/api/v1/check-instances/990e8400-e29b-41d4-a716-446655440004
+```
+
+**Note:** For more detailed check management guidance, refer to the [Check Management Documentation](CHECK-MANAGEMENT.md).
 
 ---
 

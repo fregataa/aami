@@ -1,0 +1,38 @@
+[Unit]
+Description=AAMI Dynamic Check Service
+Documentation=https://github.com/fregataa/aami
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+
+# Environment
+Environment="AAMI_CONFIG_SERVER_URL=http://config-server:8080"
+Environment="TEXTFILE_DIR=/var/lib/node_exporter/textfile_collector"
+Environment="CHECK_SCRIPTS_DIR=/usr/local/lib/aami/checks"
+Environment="LOG_FILE=/var/log/aami/dynamic-check.log"
+
+# Create directories if they don't exist
+ExecStartPre=/bin/mkdir -p /var/lib/node_exporter/textfile_collector
+ExecStartPre=/bin/mkdir -p /usr/local/lib/aami/checks
+ExecStartPre=/bin/mkdir -p /var/log/aami
+
+# Run dynamic check script
+ExecStart=/usr/local/bin/dynamic-check.sh
+
+# Logging
+StandardOutput=append:/var/log/aami/dynamic-check.log
+StandardError=append:/var/log/aami/dynamic-check-error.log
+
+# Security
+NoNewPrivileges=false
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector /usr/local/lib/aami/checks /var/log/aami
+
+[Install]
+WantedBy=multi-user.target

@@ -12,20 +12,18 @@ import (
 
 // TargetModel is the GORM model for database operations
 type TargetModel struct {
-	ID              string          `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	Hostname        string          `gorm:"not null;uniqueIndex"`
-	IPAddress       string          `gorm:"not null"`
-	PrimaryGroupID  string          `gorm:"type:uuid;not null;index"`
-	PrimaryGroup    *GroupModel     `gorm:"foreignKey:PrimaryGroupID"`
-	SecondaryGroups []GroupModel    `gorm:"many2many:target_groups;"`
-	Status          string          `gorm:"not null;default:'inactive'"`
-	Exporters       []ExporterModel `gorm:"foreignKey:TargetID"`
-	Labels          StringMap       `gorm:"type:jsonb;default:'{}'"`
-	Metadata        JSONB           `gorm:"type:jsonb;default:'{}'"`
-	LastSeen        *time.Time      `gorm:"index"`
-	DeletedAt       gorm.DeletedAt  `gorm:"index"`
-	CreatedAt       time.Time       `gorm:"autoCreateTime"`
-	UpdatedAt       time.Time       `gorm:"autoUpdateTime"`
+	ID        string          `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	Hostname  string          `gorm:"not null;uniqueIndex"`
+	IPAddress string          `gorm:"not null"`
+	Groups    []GroupModel    `gorm:"many2many:target_groups;"`
+	Status    string          `gorm:"not null;default:'inactive'"`
+	Exporters []ExporterModel `gorm:"foreignKey:TargetID"`
+	Labels    StringMap       `gorm:"type:jsonb;default:'{}'"`
+	Metadata  JSONB           `gorm:"type:jsonb;default:'{}'"`
+	LastSeen  *time.Time      `gorm:"index"`
+	DeletedAt gorm.DeletedAt  `gorm:"index"`
+	CreatedAt time.Time       `gorm:"autoCreateTime"`
+	UpdatedAt time.Time       `gorm:"autoUpdateTime"`
 }
 
 // TableName specifies the table name for GORM
@@ -60,52 +58,54 @@ func (sm *StringMap) Scan(value interface{}) error {
 // ToTargetModel converts domain.Target to TargetModel
 func ToTargetModel(t *domain.Target) *TargetModel {
 	model := &TargetModel{
-		ID:             t.ID,
-		Hostname:       t.Hostname,
-		IPAddress:      t.IPAddress,
-		PrimaryGroupID: t.PrimaryGroupID,
-		Status:         string(t.Status),
-		Labels:         StringMap(t.Labels),
-		Metadata:       JSONB(t.Metadata),
-		LastSeen:       t.LastSeen,
-		CreatedAt:      t.CreatedAt,
-		UpdatedAt:      t.UpdatedAt,
+		ID:        t.ID,
+		Hostname:  t.Hostname,
+		IPAddress: t.IPAddress,
+		Status:    string(t.Status),
+		Labels:    StringMap(t.Labels),
+		Metadata:  JSONB(t.Metadata),
+		LastSeen:  t.LastSeen,
+		CreatedAt: t.CreatedAt,
+		UpdatedAt: t.UpdatedAt,
 	}
 	if t.DeletedAt != nil {
 		model.DeletedAt = gorm.DeletedAt{Time: *t.DeletedAt, Valid: true}
 	}
+
+	// Convert Groups
+	if len(t.Groups) > 0 {
+		model.Groups = make([]GroupModel, len(t.Groups))
+		for i, g := range t.Groups {
+			model.Groups[i] = *ToGroupModel(&g)
+		}
+	}
+
 	return model
 }
 
 // ToDomain converts TargetModel to domain.Target
 func (m *TargetModel) ToDomain() *domain.Target {
 	t := &domain.Target{
-		ID:             m.ID,
-		Hostname:       m.Hostname,
-		IPAddress:      m.IPAddress,
-		PrimaryGroupID: m.PrimaryGroupID,
-		Status:         domain.TargetStatus(m.Status),
-		Labels:         map[string]string(m.Labels),
-		Metadata:       map[string]interface{}(m.Metadata),
-		LastSeen:       m.LastSeen,
-		CreatedAt:      m.CreatedAt,
-		UpdatedAt:      m.UpdatedAt,
+		ID:        m.ID,
+		Hostname:  m.Hostname,
+		IPAddress: m.IPAddress,
+		Status:    domain.TargetStatus(m.Status),
+		Labels:    map[string]string(m.Labels),
+		Metadata:  map[string]interface{}(m.Metadata),
+		LastSeen:  m.LastSeen,
+		CreatedAt: m.CreatedAt,
+		UpdatedAt: m.UpdatedAt,
 	}
 	if m.DeletedAt.Valid {
 		deletedAt := m.DeletedAt.Time
 		t.DeletedAt = &deletedAt
 	}
 
-	// Convert PrimaryGroup if loaded
-	if m.PrimaryGroup != nil {
-		t.PrimaryGroup = *m.PrimaryGroup.ToDomain()
-	}
-
-	// Convert SecondaryGroups if loaded
-	if len(m.SecondaryGroups) > 0 {
-		t.SecondaryGroups = make([]domain.Group, len(m.SecondaryGroups))
-		for i, group := range m.SecondaryGroups {
-			t.SecondaryGroups[i] = *group.ToDomain()
+	// Convert Groups
+	if len(m.Groups) > 0 {
+		t.Groups = make([]domain.Group, len(m.Groups))
+		for i, group := range m.Groups {
+			t.Groups[i] = *group.ToDomain()
 		}
 	}
 
@@ -134,6 +134,7 @@ type TargetRepository interface {
 	UpdateStatus(ctx context.Context, id string, status domain.TargetStatus) error
 	UpdateLastSeen(ctx context.Context, id string, lastSeen time.Time) error
 	CountByNamespaceID(ctx context.Context, namespaceID string) (int64, error)
+	GetEffectiveCheckInstances(ctx context.Context, targetID string) (*domain.EffectiveCheckInstancesResult, error)
 }
 
 // targetRepository implements TargetRepository interface using GORM
@@ -160,8 +161,7 @@ func (r *targetRepository) Create(ctx context.Context, target *domain.Target) er
 func (r *targetRepository) GetByID(ctx context.Context, id string) (*domain.Target, error) {
 	var model TargetModel
 	err := r.db.WithContext(ctx).
-		Preload("PrimaryGroup").
-		Preload("SecondaryGroups").
+		Preload("Groups").
 		Preload("Exporters").
 		First(&model, "id = ?", id).Error
 	if err != nil {
@@ -174,8 +174,7 @@ func (r *targetRepository) GetByID(ctx context.Context, id string) (*domain.Targ
 func (r *targetRepository) GetByHostname(ctx context.Context, hostname string) (*domain.Target, error) {
 	var model TargetModel
 	err := r.db.WithContext(ctx).
-		Preload("PrimaryGroup").
-		Preload("SecondaryGroups").
+		Preload("Groups").
 		Preload("Exporters").
 		First(&model, "hostname = ?", hostname).Error
 	if err != nil {
@@ -229,8 +228,7 @@ func (r *targetRepository) List(ctx context.Context, page, limit int) ([]domain.
 	err := r.db.WithContext(ctx).
 		Offset(offset).
 		Limit(limit).
-		Preload("PrimaryGroup").
-		Preload("SecondaryGroups").
+		Preload("Groups").
 		Preload("Exporters").
 		Order("hostname ASC").
 		Find(&models).Error
@@ -246,13 +244,13 @@ func (r *targetRepository) List(ctx context.Context, page, limit int) ([]domain.
 	return targets, int(total), nil
 }
 
-// GetByGroupID retrieves all targets belonging to a group (primary only)
+// GetByGroupID retrieves all targets belonging to a group
 func (r *targetRepository) GetByGroupID(ctx context.Context, groupID string) ([]domain.Target, error) {
 	var models []TargetModel
 	err := r.db.WithContext(ctx).
-		Where("primary_group_id = ?", groupID).
-		Preload("PrimaryGroup").
-		Preload("SecondaryGroups").
+		Joins("JOIN target_groups ON target_groups.target_id = targets.id").
+		Where("target_groups.group_id = ?", groupID).
+		Preload("Groups").
 		Preload("Exporters").
 		Order("hostname ASC").
 		Find(&models).Error
@@ -289,13 +287,141 @@ func (r *targetRepository) UpdateLastSeen(ctx context.Context, id string, lastSe
 		}).Error
 }
 
-// CountByNamespaceID counts the number of targets whose primary group belongs to a specific namespace
+// CountByNamespaceID counts the number of targets that belong to at least one group in a specific namespace
 func (r *targetRepository) CountByNamespaceID(ctx context.Context, namespaceID string) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).
 		Model(&TargetModel{}).
-		Joins("JOIN groups ON targets.primary_group_id = groups.id").
+		Joins("JOIN target_groups ON target_groups.target_id = targets.id").
+		Joins("JOIN groups ON target_groups.group_id = groups.id").
 		Where("groups.namespace_id = ?", namespaceID).
+		Distinct("targets.id").
 		Count(&count).Error
 	return count, err
+}
+
+// GetEffectiveCheckInstances retrieves all effective check instances for a target
+// Returns namespace-level and group-level instances separately, properly sorted by priority
+func (r *targetRepository) GetEffectiveCheckInstances(ctx context.Context, targetID string) (*domain.EffectiveCheckInstancesResult, error) {
+	// First, get target with all groups sorted by priority
+	var target TargetModel
+	err := r.db.WithContext(ctx).
+		Preload("Groups", func(db *gorm.DB) *gorm.DB {
+			return db.Order("priority DESC") // Higher priority number = higher priority
+		}).
+		First(&target, "id = ?", targetID).Error
+	if err != nil {
+		return nil, err
+	}
+
+	if len(target.Groups) == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	// Collect unique namespace IDs from all groups
+	namespaceIDs := make(map[string]bool)
+	for _, group := range target.Groups {
+		namespaceIDs[group.NamespaceID] = true
+	}
+
+	// Get namespace-level instances
+	seenKeys := make(map[string]bool)
+	namespaceInstances, err := r.getNamespaceInstances(ctx, namespaceIDs, seenKeys)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get group-level instances
+	groupInstances, err := r.getGroupInstances(ctx, target.Groups, seenKeys)
+	if err != nil {
+		return nil, err
+	}
+
+	return &domain.EffectiveCheckInstancesResult{
+		NamespaceInstances: namespaceInstances,
+		GroupInstances:     groupInstances,
+	}, nil
+}
+
+// getNamespaceInstances retrieves and deduplicates namespace-level instances (global + namespace scope)
+func (r *targetRepository) getNamespaceInstances(ctx context.Context, namespaceIDs map[string]bool, seenKeys map[string]bool) ([]domain.CheckInstance, error) {
+	var namespaceInstanceModels []CheckInstanceModel
+
+	// Collect instances from all namespaces
+	for nsID := range namespaceIDs {
+		var instances []CheckInstanceModel
+		err := r.db.WithContext(ctx).
+			Where("(scope = ? OR (scope = ? AND namespace_id = ?)) AND is_active = ? AND deleted_at IS NULL",
+				"global", "namespace", nsID, true).
+			Order("scope DESC, priority DESC"). // Group > Namespace > Global, then by priority (higher = higher priority)
+			Find(&instances).Error
+		if err != nil {
+			return nil, err
+		}
+		namespaceInstanceModels = append(namespaceInstanceModels, instances...)
+	}
+
+	// Deduplicate by template_id or name:checktype (keep first = highest priority)
+	var uniqueInstances []CheckInstanceModel
+	for _, inst := range namespaceInstanceModels {
+		key := r.getInstanceKey(inst)
+		if !seenKeys[key] {
+			uniqueInstances = append(uniqueInstances, inst)
+			seenKeys[key] = true
+		}
+	}
+
+	// Convert to domain objects
+	result := make([]domain.CheckInstance, len(uniqueInstances))
+	for i, model := range uniqueInstances {
+		result[i] = *model.ToDomain()
+	}
+
+	return result, nil
+}
+
+// getGroupInstances retrieves and deduplicates group-level instances
+// Processes groups in priority order and respects already seen instances
+func (r *targetRepository) getGroupInstances(ctx context.Context, groups []GroupModel, seenKeys map[string]bool) ([]domain.CheckInstance, error) {
+	var groupInstanceModels []CheckInstanceModel
+
+	// Process groups in priority order (already sorted)
+	for _, group := range groups {
+		var instances []CheckInstanceModel
+		err := r.db.WithContext(ctx).
+			Where("(scope = ? OR (scope = ? AND namespace_id = ?) OR (scope = ? AND group_id = ?)) AND is_active = ? AND deleted_at IS NULL",
+				"global", "namespace", group.NamespaceID, "group", group.ID, true).
+			Order("scope DESC, priority DESC"). // Group > Namespace > Global, then by priority (higher = higher priority)
+			Find(&instances).Error
+		if err != nil {
+			return nil, err
+		}
+
+		// Add to results with deduplication
+		for _, inst := range instances {
+			key := r.getInstanceKey(inst)
+			// Only add if not seen yet (first group with this check wins due to priority order)
+			if !seenKeys[key] {
+				groupInstanceModels = append(groupInstanceModels, inst)
+				seenKeys[key] = true
+			}
+		}
+	}
+
+	// Convert to domain objects
+	result := make([]domain.CheckInstance, len(groupInstanceModels))
+	for i, model := range groupInstanceModels {
+		result[i] = *model.ToDomain()
+	}
+
+	return result, nil
+}
+
+// getInstanceKey generates a unique key for deduplication
+// Uses template ID if available, otherwise uses name:checktype
+func (r *targetRepository) getInstanceKey(inst CheckInstanceModel) string {
+	if inst.CreatedFromTemplateID != nil {
+		return *inst.CreatedFromTemplateID
+	}
+	return inst.Name + ":" + inst.CheckType
 }

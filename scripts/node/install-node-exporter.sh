@@ -19,6 +19,7 @@ NODE_EXPORTER_PORT="${NODE_EXPORTER_PORT:-9100}"
 INSTALL_DIR="/usr/local/bin"
 SERVICE_USER="node_exporter"
 SERVICE_FILE="/etc/systemd/system/node_exporter.service"
+TEXTFILE_DIR="/var/lib/node_exporter/textfile_collector"
 
 # Colors
 RED='\033[0;31m'
@@ -136,6 +137,12 @@ if ! id "$SERVICE_USER" &>/dev/null; then
     useradd --no-create-home --shell /bin/false "$SERVICE_USER"
 fi
 
+# Create textfile collector directory
+info "Creating textfile collector directory: $TEXTFILE_DIR"
+mkdir -p "$TEXTFILE_DIR"
+chown "$SERVICE_USER:$SERVICE_USER" "$TEXTFILE_DIR"
+chmod 755 "$TEXTFILE_DIR"
+
 # Create systemd service file
 info "Creating systemd service..."
 cat > "$SERVICE_FILE" <<EOF
@@ -150,6 +157,7 @@ Group=$SERVICE_USER
 Type=simple
 ExecStart=$INSTALL_DIR/node_exporter \\
     --web.listen-address=:$NODE_EXPORTER_PORT \\
+    --collector.textfile.directory=$TEXTFILE_DIR \\
     --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/.+)(\$|/) \\
     --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)\$
 
@@ -196,11 +204,14 @@ cat <<EOF
 
 ${GREEN}Installation complete!${NC}
 
+Textfile collector enabled at: $TEXTFILE_DIR
+
 Next steps:
 1. Register this node in AAMI Config Server
-2. Add firewall rule if needed:
+2. Install dynamic check scripts from AAMI repository
+3. Add firewall rule if needed:
    sudo ufw allow ${NODE_EXPORTER_PORT}/tcp
-3. Verify metrics:
+4. Verify metrics:
    curl http://localhost:${NODE_EXPORTER_PORT}/metrics
 
 Service commands:

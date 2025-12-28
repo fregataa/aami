@@ -23,9 +23,10 @@ Authorization: Bearer YOUR_API_KEY
 2. [그룹 API](#그룹-api)
 3. [타겟 API](#타겟-api)
 4. [알림 규칙 API](#알림-규칙-api)
-5. [서비스 디스커버리 API](#서비스-디스커버리-api)
-6. [부트스트랩 API](#부트스트랩-api)
-7. [에러 응답](#에러-응답)
+5. [체크 관리 API](#체크-관리-api)
+6. [서비스 디스커버리 API](#서비스-디스커버리-api)
+7. [부트스트랩 API](#부트스트랩-api)
+8. [에러 응답](#에러-응답)
 
 ---
 
@@ -506,6 +507,238 @@ curl http://localhost:8080/api/v1/targets/660e8400-e29b-41d4-a716-446655440001/a
   ]
 }
 ```
+
+---
+
+## 체크 관리 API
+
+동적 체크 시스템을 관리합니다. CheckTemplate(재사용 가능한 체크 정의)과 CheckInstance(스코프별 템플릿 적용)를 통해 노드별 체크를 관리합니다.
+
+### 체크 템플릿 생성
+
+**엔드포인트:** `POST /check-templates`
+
+재사용 가능한 체크 스크립트 템플릿을 생성합니다.
+
+**요청 본문:**
+```json
+{
+  "name": "disk-usage-check",
+  "check_type": "disk",
+  "script_content": "#!/bin/bash\ndf -h / | tail -1 | awk '{print \"disk_usage_percent{mount=\\\"/\\\"} \"$5}' | sed 's/%//'",
+  "language": "bash",
+  "default_config": {
+    "threshold": 80,
+    "mount": "/"
+  },
+  "description": "디스크 사용률 체크",
+  "version": "1.0.0"
+}
+```
+
+**예제:**
+```bash
+curl -X POST http://localhost:8080/api/v1/check-templates \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "disk-usage-check",
+    "check_type": "disk",
+    "script_content": "#!/bin/bash\ndf -h / | tail -1",
+    "language": "bash",
+    "default_config": {"threshold": 80},
+    "version": "1.0.0"
+  }'
+```
+
+**응답:**
+```json
+{
+  "id": "880e8400-e29b-41d4-a716-446655440003",
+  "name": "disk-usage-check",
+  "check_type": "disk",
+  "script_content": "...",
+  "language": "bash",
+  "default_config": {"threshold": 80},
+  "hash": "a1b2c3d4...",
+  "version": "1.0.0",
+  "created_at": "2024-01-01T12:00:00Z"
+}
+```
+
+### 체크 템플릿 목록 조회
+
+**엔드포인트:** `GET /check-templates`
+
+**쿼리 파라미터:**
+- `page` (선택): 페이지 번호 (기본값: 1)
+- `limit` (선택): 페이지당 항목 수 (기본값: 20)
+
+**예제:**
+```bash
+curl http://localhost:8080/api/v1/check-templates
+```
+
+### 체크 템플릿 조회
+
+**엔드포인트:** `GET /check-templates/:id`
+
+**예제:**
+```bash
+curl http://localhost:8080/api/v1/check-templates/880e8400-e29b-41d4-a716-446655440003
+```
+
+### 체크 인스턴스 생성
+
+**엔드포인트:** `POST /check-instances`
+
+특정 스코프(Global/Namespace/Group)에 체크 템플릿을 적용합니다.
+
+**요청 본문:**
+```json
+{
+  "template_id": "880e8400-e29b-41d4-a716-446655440003",
+  "scope": "global",
+  "config": {
+    "threshold": 85
+  },
+  "priority": 100,
+  "is_active": true
+}
+```
+
+**스코프별 파라미터:**
+- **Global**: `scope: "global"` (namespace_id, group_id 불필요)
+- **Namespace**: `scope: "namespace"`, `namespace_id` 필수
+- **Group**: `scope: "group"`, `namespace_id`, `group_id` 필수
+
+**예제 (Global):**
+```bash
+curl -X POST http://localhost:8080/api/v1/check-instances \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template_id": "880e8400-e29b-41d4-a716-446655440003",
+    "scope": "global",
+    "config": {"threshold": 85},
+    "priority": 100,
+    "is_active": true
+  }'
+```
+
+**예제 (Group - 오버라이드):**
+```bash
+curl -X POST http://localhost:8080/api/v1/check-instances \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template_id": "880e8400-e29b-41d4-a716-446655440003",
+    "scope": "group",
+    "namespace_id": "550e8400-e29b-41d4-a716-446655440000",
+    "group_id": "660e8400-e29b-41d4-a716-446655440001",
+    "config": {"threshold": 70},
+    "priority": 50,
+    "is_active": true
+  }'
+```
+
+### 노드의 Effective Checks 조회
+
+**엔드포인트:** `GET /checks/node/:hostname`
+
+노드에 적용되는 모든 체크를 우선순위에 따라 조회합니다 (Group > Namespace > Global).
+
+**예제:**
+```bash
+curl http://localhost:8080/api/v1/checks/node/gpu-node-01.example.com
+```
+
+**응답:**
+```json
+[
+  {
+    "check_type": "disk",
+    "script_content": "#!/bin/bash\n...",
+    "language": "bash",
+    "config": {
+      "threshold": 70,
+      "mount": "/"
+    },
+    "version": "1.0.0",
+    "hash": "a1b2c3d4...",
+    "template_id": "880e8400-e29b-41d4-a716-446655440003",
+    "instance_id": "990e8400-e29b-41d4-a716-446655440004"
+  }
+]
+```
+
+**참고:** config 필드는 템플릿의 default_config와 인스턴스의 config가 병합된 결과입니다.
+
+### 체크 인스턴스 목록 조회
+
+**엔드포인트:** `GET /check-instances`
+
+**쿼리 파라미터:**
+- `scope` (선택): 스코프로 필터링 (global, namespace, group)
+- `namespace_id` (선택): 네임스페이스로 필터링
+- `group_id` (선택): 그룹으로 필터링
+
+**예제:**
+```bash
+# 전체 조회
+curl http://localhost:8080/api/v1/check-instances
+
+# Global 인스턴스만
+curl http://localhost:8080/api/v1/check-instances?scope=global
+
+# 특정 그룹의 인스턴스
+curl http://localhost:8080/api/v1/check-instances?group_id=660e8400-e29b-41d4-a716-446655440001
+```
+
+### 체크 템플릿 수정
+
+**엔드포인트:** `PUT /check-templates/:id`
+
+**예제:**
+```bash
+curl -X PUT http://localhost:8080/api/v1/check-templates/880e8400-e29b-41d4-a716-446655440003 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "description": "업데이트된 디스크 체크",
+    "version": "1.1.0"
+  }'
+```
+
+### 체크 인스턴스 수정
+
+**엔드포인트:** `PUT /check-instances/:id`
+
+**예제:**
+```bash
+curl -X PUT http://localhost:8080/api/v1/check-instances/990e8400-e29b-41d4-a716-446655440004 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "config": {"threshold": 75},
+    "is_active": true
+  }'
+```
+
+### 체크 템플릿 삭제 (Soft Delete)
+
+**엔드포인트:** `DELETE /check-templates/:id`
+
+**예제:**
+```bash
+curl -X DELETE http://localhost:8080/api/v1/check-templates/880e8400-e29b-41d4-a716-446655440003
+```
+
+### 체크 인스턴스 삭제 (Soft Delete)
+
+**엔드포인트:** `DELETE /check-instances/:id`
+
+**예제:**
+```bash
+curl -X DELETE http://localhost:8080/api/v1/check-instances/990e8400-e29b-41d4-a716-446655440004
+```
+
+**참고:** 더 자세한 체크 관리 가이드는 [체크 관리 문서](CHECK-MANAGEMENT.md)를 참조하세요.
 
 ---
 

@@ -37,11 +37,12 @@ func (s *Server) SetupRouter() *gin.Engine {
 	// Initialize services
 	namespaceService := service.NewNamespaceService(s.rm.Namespace, s.rm.Group, s.rm.Target)
 	groupService := service.NewGroupService(s.rm.Group, s.rm.Namespace)
-	targetService := service.NewTargetService(s.rm.Target, s.rm.Group)
+	targetService := service.NewTargetService(s.rm.Target, s.rm.TargetGroup, s.rm.Group, s.rm.Namespace)
 	exporterService := service.NewExporterService(s.rm.Exporter, s.rm.Target)
 	alertTemplateService := service.NewAlertTemplateService(s.rm.AlertTemplate)
 	alertRuleService := service.NewAlertRuleService(s.rm.AlertRule, s.rm.AlertTemplate, s.rm.Group)
-	checkSettingService := service.NewCheckSettingService(s.rm.CheckSetting, s.rm.Group)
+	checkTemplateService := service.NewCheckTemplateService(s.rm.CheckTemplate, s.rm.CheckInstance)
+	checkInstanceService := service.NewCheckInstanceService(s.rm.CheckInstance, s.rm.CheckTemplate, s.rm.Namespace, s.rm.Group, s.rm.Target)
 	bootstrapTokenService := service.NewBootstrapTokenService(s.rm.BootstrapToken, s.rm.Group)
 
 	// Initialize handlers
@@ -51,7 +52,8 @@ func (s *Server) SetupRouter() *gin.Engine {
 	exporterHandler := handler.NewExporterHandler(exporterService)
 	alertTemplateHandler := handler.NewAlertTemplateHandler(alertTemplateService)
 	alertRuleHandler := handler.NewAlertRuleHandler(alertRuleService)
-	checkSettingHandler := handler.NewCheckSettingHandler(checkSettingService)
+	checkTemplateHandler := handler.NewCheckTemplateHandler(checkTemplateService)
+	checkInstanceHandler := handler.NewCheckInstanceHandler(checkInstanceService)
 	bootstrapTokenHandler := handler.NewBootstrapTokenHandler(bootstrapTokenService)
 
 	// API v1 routes
@@ -145,20 +147,6 @@ func (s *Server) SetupRouter() *gin.Engine {
 			alertRules.GET("/template/:template_id", alertRuleHandler.GetByTemplateID)
 		}
 
-		// Check setting routes
-		checkSettings := v1.Group("/check-settings")
-		{
-			checkSettings.POST("", checkSettingHandler.Create)
-			checkSettings.GET("", checkSettingHandler.List)
-			checkSettings.GET("/:id", checkSettingHandler.GetByID)
-			checkSettings.PUT("/:id", checkSettingHandler.Update)
-			checkSettings.POST("/delete", checkSettingHandler.DeleteResource)
-			checkSettings.POST("/purge", checkSettingHandler.PurgeResource)
-			checkSettings.POST("/restore", checkSettingHandler.RestoreResource)
-			checkSettings.GET("/group/:group_id", checkSettingHandler.GetByGroupID)
-			checkSettings.GET("/type/:type", checkSettingHandler.GetByCheckType)
-		}
-
 		// Bootstrap token routes
 		bootstrapTokens := v1.Group("/bootstrap-tokens")
 		{
@@ -172,6 +160,47 @@ func (s *Server) SetupRouter() *gin.Engine {
 			bootstrapTokens.POST("/purge", bootstrapTokenHandler.PurgeResource)
 			bootstrapTokens.POST("/restore", bootstrapTokenHandler.RestoreResource)
 			bootstrapTokens.GET("/group/:group_id", bootstrapTokenHandler.GetByGroupID)
+		}
+
+		// Check template routes
+		checkTemplates := v1.Group("/check-templates")
+		{
+			checkTemplates.POST("", checkTemplateHandler.Create)
+			checkTemplates.GET("", checkTemplateHandler.List)
+			checkTemplates.GET("/active", checkTemplateHandler.ListActive)
+			checkTemplates.GET("/:id", checkTemplateHandler.GetByID)
+			checkTemplates.GET("/name/:name", checkTemplateHandler.GetByName)
+			checkTemplates.GET("/type/:checkType", checkTemplateHandler.GetByCheckType)
+			checkTemplates.PUT("/:id", checkTemplateHandler.Update)
+			checkTemplates.POST("/delete", checkTemplateHandler.DeleteResource)
+			checkTemplates.POST("/purge", checkTemplateHandler.PurgeResource)
+			checkTemplates.POST("/restore", checkTemplateHandler.RestoreResource)
+			checkTemplates.GET("/:id/verify-hash", checkTemplateHandler.VerifyHash)
+		}
+
+		// Check instance routes
+		checkInstances := v1.Group("/check-instances")
+		{
+			checkInstances.POST("", checkInstanceHandler.Create)
+			checkInstances.GET("", checkInstanceHandler.List)
+			checkInstances.GET("/active", checkInstanceHandler.ListActive)
+			checkInstances.GET("/:id", checkInstanceHandler.GetByID)
+			checkInstances.GET("/template/:templateId", checkInstanceHandler.GetByTemplateID)
+			checkInstances.GET("/global", checkInstanceHandler.GetGlobalInstances)
+			checkInstances.GET("/namespace/:namespaceId", checkInstanceHandler.GetByNamespaceID)
+			checkInstances.GET("/group/:groupId", checkInstanceHandler.GetByGroupID)
+			checkInstances.GET("/effective/namespace/:namespaceId", checkInstanceHandler.GetEffectiveChecksByNamespace)
+			checkInstances.GET("/effective/group/:namespaceId/:groupId", checkInstanceHandler.GetEffectiveChecksByGroup)
+			checkInstances.PUT("/:id", checkInstanceHandler.Update)
+			checkInstances.POST("/delete", checkInstanceHandler.DeleteResource)
+			checkInstances.POST("/purge", checkInstanceHandler.PurgeResource)
+			checkInstances.POST("/restore", checkInstanceHandler.RestoreResource)
+		}
+
+		// Node API: Get effective checks by target ID
+		checks := v1.Group("/checks")
+		{
+			checks.GET("/target/:targetId", checkInstanceHandler.GetEffectiveChecksByTargetID)
 		}
 	}
 

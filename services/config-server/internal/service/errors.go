@@ -7,12 +7,13 @@ import (
 
 // Common service errors
 var (
-	ErrNotFound          = errors.New("resource not found")
-	ErrAlreadyExists     = errors.New("resource already exists")
-	ErrInvalidInput      = errors.New("invalid input")
-	ErrForeignKeyViolation = errors.New("referenced resource does not exist")
-	ErrCircularReference = errors.New("circular reference detected")
-	ErrInUse             = errors.New("resource is in use and cannot be deleted")
+	ErrNotFound              = errors.New("resource not found")
+	ErrAlreadyExists         = errors.New("resource already exists")
+	ErrInvalidInput          = errors.New("invalid input")
+	ErrForeignKeyViolation   = errors.New("referenced resource does not exist")
+	ErrCircularReference     = errors.New("circular reference detected")
+	ErrInUse                 = errors.New("resource is in use and cannot be deleted")
+	ErrCannotRemoveLastGroup = errors.New("cannot remove last group from target")
 )
 
 // ValidationError represents a validation error with field details

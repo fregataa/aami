@@ -159,10 +159,10 @@ func (r *namespaceRepository) List(ctx context.Context, page, limit int) ([]doma
 		return nil, 0, err
 	}
 
-	// Get paginated results ordered by policy priority (lower = higher priority)
+	// Get paginated results ordered by policy priority (higher = higher priority)
 	offset := (page - 1) * limit
 	err := r.db.WithContext(ctx).
-		Order("policy_priority ASC, name ASC").
+		Order("policy_priority DESC, name ASC").
 		Offset(offset).
 		Limit(limit).
 		Find(&models).Error
@@ -183,7 +183,7 @@ func (r *namespaceRepository) List(ctx context.Context, page, limit int) ([]doma
 func (r *namespaceRepository) GetAll(ctx context.Context) ([]domain.Namespace, error) {
 	var models []NamespaceModel
 	err := r.db.WithContext(ctx).
-		Order("policy_priority ASC, name ASC").
+		Order("policy_priority DESC, name ASC").
 		Find(&models).Error
 	if err != nil {
 		return nil, err

@@ -8,7 +8,7 @@ type Namespace struct {
 	ID             string     `json:"id"`
 	Name           string     `json:"name"`
 	Description    string     `json:"description"`
-	PolicyPriority int        `json:"policy_priority"` // Lower = higher priority
+	PolicyPriority int        `json:"policy_priority"` // Higher number = higher priority
 	MergeStrategy  string     `json:"merge_strategy"`
 	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
@@ -44,12 +44,12 @@ func IsValidMergeStrategy(strategy string) bool {
 func GetDefaultPriority(name string) int {
 	switch name {
 	case NamespaceNameEnvironment:
-		return 10 // Highest priority
+		return 100 // Highest priority
 	case NamespaceNameLogical:
 		return 50
 	case NamespaceNameInfrastructure:
-		return 100
+		return 10
 	default:
-		return 100
+		return 10
 	}
 }

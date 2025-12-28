@@ -1,0 +1,20 @@
+[Unit]
+Description=AAMI Dynamic Check Timer
+Documentation=https://github.com/fregataa/aami
+Requires=aami-dynamic-check.service
+
+[Timer]
+# Run on boot after 1 minute
+OnBootSec=1min
+
+# Run every 1 minute
+OnUnitActiveSec=1min
+
+# If the system was off, run immediately on boot
+Persistent=false
+
+# Allow timer to drift to align with other timers
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

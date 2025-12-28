@@ -1,0 +1,159 @@
+#cloud-config
+#
+# Azure VM Custom Data for AAMI Bootstrap
+#
+# This cloud-init configuration is executed during Azure VM initialization.
+# It bootstraps the node with AAMI monitoring components.
+#
+# Usage in Terraform:
+#   custom_data = templatefile("${path.module}/azure-custom-data.yaml", {
+#     bootstrap_token    = var.aami_bootstrap_token
+#     config_server_url  = var.aami_config_server_url
+#     primary_group      = "infrastructure:azure/eastus"
+#   })
+#
+# Usage in Azure Portal:
+#   Copy this script to Advanced > Custom data
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - jq
+  - wget
+  - ca-certificates
+  - gnupg
+  - lsb-release
+  - smartmontools
+  - nvme-cli
+  - bc
+
+write_files:
+  - path: /etc/aami/config
+    permissions: '0644'
+    content: |
+      AAMI_CONFIG_SERVER_URL="${config_server_url}"
+      AAMI_HOSTNAME="$(hostname)"
+
+  - path: /usr/local/bin/aami-bootstrap.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+
+      # Configuration
+      BOOTSTRAP_TOKEN="${bootstrap_token}"
+      CONFIG_SERVER_URL="${config_server_url}"
+      PRIMARY_GROUP="${primary_group}"
+
+      # Azure Instance Metadata
+      METADATA_SERVER="http://169.254.169.254/metadata/instance?api-version=2021-02-01"
+
+      get_metadata() {
+          curl -sf -H "Metadata:true" "$METADATA_SERVER" | jq -r ".$1"
+      }
+
+      VM_ID=$(get_metadata "compute.vmId")
+      VM_NAME=$(get_metadata "compute.name")
+      VM_SIZE=$(get_metadata "compute.vmSize")
+      LOCATION=$(get_metadata "compute.location")
+      RESOURCE_GROUP=$(get_metadata "compute.resourceGroupName")
+      SUBSCRIPTION_ID=$(get_metadata "compute.subscriptionId")
+      PRIVATE_IP=$(get_metadata "network.interface[0].ipv4.ipAddress[0].privateIpAddress")
+      PUBLIC_IP=$(get_metadata "network.interface[0].ipv4.ipAddress[0].publicIpAddress" || echo "none")
+
+      # Logging
+      exec > >(tee /var/log/aami-bootstrap.log)
+      exec 2>&1
+
+      echo "=================================================="
+      echo "AAMI Bootstrap Script (Azure)"
+      echo "=================================================="
+      echo "VM ID: $VM_ID"
+      echo "VM Name: $VM_NAME"
+      echo "VM Size: $VM_SIZE"
+      echo "Location: $LOCATION"
+      echo "Resource Group: $RESOURCE_GROUP"
+      echo "Subscription: $SUBSCRIPTION_ID"
+      echo "Private IP: $PRIVATE_IP"
+      echo "Public IP: $PUBLIC_IP"
+      echo "Config Server: $CONFIG_SERVER_URL"
+      echo "Primary Group: $PRIMARY_GROUP"
+      echo "=================================================="
+
+      # Download and run AAMI bootstrap script
+      echo "[1/4] Running AAMI bootstrap..."
+      curl -fsSL "$${CONFIG_SERVER_URL}/bootstrap.sh" | \
+          bash -s -- \
+          --token "$BOOTSTRAP_TOKEN" \
+          --group "$PRIMARY_GROUP" \
+          --hostname "$VM_NAME" \
+          --metadata vm_id="$VM_ID" \
+          --metadata vm_size="$VM_SIZE" \
+          --metadata location="$LOCATION" \
+          --metadata resource_group="$RESOURCE_GROUP" \
+          --metadata subscription_id="$SUBSCRIPTION_ID" \
+          --metadata private_ip="$PRIVATE_IP" \
+          --metadata public_ip="$PUBLIC_IP"
+
+      # Install Node Exporter with textfile collector
+      echo "[2/4] Installing Node Exporter..."
+      curl -fsSL https://raw.githubusercontent.com/fregataa/aami/main/scripts/node/install-node-exporter.sh | bash
+
+      # Install dynamic check script
+      echo "[3/4] Installing dynamic check script..."
+      curl -fsSL https://raw.githubusercontent.com/fregataa/aami/main/scripts/node/dynamic-check.sh \
+          -o /usr/local/bin/dynamic-check.sh
+      chmod +x /usr/local/bin/dynamic-check.sh
+
+      # Set up systemd timer
+      curl -fsSL https://raw.githubusercontent.com/fregataa/aami/main/config/node-exporter/systemd/aami-dynamic-check.service \
+          -o /etc/systemd/system/aami-dynamic-check.service
+      curl -fsSL https://raw.githubusercontent.com/fregataa/aami/main/config/node-exporter/systemd/aami-dynamic-check.timer \
+          -o /etc/systemd/system/aami-dynamic-check.timer
+
+      # Update Config Server URL in service file
+      sed -i "s|http://config-server:8080|$CONFIG_SERVER_URL|g" /etc/systemd/system/aami-dynamic-check.service
+
+      systemctl daemon-reload
+      systemctl enable aami-dynamic-check.timer
+      systemctl start aami-dynamic-check.timer
+
+      # Verify installation
+      echo "[4/4] Verifying installation..."
+      sleep 5
+
+      # Check Node Exporter
+      if systemctl is-active --quiet node_exporter; then
+          echo "✓ Node Exporter is running"
+      else
+          echo "✗ Node Exporter is not running"
+      fi
+
+      # Check dynamic check timer
+      if systemctl is-active --quiet aami-dynamic-check.timer; then
+          echo "✓ Dynamic check timer is running"
+      else
+          echo "✗ Dynamic check timer is not running"
+      fi
+
+      # Test metrics endpoint
+      if curl -sf http://localhost:9100/metrics > /dev/null; then
+          echo "✓ Metrics endpoint is responding"
+      else
+          echo "✗ Metrics endpoint is not responding"
+      fi
+
+      echo "=================================================="
+      echo "AAMI Bootstrap completed successfully!"
+      echo "=================================================="
+      echo "Node Exporter: http://$PRIVATE_IP:9100/metrics"
+      echo "Logs: /var/log/aami/dynamic-check.log"
+      echo "Status: systemctl status aami-dynamic-check.timer"
+      echo "=================================================="
+
+runcmd:
+  - /usr/local/bin/aami-bootstrap.sh
+
+final_message: "AAMI monitoring setup complete after $UPTIME seconds"

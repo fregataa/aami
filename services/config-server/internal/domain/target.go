@@ -28,37 +28,48 @@ func (s TargetStatus) IsValid() bool {
 
 // Target represents a monitored server/node
 type Target struct {
-	ID              string                 `json:"id"`
-	Hostname        string                 `json:"hostname"`
-	IPAddress       string                 `json:"ip_address"`
-	PrimaryGroupID  string                 `json:"primary_group_id"`
-	PrimaryGroup    Group                  `json:"primary_group,omitempty"`
-	SecondaryGroups []Group                `json:"secondary_groups,omitempty"`
-	Status          TargetStatus           `json:"status"`
-	Exporters       []Exporter             `json:"exporters,omitempty"`
-	Labels          map[string]string      `json:"labels"`
-	Metadata        map[string]interface{} `json:"metadata"`
-	LastSeen        *time.Time             `json:"last_seen,omitempty"`
-	DeletedAt       *time.Time             `json:"deleted_at,omitempty"`
-	CreatedAt       time.Time              `json:"created_at"`
-	UpdatedAt       time.Time              `json:"updated_at"`
+	ID        string                 `json:"id"`
+	Hostname  string                 `json:"hostname"`
+	IPAddress string                 `json:"ip_address"`
+	Groups    []Group                `json:"groups,omitempty"`
+	Status    TargetStatus           `json:"status"`
+	Exporters []Exporter             `json:"exporters,omitempty"`
+	Labels    map[string]string      `json:"labels"`
+	Metadata  map[string]interface{} `json:"metadata"`
+	LastSeen  *time.Time             `json:"last_seen,omitempty"`
+	DeletedAt *time.Time             `json:"deleted_at,omitempty"`
+	CreatedAt time.Time              `json:"created_at"`
+	UpdatedAt time.Time              `json:"updated_at"`
 }
 
-// GetAllGroups returns all groups this target belongs to (primary + secondary)
+// GetAllGroups returns all groups this target belongs to
 func (t *Target) GetAllGroups() []Group {
-	groups := make([]Group, 0, len(t.SecondaryGroups)+1)
-	groups = append(groups, t.PrimaryGroup)
-	groups = append(groups, t.SecondaryGroups...)
-	return groups
+	return t.Groups
+}
+
+// GetGroupIDs returns the IDs of all groups this target belongs to
+func (t *Target) GetGroupIDs() []string {
+	ids := make([]string, len(t.Groups))
+	for i, g := range t.Groups {
+		ids[i] = g.ID
+	}
+	return ids
 }
 
 // HasGroup checks if the target belongs to a specific group
 func (t *Target) HasGroup(groupID string) bool {
-	if t.PrimaryGroupID == groupID {
-		return true
-	}
-	for _, group := range t.SecondaryGroups {
+	for _, group := range t.Groups {
 		if group.ID == groupID {
+			return true
+		}
+	}
+	return false
+}
+
+// HasDefaultOwnGroup checks if the target has a default own group
+func (t *Target) HasDefaultOwnGroup() bool {
+	for _, g := range t.Groups {
+		if g.IsDefaultOwn {
 			return true
 		}
 	}

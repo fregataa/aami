@@ -176,15 +176,6 @@ func (s *AlertRuleService) Create(ctx context.Context, req dto.CreateAlertRuleRe
 		return nil, err
 	}
 
-	// Validate template exists
-	_, err = s.templateRepo.GetByID(ctx, req.TemplateID)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrForeignKeyViolation
-		}
-		return nil, err
-	}
-
 	// Set defaults
 	mergeStrategy := req.MergeStrategy
 	if mergeStrategy == "" {
@@ -201,15 +192,43 @@ func (s *AlertRuleService) Create(ctx context.Context, req dto.CreateAlertRuleRe
 		config = make(map[string]interface{})
 	}
 
-	rule := &domain.AlertRule{
-		ID:            uuid.New().String(),
-		GroupID:       req.GroupID,
-		TemplateID:    req.TemplateID,
-		Enabled:       req.Enabled,
-		Config:        config,
-		MergeStrategy: mergeStrategy,
-		Priority:      priority,
+	var rule *domain.AlertRule
+
+	// Two creation modes: from template or direct
+	if req.TemplateID != nil {
+		// Option 1: Create from template
+		template, err := s.templateRepo.GetByID(ctx, *req.TemplateID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, ErrForeignKeyViolation
+			}
+			return nil, err
+		}
+
+		// Use domain constructor to deep copy template fields
+		rule = domain.NewAlertRuleFromTemplate(
+			template,
+			req.GroupID,
+			config,
+		)
+	} else {
+		// Option 2: Direct creation (all fields provided in request)
+		rule = &domain.AlertRule{
+			GroupID:       req.GroupID,
+			Name:          *req.Name,
+			Description:   *req.Description,
+			Severity:      *req.Severity,
+			QueryTemplate: *req.QueryTemplate,
+			DefaultConfig: *req.DefaultConfig,
+			Enabled:       req.Enabled,
+			Config:        config,
+		}
 	}
+
+	// Set ID and override merge strategy/priority
+	rule.ID = uuid.New().String()
+	rule.MergeStrategy = mergeStrategy
+	rule.Priority = priority
 
 	if err := s.ruleRepo.Create(ctx, rule); err != nil {
 		return nil, err

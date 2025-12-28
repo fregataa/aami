@@ -12,19 +12,20 @@ import (
 
 // GroupModel is the GORM model for database operations
 type GroupModel struct {
-	ID          string          `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	Name        string          `gorm:"not null;index"`
-	NamespaceID string          `gorm:"type:uuid;not null;index"`
-	Namespace   *NamespaceModel `gorm:"foreignKey:NamespaceID"`
-	ParentID    *string         `gorm:"type:uuid;index"`
-	Parent      *GroupModel     `gorm:"foreignKey:ParentID"`
-	Children    []GroupModel    `gorm:"foreignKey:ParentID"`
-	Description string          `gorm:"type:text"`
-	Priority    int             `gorm:"not null;default:100"`
-	Metadata    JSONB           `gorm:"type:jsonb;default:'{}'"`
-	DeletedAt   gorm.DeletedAt  `gorm:"index"`
-	CreatedAt   time.Time       `gorm:"autoCreateTime"`
-	UpdatedAt   time.Time       `gorm:"autoUpdateTime"`
+	ID           string          `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	Name         string          `gorm:"not null;index"`
+	NamespaceID  string          `gorm:"type:uuid;not null;index"`
+	Namespace    *NamespaceModel `gorm:"foreignKey:NamespaceID"`
+	ParentID     *string         `gorm:"type:uuid;index"`
+	Parent       *GroupModel     `gorm:"foreignKey:ParentID"`
+	Children     []GroupModel    `gorm:"foreignKey:ParentID"`
+	Description  string          `gorm:"type:text"`
+	Priority     int             `gorm:"not null;default:100"`
+	IsDefaultOwn bool            `gorm:"not null;default:false;index"`
+	Metadata     JSONB           `gorm:"type:jsonb;default:'{}'"`
+	DeletedAt    gorm.DeletedAt  `gorm:"index"`
+	CreatedAt    time.Time       `gorm:"autoCreateTime"`
+	UpdatedAt    time.Time       `gorm:"autoUpdateTime"`
 }
 
 // TableName specifies the table name for GORM
@@ -59,15 +60,16 @@ func (j *JSONB) Scan(value interface{}) error {
 // ToGroupModel converts domain.Group to GroupModel
 func ToGroupModel(g *domain.Group) *GroupModel {
 	model := &GroupModel{
-		ID:          g.ID,
-		Name:        g.Name,
-		NamespaceID: g.NamespaceID,
-		ParentID:    g.ParentID,
-		Description: g.Description,
-		Priority:    g.Priority,
-		Metadata:    JSONB(g.Metadata),
-		CreatedAt:   g.CreatedAt,
-		UpdatedAt:   g.UpdatedAt,
+		ID:           g.ID,
+		Name:         g.Name,
+		NamespaceID:  g.NamespaceID,
+		ParentID:     g.ParentID,
+		Description:  g.Description,
+		Priority:     g.Priority,
+		IsDefaultOwn: g.IsDefaultOwn,
+		Metadata:     JSONB(g.Metadata),
+		CreatedAt:    g.CreatedAt,
+		UpdatedAt:    g.UpdatedAt,
 	}
 	if g.DeletedAt != nil {
 		model.DeletedAt = gorm.DeletedAt{Time: *g.DeletedAt, Valid: true}
@@ -78,15 +80,16 @@ func ToGroupModel(g *domain.Group) *GroupModel {
 // ToDomain converts GroupModel to domain.Group
 func (m *GroupModel) ToDomain() *domain.Group {
 	g := &domain.Group{
-		ID:          m.ID,
-		Name:        m.Name,
-		NamespaceID: m.NamespaceID,
-		ParentID:    m.ParentID,
-		Description: m.Description,
-		Priority:    m.Priority,
-		Metadata:    map[string]interface{}(m.Metadata),
-		CreatedAt:   m.CreatedAt,
-		UpdatedAt:   m.UpdatedAt,
+		ID:           m.ID,
+		Name:         m.Name,
+		NamespaceID:  m.NamespaceID,
+		ParentID:     m.ParentID,
+		Description:  m.Description,
+		Priority:     m.Priority,
+		IsDefaultOwn: m.IsDefaultOwn,
+		Metadata:     map[string]interface{}(m.Metadata),
+		CreatedAt:    m.CreatedAt,
+		UpdatedAt:    m.UpdatedAt,
 	}
 	if m.DeletedAt.Valid {
 		deletedAt := m.DeletedAt.Time
@@ -276,7 +279,7 @@ func (r *groupRepository) GetAncestors(ctx context.Context, groupID string) ([]d
 			INNER JOIN ancestors a ON g.id = a.parent_id
 		)
 		SELECT * FROM ancestors WHERE id != ?
-		ORDER BY priority ASC
+		ORDER BY priority DESC
 	`
 
 	err := r.db.WithContext(ctx).Raw(query, groupID, groupID).Scan(&models).Error

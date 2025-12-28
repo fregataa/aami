@@ -10,18 +10,30 @@ import (
 
 // AlertRuleModel is the GORM model for database operations
 type AlertRuleModel struct {
-	ID            string               `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	GroupID       string               `gorm:"type:uuid;not null;index"`
-	Group         *GroupModel          `gorm:"foreignKey:GroupID"`
-	TemplateID    string               `gorm:"type:uuid;not null;index"`
-	Template      *AlertTemplateModel  `gorm:"foreignKey:TemplateID"`
-	Enabled       bool                 `gorm:"not null;default:true"`
-	Config        JSONB                `gorm:"type:jsonb;default:'{}'"`
-	MergeStrategy string               `gorm:"not null;default:'merge'"`
-	Priority      int                  `gorm:"not null;default:100"`
-	DeletedAt     gorm.DeletedAt       `gorm:"index"`
-	CreatedAt     time.Time            `gorm:"autoCreateTime"`
-	UpdatedAt     time.Time            `gorm:"autoUpdateTime"`
+	ID      string      `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	GroupID string      `gorm:"type:uuid;not null;index"`
+	Group   *GroupModel `gorm:"foreignKey:GroupID"`
+
+	// Template fields (copied from template at creation)
+	Name          string            `gorm:"not null;type:varchar(255);index"`
+	Description   string            `gorm:"type:text"`
+	Severity      domain.AlertSeverity `gorm:"not null;type:varchar(20);index"`
+	QueryTemplate string            `gorm:"not null;type:text"`
+	DefaultConfig JSONB             `gorm:"type:jsonb;default:'{}'"`
+
+	// Rule-specific fields
+	Enabled       bool   `gorm:"not null;default:true"`
+	Config        JSONB  `gorm:"type:jsonb;default:'{}'"`
+	MergeStrategy string `gorm:"not null;default:'merge'"`
+	Priority      int    `gorm:"not null;default:100"`
+
+	// Metadata (optional, for tracking origin)
+	CreatedFromTemplateID   *string `gorm:"type:varchar(255);index"`
+	CreatedFromTemplateName *string `gorm:"type:varchar(255)"`
+
+	DeletedAt gorm.DeletedAt `gorm:"index"`
+	CreatedAt time.Time      `gorm:"autoCreateTime"`
+	UpdatedAt time.Time      `gorm:"autoUpdateTime"`
 }
 
 // TableName specifies the table name for GORM
@@ -32,15 +44,28 @@ func (AlertRuleModel) TableName() string {
 // ToAlertRuleModel converts domain.AlertRule to AlertRuleModel
 func ToAlertRuleModel(ar *domain.AlertRule) *AlertRuleModel {
 	model := &AlertRuleModel{
-		ID:            ar.ID,
-		GroupID:       ar.GroupID,
-		TemplateID:    ar.TemplateID,
+		ID:      ar.ID,
+		GroupID: ar.GroupID,
+
+		// Template fields
+		Name:          ar.Name,
+		Description:   ar.Description,
+		Severity:      ar.Severity,
+		QueryTemplate: ar.QueryTemplate,
+		DefaultConfig: JSONB(ar.DefaultConfig),
+
+		// Rule-specific fields
 		Enabled:       ar.Enabled,
 		Config:        JSONB(ar.Config),
 		MergeStrategy: ar.MergeStrategy,
 		Priority:      ar.Priority,
-		CreatedAt:     ar.CreatedAt,
-		UpdatedAt:     ar.UpdatedAt,
+
+		// Metadata
+		CreatedFromTemplateID:   ar.CreatedFromTemplateID,
+		CreatedFromTemplateName: ar.CreatedFromTemplateName,
+
+		CreatedAt: ar.CreatedAt,
+		UpdatedAt: ar.UpdatedAt,
 	}
 	if ar.DeletedAt != nil {
 		model.DeletedAt = gorm.DeletedAt{Time: *ar.DeletedAt, Valid: true}
@@ -51,15 +76,28 @@ func ToAlertRuleModel(ar *domain.AlertRule) *AlertRuleModel {
 // ToDomain converts AlertRuleModel to domain.AlertRule
 func (m *AlertRuleModel) ToDomain() *domain.AlertRule {
 	ar := &domain.AlertRule{
-		ID:            m.ID,
-		GroupID:       m.GroupID,
-		TemplateID:    m.TemplateID,
+		ID:      m.ID,
+		GroupID: m.GroupID,
+
+		// Template fields
+		Name:          m.Name,
+		Description:   m.Description,
+		Severity:      m.Severity,
+		QueryTemplate: m.QueryTemplate,
+		DefaultConfig: map[string]interface{}(m.DefaultConfig),
+
+		// Rule-specific fields
 		Enabled:       m.Enabled,
 		Config:        map[string]interface{}(m.Config),
 		MergeStrategy: m.MergeStrategy,
 		Priority:      m.Priority,
-		CreatedAt:     m.CreatedAt,
-		UpdatedAt:     m.UpdatedAt,
+
+		// Metadata
+		CreatedFromTemplateID:   m.CreatedFromTemplateID,
+		CreatedFromTemplateName: m.CreatedFromTemplateName,
+
+		CreatedAt: m.CreatedAt,
+		UpdatedAt: m.UpdatedAt,
 	}
 	if m.DeletedAt.Valid {
 		deletedAt := m.DeletedAt.Time
@@ -69,11 +107,6 @@ func (m *AlertRuleModel) ToDomain() *domain.AlertRule {
 	// Convert Group if loaded
 	if m.Group != nil {
 		ar.Group = *m.Group.ToDomain()
-	}
-
-	// Convert Template if loaded
-	if m.Template != nil {
-		ar.Template = *m.Template.ToDomain()
 	}
 
 	return ar
@@ -115,7 +148,6 @@ func (r *alertRuleRepository) GetByID(ctx context.Context, id string) (*domain.A
 	var model AlertRuleModel
 	err := r.db.WithContext(ctx).
 		Preload("Group").
-		Preload("Template").
 		First(&model, "id = ?", id).Error
 	if err != nil {
 		return nil, err
@@ -126,9 +158,9 @@ func (r *alertRuleRepository) GetByID(ctx context.Context, id string) (*domain.A
 func (r *alertRuleRepository) GetByGroupID(ctx context.Context, groupID string) ([]domain.AlertRule, error) {
 	var models []AlertRuleModel
 	err := r.db.WithContext(ctx).
-		Preload("Template").
+		Preload("Group").
 		Where("group_id = ?", groupID).
-		Order("priority ASC, template_id ASC").
+		Order("priority DESC, created_at ASC").
 		Find(&models).Error
 	if err != nil {
 		return nil, err
@@ -145,8 +177,8 @@ func (r *alertRuleRepository) GetByTemplateID(ctx context.Context, templateID st
 	var models []AlertRuleModel
 	err := r.db.WithContext(ctx).
 		Preload("Group").
-		Where("template_id = ?", templateID).
-		Order("priority ASC").
+		Where("created_from_template_id = ?", templateID).
+		Order("priority DESC").
 		Find(&models).Error
 	if err != nil {
 		return nil, err
@@ -203,8 +235,7 @@ func (r *alertRuleRepository) List(ctx context.Context, page, limit int) ([]doma
 		Offset(offset).
 		Limit(limit).
 		Preload("Group").
-		Preload("Template").
-		Order("priority ASC, created_at DESC").
+		Order("priority DESC, created_at DESC").
 		Find(&models).Error
 	if err != nil {
 		return nil, 0, err

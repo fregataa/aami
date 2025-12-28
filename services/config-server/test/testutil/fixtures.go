@@ -23,14 +23,15 @@ func NewTestNamespace(name string, policyPriority int) *domain.Namespace {
 // NewTestGroup creates a test group with default values
 func NewTestGroup(name string, namespaceID string) *domain.Group {
 	return &domain.Group{
-		ID:          uuid.New().String(),
-		Name:        name,
-		NamespaceID: namespaceID,
-		Description: "Test group: " + name,
-		Priority:    100,
-		Metadata:    make(map[string]interface{}),
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		ID:           uuid.New().String(),
+		Name:         name,
+		NamespaceID:  namespaceID,
+		Description:  "Test group: " + name,
+		Priority:     100,
+		IsDefaultOwn: false,
+		Metadata:     make(map[string]interface{}),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
 	}
 }
 
@@ -42,18 +43,45 @@ func NewTestGroupWithParent(name string, namespaceID string, parentID string) *d
 }
 
 // NewTestTarget creates a test target with default values
-func NewTestTarget(hostname string, ipAddress string, primaryGroupID string) *domain.Target {
+func NewTestTarget(hostname string, ipAddress string, groups []domain.Group) *domain.Target {
 	return &domain.Target{
-		ID:             uuid.New().String(),
-		Hostname:       hostname,
-		IPAddress:      ipAddress,
-		PrimaryGroupID: primaryGroupID,
-		Status:         domain.TargetStatusActive,
-		Labels:         make(map[string]string),
-		Metadata:       make(map[string]interface{}),
-		LastSeen:       nil,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
+		ID:        uuid.New().String(),
+		Hostname:  hostname,
+		IPAddress: ipAddress,
+		Groups:    groups,
+		Status:    domain.TargetStatusActive,
+		Labels:    make(map[string]string),
+		Metadata:  make(map[string]interface{}),
+		LastSeen:  nil,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+}
+
+// NewTestTargetWithDefaultGroup creates a test target with a default own group
+func NewTestTargetWithDefaultGroup(hostname string, ipAddress string, namespace *domain.Namespace) *domain.Target {
+	defaultGroup := &domain.Group{
+		ID:           uuid.New().String(),
+		Name:         "target-" + hostname,
+		NamespaceID:  namespace.ID,
+		Description:  "Default group for " + hostname,
+		Priority:     100,
+		IsDefaultOwn: true,
+		Metadata:     make(map[string]interface{}),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	return &domain.Target{
+		ID:        uuid.New().String(),
+		Hostname:  hostname,
+		IPAddress: ipAddress,
+		Groups:    []domain.Group{*defaultGroup},
+		Status:    domain.TargetStatusActive,
+		Labels:    make(map[string]string),
+		Metadata:  make(map[string]interface{}),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 }
 
@@ -94,18 +122,38 @@ func NewTestAlertTemplate(id string, severity domain.AlertSeverity) *domain.Aler
 // NewTestAlertRule creates a test alert rule
 func NewTestAlertRule(groupID string, templateID string) *domain.AlertRule {
 	return &domain.AlertRule{
-		ID:         uuid.New().String(),
-		GroupID:    groupID,
-		TemplateID: templateID,
-		Enabled:    true,
+		ID:      uuid.New().String(),
+		GroupID: groupID,
+
+		// Template fields (copied at creation)
+		Name:          "Test Alert",
+		Description:   "Test alert rule",
+		Severity:      domain.AlertSeverityCritical,
+		QueryTemplate: "SELECT * FROM metrics WHERE value > {{.threshold}}",
+		DefaultConfig: map[string]interface{}{
+			"threshold": 80,
+		},
+
+		// Rule-specific fields
+		Enabled: true,
 		Config: map[string]interface{}{
 			"threshold": 90,
 		},
 		MergeStrategy: "override",
 		Priority:      100,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
+
+		// Metadata
+		CreatedFromTemplateID:   &templateID,
+		CreatedFromTemplateName: strPtr("Test Template"),
+
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
+}
+
+// Helper function for string pointer
+func strPtr(s string) *string {
+	return &s
 }
 
 // NewTestCheckSetting creates a test check setting

@@ -1,0 +1,14 @@
+# AAMI Dynamic Check Cron Job
+#
+# This file should be placed in /etc/cron.d/aami-dynamic-check
+# It runs the dynamic check script every minute
+#
+# Installation:
+#   sudo cp config/node-exporter/cron.d/aami-dynamic-check /etc/cron.d/
+#   sudo chmod 0644 /etc/cron.d/aami-dynamic-check
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# Run dynamic checks every minute
+*/1 * * * * root /usr/local/bin/dynamic-check.sh >> /var/log/aami/dynamic-check.log 2>&1
