@@ -47,7 +47,8 @@ func (s *Server) SetupRouter() *gin.Engine {
 	targetService := service.NewTargetService(s.rm.Target, s.rm.TargetGroup, s.rm.Group, s.rm.Namespace)
 	exporterService := service.NewExporterService(s.rm.Exporter, s.rm.Target)
 	alertTemplateService := service.NewAlertTemplateService(s.rm.AlertTemplate)
-	alertRuleService := service.NewAlertRuleService(s.rm.AlertRule, s.rm.AlertTemplate, s.rm.Group)
+	// TODO: Configure PrometheusRuleGenerator and PrometheusClient when Prometheus integration is needed
+	alertRuleService := service.NewAlertRuleService(s.rm.AlertRule, s.rm.AlertTemplate, s.rm.Group, nil, nil)
 	monitoringScriptService := service.NewMonitoringScriptService(s.rm.MonitoringScript, s.rm.ScriptPolicy)
 	scriptPolicyService := service.NewScriptPolicyService(s.rm.ScriptPolicy, s.rm.MonitoringScript, s.rm.Namespace, s.rm.Group, s.rm.Target)
 	bootstrapTokenService := service.NewBootstrapTokenService(s.rm.BootstrapToken, s.rm.Group, targetService)

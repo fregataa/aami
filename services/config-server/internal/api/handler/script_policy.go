@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/fregataa/aami/config-server/internal/api/dto"
+	"github.com/fregataa/aami/config-server/internal/domain"
 	"github.com/fregataa/aami/config-server/internal/service"
 	"github.com/gin-gonic/gin"
 	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
@@ -23,13 +24,35 @@ func NewScriptPolicyHandler(policyService *service.ScriptPolicyService) *ScriptP
 
 // Create handles POST /check-instances
 func (h *ScriptPolicyHandler) Create(c *gin.Context) {
-	var req dto.CreateScriptPolicyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	// Parse raw JSON to determine creation mode
+	var rawReq map[string]interface{}
+	if err := c.ShouldBindJSON(&rawReq); err != nil {
 		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
-	instance, err := h.policyService.Create(c.Request.Context(), req)
+	var instance *domain.ScriptPolicy
+	var err error
+
+	// Check if template_id exists to determine creation mode
+	if templateID, hasTemplate := rawReq["template_id"].(string); hasTemplate && templateID != "" {
+		// Create from template
+		var req dto.CreateScriptPolicyFromTemplateRequest
+		if err := mapToStruct(rawReq, &req); err != nil {
+			respondError(c, domainerrors.NewBindingError(err))
+			return
+		}
+		instance, err = h.policyService.CreateFromTemplate(c.Request.Context(), req)
+	} else {
+		// Create directly
+		var req dto.CreateScriptPolicyDirectRequest
+		if err := mapToStruct(rawReq, &req); err != nil {
+			respondError(c, domainerrors.NewBindingError(err))
+			return
+		}
+		instance, err = h.policyService.CreateDirect(c.Request.Context(), req)
+	}
+
 	if err != nil {
 		respondError(c, err)
 		return

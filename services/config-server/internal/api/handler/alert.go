@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/fregataa/aami/config-server/internal/api/dto"
@@ -159,13 +160,35 @@ func NewAlertRuleHandler(ruleService *service.AlertRuleService) *AlertRuleHandle
 
 // Create handles POST /alert-rules
 func (h *AlertRuleHandler) Create(c *gin.Context) {
-	var req dto.CreateAlertRuleRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	// Parse raw JSON to determine creation mode
+	var rawReq map[string]interface{}
+	if err := c.ShouldBindJSON(&rawReq); err != nil {
 		respondError(c, domainerrors.NewBindingError(err))
 		return
 	}
 
-	rule, err := h.ruleService.Create(c.Request.Context(), req)
+	var rule *domain.AlertRule
+	var err error
+
+	// Check if template_id exists to determine creation mode
+	if templateID, hasTemplate := rawReq["template_id"].(string); hasTemplate && templateID != "" {
+		// Create from template
+		var req dto.CreateAlertRuleFromTemplateRequest
+		if err := mapToStruct(rawReq, &req); err != nil {
+			respondError(c, domainerrors.NewBindingError(err))
+			return
+		}
+		rule, err = h.ruleService.CreateFromTemplate(c.Request.Context(), req)
+	} else {
+		// Create directly
+		var req dto.CreateAlertRuleDirectRequest
+		if err := mapToStruct(rawReq, &req); err != nil {
+			respondError(c, domainerrors.NewBindingError(err))
+			return
+		}
+		rule, err = h.ruleService.CreateDirect(c.Request.Context(), req)
+	}
+
 	if err != nil {
 		respondError(c, err)
 		return
@@ -291,4 +314,13 @@ func (h *AlertRuleHandler) GetByTemplateID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, dto.ToAlertRuleResponseList(rules))
+}
+
+// mapToStruct converts a map to a struct using JSON encoding/decoding
+func mapToStruct(m map[string]interface{}, target interface{}) error {
+	data, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, target)
 }

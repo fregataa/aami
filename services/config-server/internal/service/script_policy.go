@@ -37,10 +37,10 @@ func NewScriptPolicyService(
 	}
 }
 
-// Create creates a new script policy
-func (s *ScriptPolicyService) Create(ctx context.Context, req dto.CreateScriptPolicyRequest) (*domain.ScriptPolicy, error) {
-	// Validate required fields
-	if err := req.Validate(); err != nil {
+// CreateFromTemplate creates a new script policy from a template
+func (s *ScriptPolicyService) CreateFromTemplate(ctx context.Context, req dto.CreateScriptPolicyFromTemplateRequest) (*domain.ScriptPolicy, error) {
+	// Validate scope consistency
+	if err := validateScopeConsistency(req.Scope, req.NamespaceID, req.GroupID); err != nil {
 		return nil, err
 	}
 
@@ -64,61 +64,105 @@ func (s *ScriptPolicyService) Create(ctx context.Context, req dto.CreateScriptPo
 		}
 	}
 
-	var instance *domain.ScriptPolicy
+	// Get template
+	script, err := s.scriptRepo.GetByID(ctx, req.TemplateID)
+	if err != nil {
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrForeignKeyViolation
+		}
+		return nil, err
+	}
 
-	// Two creation modes: from script or direct
-	if req.TemplateID != nil {
-		// Option 1: Create from script
-		script, err := s.scriptRepo.GetByID(ctx, *req.TemplateID)
-		if err != nil {
+	// Set defaults
+	config := req.Config
+	if config == nil {
+		config = make(map[string]interface{})
+	}
+
+	priority := req.Priority
+	if priority == 0 {
+		priority = 100
+	}
+
+	// Use domain constructor
+	instance := domain.NewScriptPolicyFromTemplate(script, req.Scope, req.NamespaceID, req.GroupID, config)
+	instance.ID = uuid.New().String()
+	instance.Priority = priority
+	instance.IsActive = req.IsActive
+
+	if err := s.policyRepo.Create(ctx, instance); err != nil {
+		return nil, err
+	}
+
+	return s.policyRepo.GetByID(ctx, instance.ID)
+}
+
+// CreateDirect creates a new script policy directly without a template
+func (s *ScriptPolicyService) CreateDirect(ctx context.Context, req dto.CreateScriptPolicyDirectRequest) (*domain.ScriptPolicy, error) {
+	// Validate scope consistency
+	if err := validateScopeConsistency(req.Scope, req.NamespaceID, req.GroupID); err != nil {
+		return nil, err
+	}
+
+	// Verify namespace exists if namespace-level or group-level
+	if req.NamespaceID != nil {
+		if _, err := s.namespaceRepo.GetByID(ctx, *req.NamespaceID); err != nil {
 			if errors.Is(err, domainerrors.ErrNotFound) {
 				return nil, domainerrors.ErrForeignKeyViolation
 			}
 			return nil, err
 		}
+	}
 
-		// Use domain constructor to deep copy script fields
-		instance = domain.NewScriptPolicyFromTemplate(
-			script,
-			req.Scope,
-			req.NamespaceID,
-			req.GroupID,
-			req.Config,
-		)
-	} else {
-		// Option 2: Direct creation (all fields provided in request)
-		instance = &domain.ScriptPolicy{
-			Name:          *req.Name,
-			ScriptType:     *req.ScriptType,
-			ScriptContent: *req.ScriptContent,
-			Language:      *req.Language,
-			DefaultConfig: *req.DefaultConfig,
-			Description:   *req.Description,
-			Version:       *req.Version,
-			Scope:         req.Scope,
-			NamespaceID:   req.NamespaceID,
-			GroupID:       req.GroupID,
-			Config:        req.Config,
+	// Verify group exists if group-level
+	if req.GroupID != nil {
+		if _, err := s.groupRepo.GetByID(ctx, *req.GroupID); err != nil {
+			if errors.Is(err, domainerrors.ErrNotFound) {
+				return nil, domainerrors.ErrForeignKeyViolation
+			}
+			return nil, err
 		}
 	}
 
-	// Set ID and override priority/is_active if provided
-	instance.ID = uuid.New().String()
-	if req.Priority != 0 {
-		instance.Priority = req.Priority
+	// Set defaults
+	config := req.Config
+	if config == nil {
+		config = make(map[string]interface{})
 	}
-	instance.IsActive = req.IsActive
 
-	// Validate domain object (checks scope consistency)
-	if err := instance.Validate(); err != nil {
-		return nil, err
+	defaultConfig := req.DefaultConfig
+	if defaultConfig == nil {
+		defaultConfig = make(map[string]interface{})
+	}
+
+	priority := req.Priority
+	if priority == 0 {
+		priority = 100
+	}
+
+	// Create instance directly
+	instance := &domain.ScriptPolicy{
+		ID:            uuid.New().String(),
+		Name:          req.Name,
+		ScriptType:    req.ScriptType,
+		ScriptContent: req.ScriptContent,
+		Language:      req.Language,
+		DefaultConfig: defaultConfig,
+		Description:   req.Description,
+		Version:       req.Version,
+		Scope:         req.Scope,
+		NamespaceID:   req.NamespaceID,
+		GroupID:       req.GroupID,
+		Config:        config,
+		Priority:      priority,
+		IsActive:      req.IsActive,
 	}
 
 	if err := s.policyRepo.Create(ctx, instance); err != nil {
 		return nil, err
 	}
 
-	return instance, nil
+	return s.policyRepo.GetByID(ctx, instance.ID)
 }
 
 // GetByID retrieves a script policy by ID
@@ -300,4 +344,31 @@ func (s *ScriptPolicyService) List(ctx context.Context, pagination dto.Paginatio
 // ListActive retrieves all active (non-deleted) instances
 func (s *ScriptPolicyService) ListActive(ctx context.Context) ([]domain.ScriptPolicy, error) {
 	return s.policyRepo.ListActive(ctx)
+}
+
+// validateScopeConsistency validates that scope and IDs are consistent
+func validateScopeConsistency(scope domain.PolicyScope, namespaceID, groupID *string) error {
+	switch scope {
+	case domain.ScopeGlobal:
+		if namespaceID != nil || groupID != nil {
+			return domainerrors.NewValidationError("scope", "global scope must not have namespace_id or group_id")
+		}
+	case domain.ScopeNamespace:
+		if namespaceID == nil {
+			return domainerrors.NewValidationError("namespace_id", "namespace_id is required for namespace scope")
+		}
+		if groupID != nil {
+			return domainerrors.NewValidationError("group_id", "namespace scope must not have group_id")
+		}
+	case domain.ScopeGroup:
+		if groupID == nil {
+			return domainerrors.NewValidationError("group_id", "group_id is required for group scope")
+		}
+		if namespaceID == nil {
+			return domainerrors.NewValidationError("namespace_id", "namespace_id is required for group scope")
+		}
+	default:
+		return domainerrors.NewValidationError("scope", "invalid scope value")
+	}
+	return nil
 }

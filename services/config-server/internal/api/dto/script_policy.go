@@ -5,8 +5,37 @@ import (
 	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 )
 
+// CreateScriptPolicyFromTemplateRequest represents a request to create a script policy from a template
+type CreateScriptPolicyFromTemplateRequest struct {
+	TemplateID  string                 `json:"template_id" binding:"required,uuid"`
+	Scope       domain.PolicyScope     `json:"scope" binding:"required,oneof=global namespace group"`
+	NamespaceID *string                `json:"namespace_id,omitempty" binding:"omitempty,uuid"`
+	GroupID     *string                `json:"group_id,omitempty" binding:"omitempty,uuid"`
+	Config      map[string]interface{} `json:"config,omitempty"`
+	Priority    int                    `json:"priority" binding:"omitempty,min=0,max=1000"`
+	IsActive    bool                   `json:"is_active"`
+}
+
+// CreateScriptPolicyDirectRequest represents a request to create a script policy directly (without template)
+type CreateScriptPolicyDirectRequest struct {
+	Name          string                 `json:"name" binding:"required"`
+	ScriptType    string                 `json:"script_type" binding:"required"`
+	ScriptContent string                 `json:"script_content" binding:"required"`
+	Language      string                 `json:"language" binding:"required"`
+	DefaultConfig map[string]interface{} `json:"default_config,omitempty"`
+	Description   string                 `json:"description,omitempty"`
+	Version       string                 `json:"version" binding:"required"`
+	Scope         domain.PolicyScope     `json:"scope" binding:"required,oneof=global namespace group"`
+	NamespaceID   *string                `json:"namespace_id,omitempty" binding:"omitempty,uuid"`
+	GroupID       *string                `json:"group_id,omitempty" binding:"omitempty,uuid"`
+	Config        map[string]interface{} `json:"config,omitempty"`
+	Priority      int                    `json:"priority" binding:"omitempty,min=0,max=1000"`
+	IsActive      bool                   `json:"is_active"`
+}
+
 // CreateScriptPolicyRequest represents a request to create a new check instance
 // Supports two modes: from template (template_id) or direct creation (all fields)
+// Deprecated: Use CreateScriptPolicyFromTemplateRequest or CreateScriptPolicyDirectRequest instead
 type CreateScriptPolicyRequest struct {
 	// Option 1: Create from template
 	TemplateID *string `json:"template_id,omitempty" binding:"omitempty,uuid"`

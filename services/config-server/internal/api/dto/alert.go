@@ -59,8 +59,33 @@ func ToAlertTemplateResponseList(templates []domain.AlertTemplate) []AlertTempla
 	return responses
 }
 
+// CreateAlertRuleFromTemplateRequest represents a request to create an alert rule from a template
+type CreateAlertRuleFromTemplateRequest struct {
+	GroupID       string                 `json:"group_id" binding:"required,uuid"`
+	TemplateID    string                 `json:"template_id" binding:"required,uuid"`
+	Enabled       bool                   `json:"enabled"`
+	Config        map[string]interface{} `json:"config,omitempty"`
+	MergeStrategy string                 `json:"merge_strategy" binding:"omitempty,oneof=override merge"`
+	Priority      int                    `json:"priority" binding:"omitempty,min=0,max=1000"`
+}
+
+// CreateAlertRuleDirectRequest represents a request to create an alert rule directly (without template)
+type CreateAlertRuleDirectRequest struct {
+	GroupID       string                 `json:"group_id" binding:"required,uuid"`
+	Name          string                 `json:"name" binding:"required"`
+	Description   string                 `json:"description" binding:"required"`
+	Severity      domain.AlertSeverity   `json:"severity" binding:"required"`
+	QueryTemplate string                 `json:"query_template" binding:"required"`
+	DefaultConfig map[string]interface{} `json:"default_config,omitempty"`
+	Enabled       bool                   `json:"enabled"`
+	Config        map[string]interface{} `json:"config,omitempty"`
+	MergeStrategy string                 `json:"merge_strategy" binding:"omitempty,oneof=override merge"`
+	Priority      int                    `json:"priority" binding:"omitempty,min=0,max=1000"`
+}
+
 // CreateAlertRuleRequest represents a request to create a new alert rule
 // Supports two modes: from template (template_id) or direct creation (all fields)
+// Deprecated: Use CreateAlertRuleFromTemplateRequest or CreateAlertRuleDirectRequest instead
 type CreateAlertRuleRequest struct {
 	GroupID string `json:"group_id" binding:"required,uuid"`
 

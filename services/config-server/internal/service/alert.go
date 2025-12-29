@@ -3,10 +3,12 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/fregataa/aami/config-server/internal/api/dto"
 	"github.com/fregataa/aami/config-server/internal/domain"
 	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
+	"github.com/fregataa/aami/config-server/internal/pkg/prometheus"
 	"github.com/fregataa/aami/config-server/internal/repository"
 	"github.com/google/uuid"
 )
@@ -151,24 +153,43 @@ func (s *AlertTemplateService) GetBySeverity(ctx context.Context, severity domai
 
 // AlertRuleService handles business logic for alert rules
 type AlertRuleService struct {
-	ruleRepo     repository.AlertRuleRepository
-	templateRepo repository.AlertTemplateRepository
-	groupRepo    repository.GroupRepository
+	ruleRepo       repository.AlertRuleRepository
+	templateRepo   repository.AlertTemplateRepository
+	groupRepo      repository.GroupRepository
+	ruleGenerator  *PrometheusRuleGenerator
+	prometheusClient *prometheus.PrometheusClient
 }
 
 // NewAlertRuleService creates a new AlertRuleService
-func NewAlertRuleService(ruleRepo repository.AlertRuleRepository, templateRepo repository.AlertTemplateRepository, groupRepo repository.GroupRepository) *AlertRuleService {
+func NewAlertRuleService(
+	ruleRepo repository.AlertRuleRepository,
+	templateRepo repository.AlertTemplateRepository,
+	groupRepo repository.GroupRepository,
+	ruleGenerator *PrometheusRuleGenerator,
+	prometheusClient *prometheus.PrometheusClient,
+) *AlertRuleService {
 	return &AlertRuleService{
-		ruleRepo:     ruleRepo,
-		templateRepo: templateRepo,
-		groupRepo:    groupRepo,
+		ruleRepo:         ruleRepo,
+		templateRepo:     templateRepo,
+		groupRepo:        groupRepo,
+		ruleGenerator:    ruleGenerator,
+		prometheusClient: prometheusClient,
 	}
 }
 
-// Create creates a new alert rule
-func (s *AlertRuleService) Create(ctx context.Context, req dto.CreateAlertRuleRequest) (*domain.AlertRule, error) {
+// CreateFromTemplate creates a new alert rule from a template
+func (s *AlertRuleService) CreateFromTemplate(ctx context.Context, req dto.CreateAlertRuleFromTemplateRequest) (*domain.AlertRule, error) {
 	// Validate group exists
 	_, err := s.groupRepo.GetByID(ctx, req.GroupID)
+	if err != nil {
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrForeignKeyViolation
+		}
+		return nil, err
+	}
+
+	// Get template
+	template, err := s.templateRepo.GetByID(ctx, req.TemplateID)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
 			return nil, domainerrors.ErrForeignKeyViolation
@@ -192,46 +213,95 @@ func (s *AlertRuleService) Create(ctx context.Context, req dto.CreateAlertRuleRe
 		config = make(map[string]interface{})
 	}
 
-	var rule *domain.AlertRule
-
-	// Two creation modes: from template or direct
-	if req.TemplateID != nil {
-		// Option 1: Create from template
-		template, err := s.templateRepo.GetByID(ctx, *req.TemplateID)
-		if err != nil {
-			if errors.Is(err, domainerrors.ErrNotFound) {
-				return nil, domainerrors.ErrForeignKeyViolation
-			}
-			return nil, err
-		}
-
-		// Use domain constructor to deep copy template fields
-		rule = domain.NewAlertRuleFromTemplate(
-			template,
-			req.GroupID,
-			config,
-		)
-	} else {
-		// Option 2: Direct creation (all fields provided in request)
-		rule = &domain.AlertRule{
-			GroupID:       req.GroupID,
-			Name:          *req.Name,
-			Description:   *req.Description,
-			Severity:      *req.Severity,
-			QueryTemplate: *req.QueryTemplate,
-			DefaultConfig: *req.DefaultConfig,
-			Enabled:       req.Enabled,
-			Config:        config,
-		}
-	}
+	// Use domain constructor to deep copy template fields
+	rule := domain.NewAlertRuleFromTemplate(template, req.GroupID, config)
 
 	// Set ID and override merge strategy/priority
 	rule.ID = uuid.New().String()
+	rule.Enabled = req.Enabled
 	rule.MergeStrategy = mergeStrategy
 	rule.Priority = priority
 
 	if err := s.ruleRepo.Create(ctx, rule); err != nil {
 		return nil, err
+	}
+
+	// Trigger Prometheus rule generation for the group
+	if s.ruleGenerator != nil {
+		if err := s.regenerateAndReload(ctx, req.GroupID); err != nil {
+			// Log error but don't fail the operation
+			slog.Warn("Failed to regenerate Prometheus rules after alert rule creation",
+				"group_id", req.GroupID, "rule_id", rule.ID, "error", err)
+		}
+	}
+
+	// Load with relationships
+	return s.ruleRepo.GetByID(ctx, rule.ID)
+}
+
+// CreateDirect creates a new alert rule directly without a template
+func (s *AlertRuleService) CreateDirect(ctx context.Context, req dto.CreateAlertRuleDirectRequest) (*domain.AlertRule, error) {
+	// Validate group exists
+	_, err := s.groupRepo.GetByID(ctx, req.GroupID)
+	if err != nil {
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrForeignKeyViolation
+		}
+		return nil, err
+	}
+
+	// Validate severity
+	if !req.Severity.IsValid() {
+		return nil, domainerrors.NewValidationError("severity", "invalid severity value")
+	}
+
+	// Set defaults
+	mergeStrategy := req.MergeStrategy
+	if mergeStrategy == "" {
+		mergeStrategy = "override"
+	}
+
+	priority := req.Priority
+	if priority == 0 {
+		priority = 100
+	}
+
+	config := req.Config
+	if config == nil {
+		config = make(map[string]interface{})
+	}
+
+	defaultConfig := req.DefaultConfig
+	if defaultConfig == nil {
+		defaultConfig = make(map[string]interface{})
+	}
+
+	// Create rule directly
+	rule := &domain.AlertRule{
+		ID:            uuid.New().String(),
+		GroupID:       req.GroupID,
+		Name:          req.Name,
+		Description:   req.Description,
+		Severity:      req.Severity,
+		QueryTemplate: req.QueryTemplate,
+		DefaultConfig: defaultConfig,
+		Enabled:       req.Enabled,
+		Config:        config,
+		MergeStrategy: mergeStrategy,
+		Priority:      priority,
+	}
+
+	if err := s.ruleRepo.Create(ctx, rule); err != nil {
+		return nil, err
+	}
+
+	// Trigger Prometheus rule generation for the group
+	if s.ruleGenerator != nil {
+		if err := s.regenerateAndReload(ctx, req.GroupID); err != nil {
+			// Log error but don't fail the operation
+			slog.Warn("Failed to regenerate Prometheus rules after alert rule creation",
+				"group_id", req.GroupID, "rule_id", rule.ID, "error", err)
+		}
 	}
 
 	// Load with relationships
@@ -276,8 +346,19 @@ func (s *AlertRuleService) Update(ctx context.Context, id string, req dto.Update
 		rule.Priority = *req.Priority
 	}
 
+	groupID := rule.GroupID
+
 	if err := s.ruleRepo.Update(ctx, rule); err != nil {
 		return nil, err
+	}
+
+	// Trigger Prometheus rule generation for the group
+	if s.ruleGenerator != nil {
+		if err := s.regenerateAndReload(ctx, groupID); err != nil {
+			// Log error but don't fail the operation
+			slog.Warn("Failed to regenerate Prometheus rules after alert rule update",
+				"group_id", groupID, "rule_id", id, "error", err)
+		}
 	}
 
 	return s.ruleRepo.GetByID(ctx, id)
@@ -285,7 +366,7 @@ func (s *AlertRuleService) Update(ctx context.Context, id string, req dto.Update
 
 // Delete performs soft delete on an alert rule
 func (s *AlertRuleService) Delete(ctx context.Context, id string) error {
-	_, err := s.ruleRepo.GetByID(ctx, id)
+	rule, err := s.ruleRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
 			return domainerrors.ErrNotFound
@@ -293,7 +374,22 @@ func (s *AlertRuleService) Delete(ctx context.Context, id string) error {
 		return err
 	}
 
-	return s.ruleRepo.Delete(ctx, id)
+	groupID := rule.GroupID
+
+	if err := s.ruleRepo.Delete(ctx, id); err != nil {
+		return err
+	}
+
+	// Trigger Prometheus rule generation for the group
+	if s.ruleGenerator != nil {
+		if err := s.regenerateAndReload(ctx, groupID); err != nil {
+			// Log error but don't fail the operation
+			slog.Warn("Failed to regenerate Prometheus rules after alert rule deletion",
+				"group_id", groupID, "rule_id", id, "error", err)
+		}
+	}
+
+	return nil
 }
 
 // Purge permanently removes an alert rule (hard delete, admin operation)
@@ -334,4 +430,23 @@ func (s *AlertRuleService) GetByTemplateID(ctx context.Context, templateID strin
 		return nil, err
 	}
 	return s.ruleRepo.GetByTemplateID(ctx, templateID)
+}
+
+// regenerateAndReload regenerates Prometheus rules for a group and triggers reload
+func (s *AlertRuleService) regenerateAndReload(ctx context.Context, groupID string) error {
+	// Generate rules for the group
+	if err := s.ruleGenerator.GenerateRulesForGroup(ctx, groupID); err != nil {
+		return err
+	}
+
+	// Trigger Prometheus reload if client is available
+	if s.prometheusClient != nil {
+		if err := s.prometheusClient.Reload(ctx); err != nil {
+			slog.Warn("Failed to reload Prometheus after rule regeneration",
+				"group_id", groupID, "error", err)
+			// Don't return error - rules are written, reload can be done manually
+		}
+	}
+
+	return nil
 }
