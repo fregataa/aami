@@ -156,22 +156,6 @@ func strPtr(s string) *string {
 	return &s
 }
 
-// NewTestCheckSetting creates a test check setting
-func NewTestCheckSetting(groupID string, checkType string) *domain.CheckSetting {
-	return &domain.CheckSetting{
-		ID:        uuid.New().String(),
-		GroupID:   groupID,
-		CheckType: checkType,
-		Config: map[string]interface{}{
-			"enabled": true,
-		},
-		MergeStrategy: "merge",
-		Priority:      100,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
-	}
-}
-
 // NewTestBootstrapToken creates a test bootstrap token
 func NewTestBootstrapToken(name string) *domain.BootstrapToken {
 	token, _ := domain.GenerateToken()

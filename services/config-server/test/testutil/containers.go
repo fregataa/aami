@@ -168,7 +168,6 @@ func TruncateAllTables(t *testing.T, manager *repository.Manager) {
 		"target_secondary_groups",
 		"exporters",
 		"alert_rules",
-		"check_settings",
 		"bootstrap_tokens",
 		"targets",
 		"groups",

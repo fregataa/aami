@@ -5,15 +5,15 @@ import (
 	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 )
 
-// CreateCheckInstanceRequest represents a request to create a new check instance
+// CreateScriptPolicyRequest represents a request to create a new check instance
 // Supports two modes: from template (template_id) or direct creation (all fields)
-type CreateCheckInstanceRequest struct {
+type CreateScriptPolicyRequest struct {
 	// Option 1: Create from template
 	TemplateID *string `json:"template_id,omitempty" binding:"omitempty,uuid"`
 
 	// Option 2: Direct creation (required if template_id not provided)
 	Name          *string                 `json:"name,omitempty"`
-	CheckType     *string                 `json:"check_type,omitempty"`
+	ScriptType     *string                 `json:"script_type,omitempty"`
 	ScriptContent *string                 `json:"script_content,omitempty"`
 	Language      *string                 `json:"language,omitempty"`
 	DefaultConfig *map[string]interface{} `json:"default_config,omitempty"`
@@ -21,7 +21,7 @@ type CreateCheckInstanceRequest struct {
 	Version       *string                 `json:"version,omitempty"`
 
 	// Common fields
-	Scope       domain.InstanceScope   `json:"scope" binding:"required,oneof=global namespace group"`
+	Scope       domain.PolicyScope   `json:"scope" binding:"required,oneof=global namespace group"`
 	NamespaceID *string                `json:"namespace_id,omitempty" binding:"omitempty,uuid"`
 	GroupID     *string                `json:"group_id,omitempty" binding:"omitempty,uuid"`
 	Config      map[string]interface{} `json:"config" binding:"omitempty"`
@@ -29,8 +29,8 @@ type CreateCheckInstanceRequest struct {
 	IsActive    bool                   `json:"is_active"`
 }
 
-// Validate validates the CreateCheckInstanceRequest
-func (req *CreateCheckInstanceRequest) Validate() error {
+// Validate validates the CreateScriptPolicyRequest
+func (req *CreateScriptPolicyRequest) Validate() error {
 	if req.Config == nil {
 		req.Config = make(map[string]interface{})
 	}
@@ -67,20 +67,20 @@ func (req *CreateCheckInstanceRequest) Validate() error {
 	return nil
 }
 
-// UpdateCheckInstanceRequest represents a request to update an existing check instance
-type UpdateCheckInstanceRequest struct {
+// UpdateScriptPolicyRequest represents a request to update an existing check instance
+type UpdateScriptPolicyRequest struct {
 	Config   map[string]interface{} `json:"config,omitempty" binding:"omitempty"`
 	Priority *int                   `json:"priority,omitempty" binding:"omitempty,min=0,max=1000"`
 	IsActive *bool                  `json:"is_active,omitempty"`
 }
 
-// CheckInstanceResponse represents a check instance in API responses
-type CheckInstanceResponse struct {
+// ScriptPolicyResponse represents a check instance in API responses
+type ScriptPolicyResponse struct {
 	ID string `json:"id"`
 
 	// Template fields (copied from template at creation)
 	Name          string                 `json:"name"`
-	CheckType     string                 `json:"check_type"`
+	ScriptType     string                 `json:"script_type"`
 	ScriptContent string                 `json:"script_content"`
 	Language      string                 `json:"language"`
 	DefaultConfig map[string]interface{} `json:"default_config"`
@@ -108,7 +108,7 @@ type CheckInstanceResponse struct {
 // Contains merged configuration and script content
 type EffectiveCheckResponse struct {
 	Name          string                 `json:"name"`
-	CheckType     string                 `json:"check_type"`
+	ScriptType     string                 `json:"script_type"`
 	ScriptContent string                 `json:"script_content"`
 	Language      string                 `json:"language"`
 	Config        map[string]interface{} `json:"config"`
@@ -117,14 +117,14 @@ type EffectiveCheckResponse struct {
 	InstanceID    string                 `json:"instance_id"`
 }
 
-// ToCheckInstanceResponse converts a domain.CheckInstance to CheckInstanceResponse
-func ToCheckInstanceResponse(instance *domain.CheckInstance) CheckInstanceResponse {
-	return CheckInstanceResponse{
+// ToScriptPolicyResponse converts a domain.ScriptPolicy to ScriptPolicyResponse
+func ToScriptPolicyResponse(instance *domain.ScriptPolicy) ScriptPolicyResponse {
+	return ScriptPolicyResponse{
 		ID: instance.ID,
 
 		// Template fields
 		Name:          instance.Name,
-		CheckType:     instance.CheckType,
+		ScriptType:     instance.ScriptType,
 		ScriptContent: instance.ScriptContent,
 		Language:      instance.Language,
 		DefaultConfig: instance.DefaultConfig,
@@ -152,11 +152,11 @@ func ToCheckInstanceResponse(instance *domain.CheckInstance) CheckInstanceRespon
 	}
 }
 
-// ToCheckInstanceResponseList converts a slice of domain.CheckInstance to slice of CheckInstanceResponse
-func ToCheckInstanceResponseList(instances []domain.CheckInstance) []CheckInstanceResponse {
-	responses := make([]CheckInstanceResponse, len(instances))
+// ToScriptPolicyResponseList converts a slice of domain.ScriptPolicy to slice of ScriptPolicyResponse
+func ToScriptPolicyResponseList(instances []domain.ScriptPolicy) []ScriptPolicyResponse {
+	responses := make([]ScriptPolicyResponse, len(instances))
 	for i, instance := range instances {
-		responses[i] = ToCheckInstanceResponse(&instance)
+		responses[i] = ToScriptPolicyResponse(&instance)
 	}
 	return responses
 }
@@ -165,7 +165,7 @@ func ToCheckInstanceResponseList(instances []domain.CheckInstance) []CheckInstan
 func ToEffectiveCheckResponse(check *domain.EffectiveCheck) EffectiveCheckResponse {
 	return EffectiveCheckResponse{
 		Name:          check.Name,
-		CheckType:     check.CheckType,
+		ScriptType:     check.ScriptType,
 		ScriptContent: check.ScriptContent,
 		Language:      check.Language,
 		Config:        check.Config,

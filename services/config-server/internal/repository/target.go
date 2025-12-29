@@ -135,7 +135,7 @@ type TargetRepository interface {
 	UpdateStatus(ctx context.Context, id string, status domain.TargetStatus) error
 	UpdateLastSeen(ctx context.Context, id string, lastSeen time.Time) error
 	CountByNamespaceID(ctx context.Context, namespaceID string) (int64, error)
-	GetEffectiveCheckInstances(ctx context.Context, targetID string) (*domain.EffectiveCheckInstancesResult, error)
+	GetEffectivePolicies(ctx context.Context, targetID string) (*domain.EffectivePoliciesResult, error)
 }
 
 // targetRepository implements TargetRepository interface using GORM
@@ -306,9 +306,9 @@ func (r *targetRepository) CountByNamespaceID(ctx context.Context, namespaceID s
 	return count, fromGormError(err)
 }
 
-// GetEffectiveCheckInstances retrieves all effective check instances for a target
+// GetEffectivePolicies retrieves all effective check instances for a target
 // Returns namespace-level and group-level instances separately, properly sorted by priority
-func (r *targetRepository) GetEffectiveCheckInstances(ctx context.Context, targetID string) (*domain.EffectiveCheckInstancesResult, error) {
+func (r *targetRepository) GetEffectivePolicies(ctx context.Context, targetID string) (*domain.EffectivePoliciesResult, error) {
 	// First, get target with all groups sorted by priority
 	var target TargetModel
 	err := r.db.WithContext(ctx).
@@ -343,19 +343,19 @@ func (r *targetRepository) GetEffectiveCheckInstances(ctx context.Context, targe
 		return nil, err
 	}
 
-	return &domain.EffectiveCheckInstancesResult{
+	return &domain.EffectivePoliciesResult{
 		NamespaceInstances: namespaceInstances,
 		GroupInstances:     groupInstances,
 	}, nil
 }
 
 // getNamespaceInstances retrieves and deduplicates namespace-level instances (global + namespace scope)
-func (r *targetRepository) getNamespaceInstances(ctx context.Context, namespaceIDs map[string]bool, seenKeys map[string]bool) ([]domain.CheckInstance, error) {
-	var namespaceInstanceModels []CheckInstanceModel
+func (r *targetRepository) getNamespaceInstances(ctx context.Context, namespaceIDs map[string]bool, seenKeys map[string]bool) ([]domain.ScriptPolicy, error) {
+	var namespaceInstanceModels []ScriptPolicyModel
 
 	// Collect instances from all namespaces
 	for nsID := range namespaceIDs {
-		var instances []CheckInstanceModel
+		var instances []ScriptPolicyModel
 		err := r.db.WithContext(ctx).
 			Where("(scope = ? OR (scope = ? AND namespace_id = ?)) AND is_active = ? AND deleted_at IS NULL",
 				"global", "namespace", nsID, true).
@@ -368,7 +368,7 @@ func (r *targetRepository) getNamespaceInstances(ctx context.Context, namespaceI
 	}
 
 	// Deduplicate by template_id or name:checktype (keep first = highest priority)
-	var uniqueInstances []CheckInstanceModel
+	var uniqueInstances []ScriptPolicyModel
 	for _, inst := range namespaceInstanceModels {
 		key := r.getInstanceKey(inst)
 		if !seenKeys[key] {
@@ -378,7 +378,7 @@ func (r *targetRepository) getNamespaceInstances(ctx context.Context, namespaceI
 	}
 
 	// Convert to domain objects
-	result := make([]domain.CheckInstance, len(uniqueInstances))
+	result := make([]domain.ScriptPolicy, len(uniqueInstances))
 	for i, model := range uniqueInstances {
 		result[i] = *model.ToDomain()
 	}
@@ -388,12 +388,12 @@ func (r *targetRepository) getNamespaceInstances(ctx context.Context, namespaceI
 
 // getGroupInstances retrieves and deduplicates group-level instances
 // Processes groups in priority order and respects already seen instances
-func (r *targetRepository) getGroupInstances(ctx context.Context, groups []GroupModel, seenKeys map[string]bool) ([]domain.CheckInstance, error) {
-	var groupInstanceModels []CheckInstanceModel
+func (r *targetRepository) getGroupInstances(ctx context.Context, groups []GroupModel, seenKeys map[string]bool) ([]domain.ScriptPolicy, error) {
+	var groupInstanceModels []ScriptPolicyModel
 
 	// Process groups in priority order (already sorted)
 	for _, group := range groups {
-		var instances []CheckInstanceModel
+		var instances []ScriptPolicyModel
 		err := r.db.WithContext(ctx).
 			Where("(scope = ? OR (scope = ? AND namespace_id = ?) OR (scope = ? AND group_id = ?)) AND is_active = ? AND deleted_at IS NULL",
 				"global", "namespace", group.NamespaceID, "group", group.ID, true).
@@ -415,7 +415,7 @@ func (r *targetRepository) getGroupInstances(ctx context.Context, groups []Group
 	}
 
 	// Convert to domain objects
-	result := make([]domain.CheckInstance, len(groupInstanceModels))
+	result := make([]domain.ScriptPolicy, len(groupInstanceModels))
 	for i, model := range groupInstanceModels {
 		result[i] = *model.ToDomain()
 	}
@@ -425,9 +425,9 @@ func (r *targetRepository) getGroupInstances(ctx context.Context, groups []Group
 
 // getInstanceKey generates a unique key for deduplication
 // Uses template ID if available, otherwise uses name:checktype
-func (r *targetRepository) getInstanceKey(inst CheckInstanceModel) string {
+func (r *targetRepository) getInstanceKey(inst ScriptPolicyModel) string {
 	if inst.CreatedFromTemplateID != nil {
 		return *inst.CreatedFromTemplateID
 	}
-	return inst.Name + ":" + inst.CheckType
+	return inst.Name + ":" + inst.ScriptType
 }

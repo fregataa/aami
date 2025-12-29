@@ -48,8 +48,8 @@ func (s *Server) SetupRouter() *gin.Engine {
 	exporterService := service.NewExporterService(s.rm.Exporter, s.rm.Target)
 	alertTemplateService := service.NewAlertTemplateService(s.rm.AlertTemplate)
 	alertRuleService := service.NewAlertRuleService(s.rm.AlertRule, s.rm.AlertTemplate, s.rm.Group)
-	checkTemplateService := service.NewCheckTemplateService(s.rm.CheckTemplate, s.rm.CheckInstance)
-	checkInstanceService := service.NewCheckInstanceService(s.rm.CheckInstance, s.rm.CheckTemplate, s.rm.Namespace, s.rm.Group, s.rm.Target)
+	monitoringScriptService := service.NewMonitoringScriptService(s.rm.MonitoringScript, s.rm.ScriptPolicy)
+	scriptPolicyService := service.NewScriptPolicyService(s.rm.ScriptPolicy, s.rm.MonitoringScript, s.rm.Namespace, s.rm.Group, s.rm.Target)
 	bootstrapTokenService := service.NewBootstrapTokenService(s.rm.BootstrapToken, s.rm.Group, targetService)
 	serviceDiscoveryService := service.NewServiceDiscoveryService(s.rm.Target)
 
@@ -60,8 +60,8 @@ func (s *Server) SetupRouter() *gin.Engine {
 	exporterHandler := handler.NewExporterHandler(exporterService)
 	alertTemplateHandler := handler.NewAlertTemplateHandler(alertTemplateService)
 	alertRuleHandler := handler.NewAlertRuleHandler(alertRuleService)
-	checkTemplateHandler := handler.NewCheckTemplateHandler(checkTemplateService)
-	checkInstanceHandler := handler.NewCheckInstanceHandler(checkInstanceService)
+	monitoringScriptHandler := handler.NewMonitoringScriptHandler(monitoringScriptService)
+	scriptPolicyHandler := handler.NewScriptPolicyHandler(scriptPolicyService)
 	bootstrapTokenHandler := handler.NewBootstrapTokenHandler(bootstrapTokenService)
 	serviceDiscoveryHandler := handler.NewServiceDiscoveryHandler(serviceDiscoveryService)
 
@@ -171,45 +171,45 @@ func (s *Server) SetupRouter() *gin.Engine {
 			bootstrapTokens.POST("/restore", bootstrapTokenHandler.RestoreResource)
 		}
 
-		// Check template routes
-		checkTemplates := v1.Group("/check-templates")
+		// Monitoring script routes
+		monitoringScripts := v1.Group("/monitoring-scripts")
 		{
-			checkTemplates.POST("", checkTemplateHandler.Create)
-			checkTemplates.GET("", checkTemplateHandler.List)
-			checkTemplates.GET("/active", checkTemplateHandler.ListActive)
-			checkTemplates.GET("/:id", checkTemplateHandler.GetByID)
-			checkTemplates.GET("/name/:name", checkTemplateHandler.GetByName)
-			checkTemplates.GET("/type/:checkType", checkTemplateHandler.GetByCheckType)
-			checkTemplates.PUT("/:id", checkTemplateHandler.Update)
-			checkTemplates.POST("/delete", checkTemplateHandler.DeleteResource)
-			checkTemplates.POST("/purge", checkTemplateHandler.PurgeResource)
-			checkTemplates.POST("/restore", checkTemplateHandler.RestoreResource)
-			checkTemplates.GET("/:id/verify-hash", checkTemplateHandler.VerifyHash)
+			monitoringScripts.POST("", monitoringScriptHandler.Create)
+			monitoringScripts.GET("", monitoringScriptHandler.List)
+			monitoringScripts.GET("/active", monitoringScriptHandler.ListActive)
+			monitoringScripts.GET("/:id", monitoringScriptHandler.GetByID)
+			monitoringScripts.GET("/name/:name", monitoringScriptHandler.GetByName)
+			monitoringScripts.GET("/type/:scriptType", monitoringScriptHandler.GetByScriptType)
+			monitoringScripts.PUT("/:id", monitoringScriptHandler.Update)
+			monitoringScripts.POST("/delete", monitoringScriptHandler.DeleteResource)
+			monitoringScripts.POST("/purge", monitoringScriptHandler.PurgeResource)
+			monitoringScripts.POST("/restore", monitoringScriptHandler.RestoreResource)
+			monitoringScripts.GET("/:id/verify-hash", monitoringScriptHandler.VerifyHash)
 		}
 
-		// Check instance routes
-		checkInstances := v1.Group("/check-instances")
+		// Script policy routes
+		scriptPolicies := v1.Group("/script-policies")
 		{
-			checkInstances.POST("", checkInstanceHandler.Create)
-			checkInstances.GET("", checkInstanceHandler.List)
-			checkInstances.GET("/active", checkInstanceHandler.ListActive)
-			checkInstances.GET("/:id", checkInstanceHandler.GetByID)
-			checkInstances.GET("/template/:templateId", checkInstanceHandler.GetByTemplateID)
-			checkInstances.GET("/global", checkInstanceHandler.GetGlobalInstances)
-			checkInstances.GET("/namespace/:namespaceId", checkInstanceHandler.GetByNamespaceID)
-			checkInstances.GET("/group/:groupId", checkInstanceHandler.GetByGroupID)
-			checkInstances.GET("/effective/namespace/:namespaceId", checkInstanceHandler.GetEffectiveChecksByNamespace)
-			checkInstances.GET("/effective/group/:namespaceId/:groupId", checkInstanceHandler.GetEffectiveChecksByGroup)
-			checkInstances.PUT("/:id", checkInstanceHandler.Update)
-			checkInstances.POST("/delete", checkInstanceHandler.DeleteResource)
-			checkInstances.POST("/purge", checkInstanceHandler.PurgeResource)
-			checkInstances.POST("/restore", checkInstanceHandler.RestoreResource)
+			scriptPolicies.POST("", scriptPolicyHandler.Create)
+			scriptPolicies.GET("", scriptPolicyHandler.List)
+			scriptPolicies.GET("/active", scriptPolicyHandler.ListActive)
+			scriptPolicies.GET("/:id", scriptPolicyHandler.GetByID)
+			scriptPolicies.GET("/template/:templateId", scriptPolicyHandler.GetByTemplateID)
+			scriptPolicies.GET("/global", scriptPolicyHandler.GetGlobalInstances)
+			scriptPolicies.GET("/namespace/:namespaceId", scriptPolicyHandler.GetByNamespaceID)
+			scriptPolicies.GET("/group/:groupId", scriptPolicyHandler.GetByGroupID)
+			scriptPolicies.GET("/effective/namespace/:namespaceId", scriptPolicyHandler.GetEffectiveChecksByNamespace)
+			scriptPolicies.GET("/effective/group/:namespaceId/:groupId", scriptPolicyHandler.GetEffectiveChecksByGroup)
+			scriptPolicies.PUT("/:id", scriptPolicyHandler.Update)
+			scriptPolicies.POST("/delete", scriptPolicyHandler.DeleteResource)
+			scriptPolicies.POST("/purge", scriptPolicyHandler.PurgeResource)
+			scriptPolicies.POST("/restore", scriptPolicyHandler.RestoreResource)
 		}
 
 		// Node API: Get effective checks by target ID
 		checks := v1.Group("/checks")
 		{
-			checks.GET("/target/:targetId", checkInstanceHandler.GetEffectiveChecksByTargetID)
+			checks.GET("/target/:targetId", scriptPolicyHandler.GetEffectiveChecksByTargetID)
 		}
 
 		// Service Discovery routes

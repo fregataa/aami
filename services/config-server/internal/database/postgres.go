@@ -54,7 +54,6 @@ func AutoMigrate(db *gorm.DB) error {
 		&domain.Exporter{},
 		&domain.AlertTemplate{},
 		&domain.AlertRule{},
-		&domain.CheckSetting{},
 		&domain.BootstrapToken{},
 	)
 }

@@ -11,34 +11,34 @@ import (
 	"github.com/google/uuid"
 )
 
-// CheckInstanceService handles business logic for check instances
-type CheckInstanceService struct {
-	instanceRepo  repository.CheckInstanceRepository
-	templateRepo  repository.CheckTemplateRepository
+// ScriptPolicyService handles business logic for script policys
+type ScriptPolicyService struct {
+	policyRepo  repository.ScriptPolicyRepository
+	scriptRepo    repository.MonitoringScriptRepository
 	namespaceRepo repository.NamespaceRepository
 	groupRepo     repository.GroupRepository
 	targetRepo    repository.TargetRepository
 }
 
-// NewCheckInstanceService creates a new CheckInstanceService
-func NewCheckInstanceService(
-	instanceRepo repository.CheckInstanceRepository,
-	templateRepo repository.CheckTemplateRepository,
+// NewScriptPolicyService creates a new ScriptPolicyService
+func NewScriptPolicyService(
+	policyRepo repository.ScriptPolicyRepository,
+	scriptRepo repository.MonitoringScriptRepository,
 	namespaceRepo repository.NamespaceRepository,
 	groupRepo repository.GroupRepository,
 	targetRepo repository.TargetRepository,
-) *CheckInstanceService {
-	return &CheckInstanceService{
-		instanceRepo:  instanceRepo,
-		templateRepo:  templateRepo,
+) *ScriptPolicyService {
+	return &ScriptPolicyService{
+		policyRepo:  policyRepo,
+		scriptRepo:    scriptRepo,
 		namespaceRepo: namespaceRepo,
 		groupRepo:     groupRepo,
 		targetRepo:    targetRepo,
 	}
 }
 
-// Create creates a new check instance
-func (s *CheckInstanceService) Create(ctx context.Context, req dto.CreateCheckInstanceRequest) (*domain.CheckInstance, error) {
+// Create creates a new script policy
+func (s *ScriptPolicyService) Create(ctx context.Context, req dto.CreateScriptPolicyRequest) (*domain.ScriptPolicy, error) {
 	// Validate required fields
 	if err := req.Validate(); err != nil {
 		return nil, err
@@ -64,12 +64,12 @@ func (s *CheckInstanceService) Create(ctx context.Context, req dto.CreateCheckIn
 		}
 	}
 
-	var instance *domain.CheckInstance
+	var instance *domain.ScriptPolicy
 
-	// Two creation modes: from template or direct
+	// Two creation modes: from script or direct
 	if req.TemplateID != nil {
-		// Option 1: Create from template
-		template, err := s.templateRepo.GetByID(ctx, *req.TemplateID)
+		// Option 1: Create from script
+		script, err := s.scriptRepo.GetByID(ctx, *req.TemplateID)
 		if err != nil {
 			if errors.Is(err, domainerrors.ErrNotFound) {
 				return nil, domainerrors.ErrForeignKeyViolation
@@ -77,9 +77,9 @@ func (s *CheckInstanceService) Create(ctx context.Context, req dto.CreateCheckIn
 			return nil, err
 		}
 
-		// Use domain constructor to deep copy template fields
-		instance = domain.NewCheckInstanceFromTemplate(
-			template,
+		// Use domain constructor to deep copy script fields
+		instance = domain.NewScriptPolicyFromTemplate(
+			script,
 			req.Scope,
 			req.NamespaceID,
 			req.GroupID,
@@ -87,9 +87,9 @@ func (s *CheckInstanceService) Create(ctx context.Context, req dto.CreateCheckIn
 		)
 	} else {
 		// Option 2: Direct creation (all fields provided in request)
-		instance = &domain.CheckInstance{
+		instance = &domain.ScriptPolicy{
 			Name:          *req.Name,
-			CheckType:     *req.CheckType,
+			ScriptType:     *req.ScriptType,
 			ScriptContent: *req.ScriptContent,
 			Language:      *req.Language,
 			DefaultConfig: *req.DefaultConfig,
@@ -114,16 +114,16 @@ func (s *CheckInstanceService) Create(ctx context.Context, req dto.CreateCheckIn
 		return nil, err
 	}
 
-	if err := s.instanceRepo.Create(ctx, instance); err != nil {
+	if err := s.policyRepo.Create(ctx, instance); err != nil {
 		return nil, err
 	}
 
 	return instance, nil
 }
 
-// GetByID retrieves a check instance by ID
-func (s *CheckInstanceService) GetByID(ctx context.Context, id string) (*domain.CheckInstance, error) {
-	instance, err := s.instanceRepo.GetByID(ctx, id)
+// GetByID retrieves a script policy by ID
+func (s *ScriptPolicyService) GetByID(ctx context.Context, id string) (*domain.ScriptPolicy, error) {
+	instance, err := s.policyRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
 			return nil, domainerrors.ErrNotFound
@@ -134,29 +134,29 @@ func (s *CheckInstanceService) GetByID(ctx context.Context, id string) (*domain.
 }
 
 // GetByTemplateID retrieves all instances for a specific template
-func (s *CheckInstanceService) GetByTemplateID(ctx context.Context, templateID string) ([]domain.CheckInstance, error) {
-	return s.instanceRepo.GetByTemplateID(ctx, templateID)
+func (s *ScriptPolicyService) GetByTemplateID(ctx context.Context, templateID string) ([]domain.ScriptPolicy, error) {
+	return s.policyRepo.GetByTemplateID(ctx, templateID)
 }
 
 // GetGlobalInstances retrieves all global-scope instances
-func (s *CheckInstanceService) GetGlobalInstances(ctx context.Context) ([]domain.CheckInstance, error) {
-	return s.instanceRepo.GetGlobalInstances(ctx)
+func (s *ScriptPolicyService) GetGlobalInstances(ctx context.Context) ([]domain.ScriptPolicy, error) {
+	return s.policyRepo.GetGlobalInstances(ctx)
 }
 
 // GetByNamespaceID retrieves all namespace-level instances for a specific namespace
-func (s *CheckInstanceService) GetByNamespaceID(ctx context.Context, namespaceID string) ([]domain.CheckInstance, error) {
-	return s.instanceRepo.GetByNamespaceID(ctx, namespaceID)
+func (s *ScriptPolicyService) GetByNamespaceID(ctx context.Context, namespaceID string) ([]domain.ScriptPolicy, error) {
+	return s.policyRepo.GetByNamespaceID(ctx, namespaceID)
 }
 
 // GetByGroupID retrieves all group-level instances for a specific group
-func (s *CheckInstanceService) GetByGroupID(ctx context.Context, groupID string) ([]domain.CheckInstance, error) {
-	return s.instanceRepo.GetByGroupID(ctx, groupID)
+func (s *ScriptPolicyService) GetByGroupID(ctx context.Context, groupID string) ([]domain.ScriptPolicy, error) {
+	return s.policyRepo.GetByGroupID(ctx, groupID)
 }
 
 // GetEffectiveInstance finds the most specific active instance for a template
 // Priority: Group > Namespace > Global
-func (s *CheckInstanceService) GetEffectiveInstance(ctx context.Context, templateID, namespaceID, groupID string) (*domain.CheckInstance, error) {
-	instance, err := s.instanceRepo.GetEffectiveInstance(ctx, templateID, namespaceID, groupID)
+func (s *ScriptPolicyService) GetEffectiveInstance(ctx context.Context, templateID, namespaceID, groupID string) (*domain.ScriptPolicy, error) {
+	instance, err := s.policyRepo.GetEffectiveInstance(ctx, templateID, namespaceID, groupID)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
 			return nil, domainerrors.ErrNotFound
@@ -168,9 +168,9 @@ func (s *CheckInstanceService) GetEffectiveInstance(ctx context.Context, templat
 
 // GetEffectiveChecksByTargetID retrieves all effective checks for a specific target
 // This is the main method used by nodes to get their check configurations
-func (s *CheckInstanceService) GetEffectiveChecksByTargetID(ctx context.Context, targetID string) ([]domain.EffectiveCheck, error) {
-	// Get effective check instances from repository (handles priority resolution)
-	result, err := s.targetRepo.GetEffectiveCheckInstances(ctx, targetID)
+func (s *ScriptPolicyService) GetEffectiveChecksByTargetID(ctx context.Context, targetID string) ([]domain.EffectiveCheck, error) {
+	// Get effective script policys from repository (handles priority resolution)
+	result, err := s.targetRepo.GetEffectivePolicies(ctx, targetID)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
 			return nil, domainerrors.ErrNotFound
@@ -189,7 +189,7 @@ func (s *CheckInstanceService) GetEffectiveChecksByTargetID(ctx context.Context,
 
 		effectiveChecks[i] = domain.EffectiveCheck{
 			Name:          instance.Name,
-			CheckType:     instance.CheckType,
+			ScriptType:     instance.ScriptType,
 			ScriptContent: instance.ScriptContent,
 			Language:      instance.Language,
 			Config:        mergedConfig,
@@ -203,7 +203,7 @@ func (s *CheckInstanceService) GetEffectiveChecksByTargetID(ctx context.Context,
 }
 
 // GetEffectiveChecksByNamespace retrieves all effective checks for a namespace
-func (s *CheckInstanceService) GetEffectiveChecksByNamespace(ctx context.Context, namespaceID string) ([]domain.CheckInstance, error) {
+func (s *ScriptPolicyService) GetEffectiveChecksByNamespace(ctx context.Context, namespaceID string) ([]domain.ScriptPolicy, error) {
 	// Verify namespace exists
 	if _, err := s.namespaceRepo.GetByID(ctx, namespaceID); err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
@@ -212,11 +212,11 @@ func (s *CheckInstanceService) GetEffectiveChecksByNamespace(ctx context.Context
 		return nil, err
 	}
 
-	return s.instanceRepo.GetEffectiveInstancesByNamespace(ctx, namespaceID)
+	return s.policyRepo.GetEffectiveInstancesByNamespace(ctx, namespaceID)
 }
 
 // GetEffectiveChecksByGroup retrieves all effective checks for a group
-func (s *CheckInstanceService) GetEffectiveChecksByGroup(ctx context.Context, namespaceID, groupID string) ([]domain.CheckInstance, error) {
+func (s *ScriptPolicyService) GetEffectiveChecksByGroup(ctx context.Context, namespaceID, groupID string) ([]domain.ScriptPolicy, error) {
 	// Verify group exists
 	group, err := s.groupRepo.GetByID(ctx, groupID)
 	if err != nil {
@@ -231,12 +231,12 @@ func (s *CheckInstanceService) GetEffectiveChecksByGroup(ctx context.Context, na
 		return nil, domainerrors.NewValidationError("namespace_id", "group does not belong to the specified namespace")
 	}
 
-	return s.instanceRepo.GetEffectiveInstancesByGroup(ctx, namespaceID, groupID)
+	return s.policyRepo.GetEffectiveInstancesByGroup(ctx, namespaceID, groupID)
 }
 
-// Update updates an existing check instance
-func (s *CheckInstanceService) Update(ctx context.Context, id string, req dto.UpdateCheckInstanceRequest) (*domain.CheckInstance, error) {
-	instance, err := s.instanceRepo.GetByID(ctx, id)
+// Update updates an existing script policy
+func (s *ScriptPolicyService) Update(ctx context.Context, id string, req dto.UpdateScriptPolicyRequest) (*domain.ScriptPolicy, error) {
+	instance, err := s.policyRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
 			return nil, domainerrors.ErrNotFound
@@ -260,17 +260,17 @@ func (s *CheckInstanceService) Update(ctx context.Context, id string, req dto.Up
 		return nil, err
 	}
 
-	if err := s.instanceRepo.Update(ctx, instance); err != nil {
+	if err := s.policyRepo.Update(ctx, instance); err != nil {
 		return nil, err
 	}
 
 	return instance, nil
 }
 
-// Delete performs soft delete on a check instance
-func (s *CheckInstanceService) Delete(ctx context.Context, id string) error {
+// Delete performs soft delete on a script policy
+func (s *ScriptPolicyService) Delete(ctx context.Context, id string) error {
 	// Check if instance exists
-	_, err := s.instanceRepo.GetByID(ctx, id)
+	_, err := s.policyRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
 			return domainerrors.ErrNotFound
@@ -278,26 +278,26 @@ func (s *CheckInstanceService) Delete(ctx context.Context, id string) error {
 		return err
 	}
 
-	return s.instanceRepo.Delete(ctx, id)
+	return s.policyRepo.Delete(ctx, id)
 }
 
-// Purge permanently removes a check instance (hard delete, admin operation)
-func (s *CheckInstanceService) Purge(ctx context.Context, id string) error {
-	return s.instanceRepo.Purge(ctx, id)
+// Purge permanently removes a script policy (hard delete, admin operation)
+func (s *ScriptPolicyService) Purge(ctx context.Context, id string) error {
+	return s.policyRepo.Purge(ctx, id)
 }
 
-// Restore restores a soft-deleted check instance
-func (s *CheckInstanceService) Restore(ctx context.Context, id string) error {
-	return s.instanceRepo.Restore(ctx, id)
+// Restore restores a soft-deleted script policy
+func (s *ScriptPolicyService) Restore(ctx context.Context, id string) error {
+	return s.policyRepo.Restore(ctx, id)
 }
 
-// List retrieves a paginated list of check instances
-func (s *CheckInstanceService) List(ctx context.Context, pagination dto.PaginationRequest) ([]domain.CheckInstance, int, error) {
+// List retrieves a paginated list of script policys
+func (s *ScriptPolicyService) List(ctx context.Context, pagination dto.PaginationRequest) ([]domain.ScriptPolicy, int, error) {
 	pagination.Normalize()
-	return s.instanceRepo.List(ctx, pagination.Page, pagination.Limit)
+	return s.policyRepo.List(ctx, pagination.Page, pagination.Limit)
 }
 
 // ListActive retrieves all active (non-deleted) instances
-func (s *CheckInstanceService) ListActive(ctx context.Context) ([]domain.CheckInstance, error) {
-	return s.instanceRepo.ListActive(ctx)
+func (s *ScriptPolicyService) ListActive(ctx context.Context) ([]domain.ScriptPolicy, error) {
+	return s.policyRepo.ListActive(ctx)
 }

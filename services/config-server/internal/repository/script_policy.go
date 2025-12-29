@@ -8,13 +8,13 @@ import (
 	"gorm.io/gorm"
 )
 
-// CheckInstanceModel is the GORM model for database operations
-type CheckInstanceModel struct {
+// ScriptPolicyModel is the GORM model for database operations
+type ScriptPolicyModel struct {
 	ID string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 
 	// Template fields (copied from template at creation)
 	Name          string `gorm:"not null;type:varchar(255);index"`
-	CheckType     string `gorm:"not null;type:varchar(100);index"`
+	ScriptType     string `gorm:"not null;type:varchar(100);index"`
 	ScriptContent string `gorm:"not null;type:text"`
 	Language      string `gorm:"not null;type:varchar(50)"`
 	DefaultConfig JSONB  `gorm:"type:jsonb;default:'{}'"`
@@ -43,18 +43,18 @@ type CheckInstanceModel struct {
 }
 
 // TableName specifies the table name for GORM
-func (CheckInstanceModel) TableName() string {
-	return "check_instances"
+func (ScriptPolicyModel) TableName() string {
+	return "script_policies"
 }
 
-// ToCheckInstanceModel converts domain.CheckInstance to CheckInstanceModel
-func ToCheckInstanceModel(ci *domain.CheckInstance) *CheckInstanceModel {
-	model := &CheckInstanceModel{
+// ToScriptPolicyModel converts domain.ScriptPolicy to ScriptPolicyModel
+func ToScriptPolicyModel(ci *domain.ScriptPolicy) *ScriptPolicyModel {
+	model := &ScriptPolicyModel{
 		ID: ci.ID,
 
 		// Template fields
 		Name:          ci.Name,
-		CheckType:     ci.CheckType,
+		ScriptType:     ci.ScriptType,
 		ScriptContent: ci.ScriptContent,
 		Language:      ci.Language,
 		DefaultConfig: JSONB(ci.DefaultConfig),
@@ -90,14 +90,14 @@ func ToCheckInstanceModel(ci *domain.CheckInstance) *CheckInstanceModel {
 	return model
 }
 
-// ToDomain converts CheckInstanceModel to domain.CheckInstance
-func (m *CheckInstanceModel) ToDomain() *domain.CheckInstance {
-	ci := &domain.CheckInstance{
+// ToDomain converts ScriptPolicyModel to domain.ScriptPolicy
+func (m *ScriptPolicyModel) ToDomain() *domain.ScriptPolicy {
+	ci := &domain.ScriptPolicy{
 		ID: m.ID,
 
 		// Template fields
 		Name:          m.Name,
-		CheckType:     m.CheckType,
+		ScriptType:     m.ScriptType,
 		ScriptContent: m.ScriptContent,
 		Language:      m.Language,
 		DefaultConfig: map[string]interface{}(m.DefaultConfig),
@@ -106,7 +106,7 @@ func (m *CheckInstanceModel) ToDomain() *domain.CheckInstance {
 		Hash:          m.Hash,
 
 		// Instance-specific fields
-		Scope:       domain.InstanceScope(m.Scope),
+		Scope:       domain.PolicyScope(m.Scope),
 		NamespaceID: m.NamespaceID,
 		GroupID:     m.GroupID,
 		Config:      map[string]interface{}(m.Config),
@@ -140,38 +140,38 @@ func (m *CheckInstanceModel) ToDomain() *domain.CheckInstance {
 	return ci
 }
 
-// CheckInstanceRepository defines the interface for check instance data access
-type CheckInstanceRepository interface {
-	Create(ctx context.Context, instance *domain.CheckInstance) error
-	GetByID(ctx context.Context, id string) (*domain.CheckInstance, error)
-	GetByTemplateID(ctx context.Context, templateID string) ([]domain.CheckInstance, error)
-	GetGlobalInstances(ctx context.Context) ([]domain.CheckInstance, error)
-	GetByNamespaceID(ctx context.Context, namespaceID string) ([]domain.CheckInstance, error)
-	GetByGroupID(ctx context.Context, groupID string) ([]domain.CheckInstance, error)
-	GetEffectiveInstance(ctx context.Context, templateID, namespaceID, groupID string) (*domain.CheckInstance, error)
-	GetEffectiveInstancesByNamespace(ctx context.Context, namespaceID string) ([]domain.CheckInstance, error)
-	GetEffectiveInstancesByGroup(ctx context.Context, namespaceID, groupID string) ([]domain.CheckInstance, error)
-	ListActive(ctx context.Context) ([]domain.CheckInstance, error)
-	Update(ctx context.Context, instance *domain.CheckInstance) error
+// ScriptPolicyRepository defines the interface for script policy data access
+type ScriptPolicyRepository interface {
+	Create(ctx context.Context, instance *domain.ScriptPolicy) error
+	GetByID(ctx context.Context, id string) (*domain.ScriptPolicy, error)
+	GetByTemplateID(ctx context.Context, templateID string) ([]domain.ScriptPolicy, error)
+	GetGlobalInstances(ctx context.Context) ([]domain.ScriptPolicy, error)
+	GetByNamespaceID(ctx context.Context, namespaceID string) ([]domain.ScriptPolicy, error)
+	GetByGroupID(ctx context.Context, groupID string) ([]domain.ScriptPolicy, error)
+	GetEffectiveInstance(ctx context.Context, templateID, namespaceID, groupID string) (*domain.ScriptPolicy, error)
+	GetEffectiveInstancesByNamespace(ctx context.Context, namespaceID string) ([]domain.ScriptPolicy, error)
+	GetEffectiveInstancesByGroup(ctx context.Context, namespaceID, groupID string) ([]domain.ScriptPolicy, error)
+	ListActive(ctx context.Context) ([]domain.ScriptPolicy, error)
+	Update(ctx context.Context, instance *domain.ScriptPolicy) error
 	Delete(ctx context.Context, id string) error  // Soft delete
 	Purge(ctx context.Context, id string) error   // Hard delete
 	Restore(ctx context.Context, id string) error // Restore soft-deleted record
-	List(ctx context.Context, page, limit int) ([]domain.CheckInstance, int, error)
+	List(ctx context.Context, page, limit int) ([]domain.ScriptPolicy, int, error)
 }
 
-// checkInstanceRepository implements CheckInstanceRepository interface using GORM
-type checkInstanceRepository struct {
+// scriptPolicyRepository implements ScriptPolicyRepository interface using GORM
+type scriptPolicyRepository struct {
 	db *gorm.DB
 }
 
-// NewCheckInstanceRepository creates a new CheckInstanceRepository instance
-func NewCheckInstanceRepository(db *gorm.DB) CheckInstanceRepository {
-	return &checkInstanceRepository{db: db}
+// NewScriptPolicyRepository creates a new ScriptPolicyRepository instance
+func NewScriptPolicyRepository(db *gorm.DB) ScriptPolicyRepository {
+	return &scriptPolicyRepository{db: db}
 }
 
-// Create inserts a new check instance into the database
-func (r *checkInstanceRepository) Create(ctx context.Context, instance *domain.CheckInstance) error {
-	model := ToCheckInstanceModel(instance)
+// Create inserts a new script policy into the database
+func (r *scriptPolicyRepository) Create(ctx context.Context, instance *domain.ScriptPolicy) error {
+	model := ToScriptPolicyModel(instance)
 	if err := r.db.WithContext(ctx).Create(model).Error; err != nil {
 		return fromGormError(err)
 	}
@@ -179,9 +179,9 @@ func (r *checkInstanceRepository) Create(ctx context.Context, instance *domain.C
 	return nil
 }
 
-// GetByID retrieves a check instance by its ID
-func (r *checkInstanceRepository) GetByID(ctx context.Context, id string) (*domain.CheckInstance, error) {
-	var model CheckInstanceModel
+// GetByID retrieves a script policy by its ID
+func (r *scriptPolicyRepository) GetByID(ctx context.Context, id string) (*domain.ScriptPolicy, error) {
+	var model ScriptPolicyModel
 	err := r.db.WithContext(ctx).
 		Preload("Template").
 		Preload("Namespace").
@@ -194,8 +194,8 @@ func (r *checkInstanceRepository) GetByID(ctx context.Context, id string) (*doma
 }
 
 // GetByTemplateID retrieves all instances for a specific template
-func (r *checkInstanceRepository) GetByTemplateID(ctx context.Context, templateID string) ([]domain.CheckInstance, error) {
-	var models []CheckInstanceModel
+func (r *scriptPolicyRepository) GetByTemplateID(ctx context.Context, templateID string) ([]domain.ScriptPolicy, error) {
+	var models []ScriptPolicyModel
 	err := r.db.WithContext(ctx).
 		Preload("Template").
 		Preload("Namespace").
@@ -207,7 +207,7 @@ func (r *checkInstanceRepository) GetByTemplateID(ctx context.Context, templateI
 		return nil, fromGormError(err)
 	}
 
-	instances := make([]domain.CheckInstance, len(models))
+	instances := make([]domain.ScriptPolicy, len(models))
 	for i, model := range models {
 		instances[i] = *model.ToDomain()
 	}
@@ -215,8 +215,8 @@ func (r *checkInstanceRepository) GetByTemplateID(ctx context.Context, templateI
 }
 
 // GetGlobalInstances retrieves all global-scope instances
-func (r *checkInstanceRepository) GetGlobalInstances(ctx context.Context) ([]domain.CheckInstance, error) {
-	var models []CheckInstanceModel
+func (r *scriptPolicyRepository) GetGlobalInstances(ctx context.Context) ([]domain.ScriptPolicy, error) {
+	var models []ScriptPolicyModel
 	err := r.db.WithContext(ctx).
 		Preload("Template").
 		Where("scope = ?", domain.ScopeGlobal).
@@ -227,7 +227,7 @@ func (r *checkInstanceRepository) GetGlobalInstances(ctx context.Context) ([]dom
 		return nil, fromGormError(err)
 	}
 
-	instances := make([]domain.CheckInstance, len(models))
+	instances := make([]domain.ScriptPolicy, len(models))
 	for i, model := range models {
 		instances[i] = *model.ToDomain()
 	}
@@ -235,8 +235,8 @@ func (r *checkInstanceRepository) GetGlobalInstances(ctx context.Context) ([]dom
 }
 
 // GetByNamespaceID retrieves all namespace-level instances for a specific namespace
-func (r *checkInstanceRepository) GetByNamespaceID(ctx context.Context, namespaceID string) ([]domain.CheckInstance, error) {
-	var models []CheckInstanceModel
+func (r *scriptPolicyRepository) GetByNamespaceID(ctx context.Context, namespaceID string) ([]domain.ScriptPolicy, error) {
+	var models []ScriptPolicyModel
 	err := r.db.WithContext(ctx).
 		Preload("Template").
 		Preload("Namespace").
@@ -249,7 +249,7 @@ func (r *checkInstanceRepository) GetByNamespaceID(ctx context.Context, namespac
 		return nil, fromGormError(err)
 	}
 
-	instances := make([]domain.CheckInstance, len(models))
+	instances := make([]domain.ScriptPolicy, len(models))
 	for i, model := range models {
 		instances[i] = *model.ToDomain()
 	}
@@ -257,8 +257,8 @@ func (r *checkInstanceRepository) GetByNamespaceID(ctx context.Context, namespac
 }
 
 // GetByGroupID retrieves all group-level instances for a specific group
-func (r *checkInstanceRepository) GetByGroupID(ctx context.Context, groupID string) ([]domain.CheckInstance, error) {
-	var models []CheckInstanceModel
+func (r *scriptPolicyRepository) GetByGroupID(ctx context.Context, groupID string) ([]domain.ScriptPolicy, error) {
+	var models []ScriptPolicyModel
 	err := r.db.WithContext(ctx).
 		Preload("Template").
 		Preload("Namespace").
@@ -272,7 +272,7 @@ func (r *checkInstanceRepository) GetByGroupID(ctx context.Context, groupID stri
 		return nil, fromGormError(err)
 	}
 
-	instances := make([]domain.CheckInstance, len(models))
+	instances := make([]domain.ScriptPolicy, len(models))
 	for i, model := range models {
 		instances[i] = *model.ToDomain()
 	}
@@ -281,8 +281,8 @@ func (r *checkInstanceRepository) GetByGroupID(ctx context.Context, groupID stri
 
 // GetEffectiveInstance finds the most specific active instance for a template
 // Priority: Group > Namespace > Global
-func (r *checkInstanceRepository) GetEffectiveInstance(ctx context.Context, templateID, namespaceID, groupID string) (*domain.CheckInstance, error) {
-	var model CheckInstanceModel
+func (r *scriptPolicyRepository) GetEffectiveInstance(ctx context.Context, templateID, namespaceID, groupID string) (*domain.ScriptPolicy, error) {
+	var model ScriptPolicyModel
 
 	// Try Group level first (highest priority)
 	if groupID != "" {
@@ -340,8 +340,8 @@ func (r *checkInstanceRepository) GetEffectiveInstance(ctx context.Context, temp
 
 // GetEffectiveInstancesByNamespace retrieves all effective instances for a namespace
 // Combines global and namespace-level instances
-func (r *checkInstanceRepository) GetEffectiveInstancesByNamespace(ctx context.Context, namespaceID string) ([]domain.CheckInstance, error) {
-	var models []CheckInstanceModel
+func (r *scriptPolicyRepository) GetEffectiveInstancesByNamespace(ctx context.Context, namespaceID string) ([]domain.ScriptPolicy, error) {
+	var models []ScriptPolicyModel
 
 	// Get both global and namespace-level instances
 	err := r.db.WithContext(ctx).
@@ -359,7 +359,7 @@ func (r *checkInstanceRepository) GetEffectiveInstancesByNamespace(ctx context.C
 
 	// Deduplicate by created_from_template_id, keeping the highest priority (first occurrence)
 	seen := make(map[string]bool)
-	var uniqueInstances []domain.CheckInstance
+	var uniqueInstances []domain.ScriptPolicy
 
 	for _, model := range models {
 		// Use created_from_template_id for deduplication if available, otherwise use name+checktype
@@ -367,7 +367,7 @@ func (r *checkInstanceRepository) GetEffectiveInstancesByNamespace(ctx context.C
 		if model.CreatedFromTemplateID != nil {
 			key = *model.CreatedFromTemplateID
 		} else {
-			key = model.Name + ":" + model.CheckType
+			key = model.Name + ":" + model.ScriptType
 		}
 
 		if !seen[key] {
@@ -381,8 +381,8 @@ func (r *checkInstanceRepository) GetEffectiveInstancesByNamespace(ctx context.C
 
 // GetEffectiveInstancesByGroup retrieves all effective instances for a group
 // Combines global, namespace-level, and group-level instances
-func (r *checkInstanceRepository) GetEffectiveInstancesByGroup(ctx context.Context, namespaceID, groupID string) ([]domain.CheckInstance, error) {
-	var models []CheckInstanceModel
+func (r *scriptPolicyRepository) GetEffectiveInstancesByGroup(ctx context.Context, namespaceID, groupID string) ([]domain.ScriptPolicy, error) {
+	var models []ScriptPolicyModel
 
 	// Get global, namespace-level, and group-level instances
 	err := r.db.WithContext(ctx).
@@ -402,7 +402,7 @@ func (r *checkInstanceRepository) GetEffectiveInstancesByGroup(ctx context.Conte
 
 	// Deduplicate by created_from_template_id, keeping the highest priority (first occurrence)
 	seen := make(map[string]bool)
-	var uniqueInstances []domain.CheckInstance
+	var uniqueInstances []domain.ScriptPolicy
 
 	for _, model := range models {
 		// Use created_from_template_id for deduplication if available, otherwise use name+checktype
@@ -410,7 +410,7 @@ func (r *checkInstanceRepository) GetEffectiveInstancesByGroup(ctx context.Conte
 		if model.CreatedFromTemplateID != nil {
 			key = *model.CreatedFromTemplateID
 		} else {
-			key = model.Name + ":" + model.CheckType
+			key = model.Name + ":" + model.ScriptType
 		}
 
 		if !seen[key] {
@@ -423,8 +423,8 @@ func (r *checkInstanceRepository) GetEffectiveInstancesByGroup(ctx context.Conte
 }
 
 // ListActive retrieves all active (non-deleted) instances
-func (r *checkInstanceRepository) ListActive(ctx context.Context) ([]domain.CheckInstance, error) {
-	var models []CheckInstanceModel
+func (r *scriptPolicyRepository) ListActive(ctx context.Context) ([]domain.ScriptPolicy, error) {
+	var models []ScriptPolicyModel
 	err := r.db.WithContext(ctx).
 		Preload("Template").
 		Preload("Namespace").
@@ -436,50 +436,50 @@ func (r *checkInstanceRepository) ListActive(ctx context.Context) ([]domain.Chec
 		return nil, fromGormError(err)
 	}
 
-	instances := make([]domain.CheckInstance, len(models))
+	instances := make([]domain.ScriptPolicy, len(models))
 	for i, model := range models {
 		instances[i] = *model.ToDomain()
 	}
 	return instances, nil
 }
 
-// Update updates an existing check instance
-func (r *checkInstanceRepository) Update(ctx context.Context, instance *domain.CheckInstance) error {
-	model := ToCheckInstanceModel(instance)
+// Update updates an existing script policy
+func (r *scriptPolicyRepository) Update(ctx context.Context, instance *domain.ScriptPolicy) error {
+	model := ToScriptPolicyModel(instance)
 	return fromGormError(r.db.WithContext(ctx).
-		Model(&CheckInstanceModel{}).
+		Model(&ScriptPolicyModel{}).
 		Where("id = ?", model.ID).
 		Updates(model).Error)
 }
 
-// Delete performs soft delete on a check instance (sets deleted_at timestamp)
-func (r *checkInstanceRepository) Delete(ctx context.Context, id string) error {
-	return fromGormError(r.db.WithContext(ctx).Delete(&CheckInstanceModel{}, "id = ?", id).Error)
+// Delete performs soft delete on a script policy (sets deleted_at timestamp)
+func (r *scriptPolicyRepository) Delete(ctx context.Context, id string) error {
+	return fromGormError(r.db.WithContext(ctx).Delete(&ScriptPolicyModel{}, "id = ?", id).Error)
 }
 
-// Purge permanently removes a check instance from the database
-func (r *checkInstanceRepository) Purge(ctx context.Context, id string) error {
+// Purge permanently removes a script policy from the database
+func (r *scriptPolicyRepository) Purge(ctx context.Context, id string) error {
 	return fromGormError(r.db.WithContext(ctx).
 		Unscoped().
-		Delete(&CheckInstanceModel{}, "id = ?", id).Error)
+		Delete(&ScriptPolicyModel{}, "id = ?", id).Error)
 }
 
-// Restore restores a soft-deleted check instance
-func (r *checkInstanceRepository) Restore(ctx context.Context, id string) error {
+// Restore restores a soft-deleted script policy
+func (r *scriptPolicyRepository) Restore(ctx context.Context, id string) error {
 	return fromGormError(r.db.WithContext(ctx).
 		Unscoped().
-		Model(&CheckInstanceModel{}).
+		Model(&ScriptPolicyModel{}).
 		Where("id = ?", id).
 		Update("deleted_at", nil).Error)
 }
 
-// List retrieves check instances with pagination
-func (r *checkInstanceRepository) List(ctx context.Context, page, limit int) ([]domain.CheckInstance, int, error) {
-	var models []CheckInstanceModel
+// List retrieves script policys with pagination
+func (r *scriptPolicyRepository) List(ctx context.Context, page, limit int) ([]domain.ScriptPolicy, int, error) {
+	var models []ScriptPolicyModel
 	var total int64
 
 	// Get total count
-	if err := r.db.WithContext(ctx).Model(&CheckInstanceModel{}).Count(&total).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&ScriptPolicyModel{}).Count(&total).Error; err != nil {
 		return nil, 0, fromGormError(err)
 	}
 
@@ -497,7 +497,7 @@ func (r *checkInstanceRepository) List(ctx context.Context, page, limit int) ([]
 		return nil, 0, fromGormError(err)
 	}
 
-	instances := make([]domain.CheckInstance, len(models))
+	instances := make([]domain.ScriptPolicy, len(models))
 	for i, model := range models {
 		instances[i] = *model.ToDomain()
 	}
