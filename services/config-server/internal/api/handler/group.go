@@ -29,26 +29,26 @@ func (h *GroupHandler) Create(c *gin.Context) {
 		return
 	}
 
-	group, err := h.groupService.Create(c.Request.Context(), req)
+	result, err := h.groupService.Create(c.Request.Context(), req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, dto.ToGroupResponse(group))
+	c.JSON(http.StatusCreated, dto.ToGroupResponse(result))
 }
 
 // GetByID handles GET /groups/:id
 func (h *GroupHandler) GetByID(c *gin.Context) {
 	id := c.Param("id")
 
-	group, err := h.groupService.GetByID(c.Request.Context(), id)
+	result, err := h.groupService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToGroupResponse(group))
+	c.JSON(http.StatusOK, dto.ToGroupResponse(result))
 }
 
 // Update handles PUT /groups/:id
@@ -61,13 +61,13 @@ func (h *GroupHandler) Update(c *gin.Context) {
 		return
 	}
 
-	group, err := h.groupService.Update(c.Request.Context(), id, req)
+	result, err := h.groupService.Update(c.Request.Context(), id, req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToGroupResponse(group))
+	c.JSON(http.StatusOK, dto.ToGroupResponse(result))
 }
 
 // DeleteResource handles POST /groups/delete
@@ -122,39 +122,39 @@ func (h *GroupHandler) RestoreResource(c *gin.Context) {
 func (h *GroupHandler) List(c *gin.Context) {
 	pagination := getPagination(c)
 
-	groups, total, err := h.groupService.List(c.Request.Context(), pagination)
+	listResult, err := h.groupService.List(c.Request.Context(), pagination.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	respondList(c, dto.ToGroupResponseList(groups), total, pagination)
+	respondList(c, dto.ToGroupResponseList(listResult.Items), listResult.Total, pagination)
 }
 
 // GetByNamespaceID handles GET /groups/namespace/:namespace_id
 func (h *GroupHandler) GetByNamespaceID(c *gin.Context) {
 	namespaceID := c.Param("namespace_id")
 
-	groups, err := h.groupService.GetByNamespaceID(c.Request.Context(), namespaceID)
+	results, err := h.groupService.GetByNamespaceID(c.Request.Context(), namespaceID)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToGroupResponseList(groups))
+	c.JSON(http.StatusOK, dto.ToGroupResponseList(results))
 }
 
 // GetChildren handles GET /groups/:id/children
 func (h *GroupHandler) GetChildren(c *gin.Context) {
 	id := c.Param("id")
 
-	children, err := h.groupService.GetChildren(c.Request.Context(), id)
+	results, err := h.groupService.GetChildren(c.Request.Context(), id)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToGroupResponseList(children))
+	c.JSON(http.StatusOK, dto.ToGroupResponseList(results))
 }
 
 // GetAncestors handles GET /groups/:id/ancestors

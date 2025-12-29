@@ -29,39 +29,39 @@ func (h *TargetHandler) Create(c *gin.Context) {
 		return
 	}
 
-	target, err := h.targetService.Create(c.Request.Context(), req)
+	result, err := h.targetService.Create(c.Request.Context(), req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, dto.ToTargetResponse(target))
+	c.JSON(http.StatusCreated, dto.ToTargetResponse(result))
 }
 
 // GetByID handles GET /targets/:id
 func (h *TargetHandler) GetByID(c *gin.Context) {
 	id := c.Param("id")
 
-	target, err := h.targetService.GetByID(c.Request.Context(), id)
+	result, err := h.targetService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToTargetResponse(target))
+	c.JSON(http.StatusOK, dto.ToTargetResponse(result))
 }
 
 // GetByHostname handles GET /targets/hostname/:hostname
 func (h *TargetHandler) GetByHostname(c *gin.Context) {
 	hostname := c.Param("hostname")
 
-	target, err := h.targetService.GetByHostname(c.Request.Context(), hostname)
+	result, err := h.targetService.GetByHostname(c.Request.Context(), hostname)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToTargetResponse(target))
+	c.JSON(http.StatusOK, dto.ToTargetResponse(result))
 }
 
 // Update handles PUT /targets/:id
@@ -74,13 +74,13 @@ func (h *TargetHandler) Update(c *gin.Context) {
 		return
 	}
 
-	target, err := h.targetService.Update(c.Request.Context(), id, req)
+	result, err := h.targetService.Update(c.Request.Context(), id, req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToTargetResponse(target))
+	c.JSON(http.StatusOK, dto.ToTargetResponse(result))
 }
 
 // DeleteResource handles POST /targets/delete
@@ -135,26 +135,26 @@ func (h *TargetHandler) RestoreResource(c *gin.Context) {
 func (h *TargetHandler) List(c *gin.Context) {
 	pagination := getPagination(c)
 
-	targets, total, err := h.targetService.List(c.Request.Context(), pagination)
+	listResult, err := h.targetService.List(c.Request.Context(), pagination.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	respondList(c, dto.ToTargetResponseList(targets), total, pagination)
+	respondList(c, dto.ToTargetResponseList(listResult.Items), listResult.Total, pagination)
 }
 
 // GetByGroupID handles GET /targets/group/:group_id
 func (h *TargetHandler) GetByGroupID(c *gin.Context) {
 	groupID := c.Param("group_id")
 
-	targets, err := h.targetService.GetByGroupID(c.Request.Context(), groupID)
+	results, err := h.targetService.GetByGroupID(c.Request.Context(), groupID)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToTargetResponseList(targets))
+	c.JSON(http.StatusOK, dto.ToTargetResponseList(results))
 }
 
 // UpdateStatus handles POST /targets/:id/status
@@ -167,7 +167,7 @@ func (h *TargetHandler) UpdateStatus(c *gin.Context) {
 		return
 	}
 
-	if err := h.targetService.UpdateStatus(c.Request.Context(), id, req); err != nil {
+	if err := h.targetService.UpdateStatus(c.Request.Context(), id, req.ToAction()); err != nil {
 		respondError(c, err)
 		return
 	}

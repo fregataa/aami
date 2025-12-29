@@ -29,39 +29,39 @@ func (h *BootstrapTokenHandler) Create(c *gin.Context) {
 		return
 	}
 
-	token, err := h.tokenService.Create(c.Request.Context(), req)
+	result, err := h.tokenService.Create(c.Request.Context(), req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, dto.ToBootstrapTokenResponse(token))
+	c.JSON(http.StatusCreated, dto.ToBootstrapTokenResponse(result))
 }
 
 // GetByID handles GET /bootstrap-tokens/:id
 func (h *BootstrapTokenHandler) GetByID(c *gin.Context) {
 	id := c.Param("id")
 
-	token, err := h.tokenService.GetByID(c.Request.Context(), id)
+	result, err := h.tokenService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToBootstrapTokenResponse(token))
+	c.JSON(http.StatusOK, dto.ToBootstrapTokenResponse(result))
 }
 
 // GetByToken handles GET /bootstrap-tokens/token/:token
 func (h *BootstrapTokenHandler) GetByToken(c *gin.Context) {
 	tokenStr := c.Param("token")
 
-	token, err := h.tokenService.GetByToken(c.Request.Context(), tokenStr)
+	result, err := h.tokenService.GetByToken(c.Request.Context(), tokenStr)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToBootstrapTokenResponse(token))
+	c.JSON(http.StatusOK, dto.ToBootstrapTokenResponse(result))
 }
 
 // ValidateAndUse handles POST /bootstrap-tokens/validate
@@ -72,13 +72,13 @@ func (h *BootstrapTokenHandler) ValidateAndUse(c *gin.Context) {
 		return
 	}
 
-	token, err := h.tokenService.ValidateAndUse(c.Request.Context(), req)
+	result, err := h.tokenService.ValidateAndUse(c.Request.Context(), req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToBootstrapTokenResponse(token))
+	c.JSON(http.StatusOK, dto.ToBootstrapTokenResponse(result))
 }
 
 // RegisterNode handles POST /bootstrap-tokens/register
@@ -89,16 +89,16 @@ func (h *BootstrapTokenHandler) RegisterNode(c *gin.Context) {
 		return
 	}
 
-	target, token, err := h.tokenService.RegisterNode(c.Request.Context(), req)
+	targetResult, tokenResult, err := h.tokenService.RegisterNode(c.Request.Context(), req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
 	resp := dto.BootstrapRegisterResponse{
-		Target:        dto.ToTargetResponse(target),
-		TokenUsage:    token.Uses,
-		RemainingUses: token.RemainingUses(),
+		Target:        dto.ToTargetResponse(targetResult),
+		TokenUsage:    tokenResult.Uses,
+		RemainingUses: tokenResult.MaxUses - tokenResult.Uses,
 	}
 
 	c.JSON(http.StatusCreated, resp)
@@ -114,13 +114,13 @@ func (h *BootstrapTokenHandler) Update(c *gin.Context) {
 		return
 	}
 
-	token, err := h.tokenService.Update(c.Request.Context(), id, req)
+	result, err := h.tokenService.Update(c.Request.Context(), id, req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToBootstrapTokenResponse(token))
+	c.JSON(http.StatusOK, dto.ToBootstrapTokenResponse(result))
 }
 
 // DeleteResource handles POST /bootstrap-tokens/delete
@@ -175,11 +175,11 @@ func (h *BootstrapTokenHandler) RestoreResource(c *gin.Context) {
 func (h *BootstrapTokenHandler) List(c *gin.Context) {
 	pagination := getPagination(c)
 
-	tokens, total, err := h.tokenService.List(c.Request.Context(), pagination)
+	listResult, err := h.tokenService.List(c.Request.Context(), pagination.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	respondList(c, dto.ToBootstrapTokenResponseList(tokens), total, pagination)
+	respondList(c, dto.ToBootstrapTokenResponseList(listResult.Items), listResult.Total, pagination)
 }

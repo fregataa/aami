@@ -1,7 +1,7 @@
 package dto
 
 import (
-	"github.com/fregataa/aami/config-server/internal/domain"
+	"github.com/fregataa/aami/config-server/internal/action"
 )
 
 // CreateGroupRequest represents a request to create a new group
@@ -14,6 +14,18 @@ type CreateGroupRequest struct {
 	Metadata    map[string]string `json:"metadata,omitempty"`
 }
 
+// ToAction converts CreateGroupRequest to action.CreateGroup
+func (r *CreateGroupRequest) ToAction() action.CreateGroup {
+	return action.CreateGroup{
+		Name:        r.Name,
+		NamespaceID: r.NamespaceID,
+		ParentID:    r.ParentID,
+		Description: r.Description,
+		Priority:    r.Priority,
+		Metadata:    r.Metadata,
+	}
+}
+
 // UpdateGroupRequest represents a request to update an existing group
 type UpdateGroupRequest struct {
 	Name        *string           `json:"name,omitempty" binding:"omitempty,min=1,max=100"`
@@ -21,6 +33,17 @@ type UpdateGroupRequest struct {
 	Description *string           `json:"description,omitempty" binding:"omitempty,max=500"`
 	Priority    *int              `json:"priority,omitempty" binding:"omitempty,min=0,max=1000"`
 	Metadata    map[string]string `json:"metadata,omitempty"`
+}
+
+// ToAction converts UpdateGroupRequest to action.UpdateGroup
+func (r *UpdateGroupRequest) ToAction() action.UpdateGroup {
+	return action.UpdateGroup{
+		Name:        r.Name,
+		ParentID:    r.ParentID,
+		Description: r.Description,
+		Priority:    r.Priority,
+		Metadata:    r.Metadata,
+	}
 }
 
 // NamespaceInfo represents namespace information in responses
@@ -43,39 +66,39 @@ type GroupResponse struct {
 	TimestampResponse
 }
 
-// ToGroupResponse converts a domain.Group to GroupResponse
-func ToGroupResponse(group *domain.Group) GroupResponse {
+// ToGroupResponse converts action.GroupResult to GroupResponse
+func ToGroupResponse(result action.GroupResult) GroupResponse {
 	resp := GroupResponse{
-		ID:          group.ID,
-		Name:        group.Name,
-		NamespaceID: group.NamespaceID,
-		ParentID:    group.ParentID,
-		Description: group.Description,
-		Priority:    group.Priority,
-		Metadata:    group.Metadata,
+		ID:          result.ID,
+		Name:        result.Name,
+		NamespaceID: result.NamespaceID,
+		ParentID:    result.ParentID,
+		Description: result.Description,
+		Priority:    result.Priority,
+		Metadata:    result.Metadata,
 		TimestampResponse: TimestampResponse{
-			CreatedAt: group.CreatedAt,
-			UpdatedAt: group.UpdatedAt,
+			CreatedAt: result.CreatedAt,
+			UpdatedAt: result.UpdatedAt,
 		},
 	}
 
 	// Include namespace info if loaded
-	if group.Namespace != nil {
+	if result.Namespace != nil {
 		resp.Namespace = &NamespaceInfo{
-			ID:             group.Namespace.ID,
-			Name:           group.Namespace.Name,
-			PolicyPriority: group.Namespace.PolicyPriority,
+			ID:             result.Namespace.ID,
+			Name:           result.Namespace.Name,
+			PolicyPriority: result.Namespace.PolicyPriority,
 		}
 	}
 
 	return resp
 }
 
-// ToGroupResponseList converts a slice of domain.Group to slice of GroupResponse
-func ToGroupResponseList(groups []domain.Group) []GroupResponse {
-	responses := make([]GroupResponse, len(groups))
-	for i, group := range groups {
-		responses[i] = ToGroupResponse(&group)
+// ToGroupResponseList converts a slice of action.GroupResult to slice of GroupResponse
+func ToGroupResponseList(results []action.GroupResult) []GroupResponse {
+	responses := make([]GroupResponse, len(results))
+	for i, result := range results {
+		responses[i] = ToGroupResponse(result)
 	}
 	return responses
 }

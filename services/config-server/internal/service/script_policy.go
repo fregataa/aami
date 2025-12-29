@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/fregataa/aami/config-server/internal/api/dto"
+	"github.com/fregataa/aami/config-server/internal/action"
 	"github.com/fregataa/aami/config-server/internal/domain"
 	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 	"github.com/fregataa/aami/config-server/internal/repository"
@@ -38,104 +38,108 @@ func NewScriptPolicyService(
 }
 
 // CreateFromTemplate creates a new script policy from a template
-func (s *ScriptPolicyService) CreateFromTemplate(ctx context.Context, req dto.CreateScriptPolicyFromTemplateRequest) (*domain.ScriptPolicy, error) {
+func (s *ScriptPolicyService) CreateFromTemplate(ctx context.Context, act action.CreateScriptPolicyFromTemplate) (action.ScriptPolicyResult, error) {
 	// Validate scope consistency
-	if err := validateScopeConsistency(req.Scope, req.NamespaceID, req.GroupID); err != nil {
-		return nil, err
+	if err := validateScopeConsistency(act.Scope, act.NamespaceID, act.GroupID); err != nil {
+		return action.ScriptPolicyResult{}, err
 	}
 
 	// Verify namespace exists if namespace-level or group-level
-	if req.NamespaceID != nil {
-		if _, err := s.namespaceRepo.GetByID(ctx, *req.NamespaceID); err != nil {
+	if act.NamespaceID != nil {
+		if _, err := s.namespaceRepo.GetByID(ctx, *act.NamespaceID); err != nil {
 			if errors.Is(err, domainerrors.ErrNotFound) {
-				return nil, domainerrors.ErrForeignKeyViolation
+				return action.ScriptPolicyResult{}, domainerrors.ErrForeignKeyViolation
 			}
-			return nil, err
+			return action.ScriptPolicyResult{}, err
 		}
 	}
 
 	// Verify group exists if group-level
-	if req.GroupID != nil {
-		if _, err := s.groupRepo.GetByID(ctx, *req.GroupID); err != nil {
+	if act.GroupID != nil {
+		if _, err := s.groupRepo.GetByID(ctx, *act.GroupID); err != nil {
 			if errors.Is(err, domainerrors.ErrNotFound) {
-				return nil, domainerrors.ErrForeignKeyViolation
+				return action.ScriptPolicyResult{}, domainerrors.ErrForeignKeyViolation
 			}
-			return nil, err
+			return action.ScriptPolicyResult{}, err
 		}
 	}
 
 	// Get template
-	script, err := s.scriptRepo.GetByID(ctx, req.TemplateID)
+	script, err := s.scriptRepo.GetByID(ctx, act.TemplateID)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
-			return nil, domainerrors.ErrForeignKeyViolation
+			return action.ScriptPolicyResult{}, domainerrors.ErrForeignKeyViolation
 		}
-		return nil, err
+		return action.ScriptPolicyResult{}, err
 	}
 
 	// Set defaults
-	config := req.Config
+	config := act.Config
 	if config == nil {
 		config = make(map[string]interface{})
 	}
 
-	priority := req.Priority
+	priority := act.Priority
 	if priority == 0 {
 		priority = 100
 	}
 
 	// Use domain constructor
-	instance := domain.NewScriptPolicyFromTemplate(script, req.Scope, req.NamespaceID, req.GroupID, config)
+	instance := domain.NewScriptPolicyFromTemplate(script, act.Scope, act.NamespaceID, act.GroupID, config)
 	instance.ID = uuid.New().String()
 	instance.Priority = priority
-	instance.IsActive = req.IsActive
+	instance.IsActive = act.IsActive
 
 	if err := s.policyRepo.Create(ctx, instance); err != nil {
-		return nil, err
+		return action.ScriptPolicyResult{}, err
 	}
 
-	return s.policyRepo.GetByID(ctx, instance.ID)
+	instance, err = s.policyRepo.GetByID(ctx, instance.ID)
+	if err != nil {
+		return action.ScriptPolicyResult{}, err
+	}
+	return action.NewScriptPolicyResult(instance), nil
 }
 
 // CreateDirect creates a new script policy directly without a template
-func (s *ScriptPolicyService) CreateDirect(ctx context.Context, req dto.CreateScriptPolicyDirectRequest) (*domain.ScriptPolicy, error) {
+func (s *ScriptPolicyService) CreateDirect(ctx context.Context, act action.CreateScriptPolicyDirect) (action.ScriptPolicyResult, error) {
 	// Validate scope consistency
-	if err := validateScopeConsistency(req.Scope, req.NamespaceID, req.GroupID); err != nil {
-		return nil, err
+	if err := validateScopeConsistency(act.Scope, act.NamespaceID, act.GroupID); err != nil {
+		return action.ScriptPolicyResult{}, err
 	}
 
 	// Verify namespace exists if namespace-level or group-level
-	if req.NamespaceID != nil {
-		if _, err := s.namespaceRepo.GetByID(ctx, *req.NamespaceID); err != nil {
+	if act.NamespaceID != nil {
+		if _, err := s.namespaceRepo.GetByID(ctx, *act.NamespaceID); err != nil {
 			if errors.Is(err, domainerrors.ErrNotFound) {
-				return nil, domainerrors.ErrForeignKeyViolation
+				return action.ScriptPolicyResult{}, domainerrors.ErrForeignKeyViolation
 			}
-			return nil, err
+			return action.ScriptPolicyResult{}, err
 		}
 	}
 
 	// Verify group exists if group-level
-	if req.GroupID != nil {
-		if _, err := s.groupRepo.GetByID(ctx, *req.GroupID); err != nil {
+	if act.GroupID != nil {
+		if _, err := s.groupRepo.GetByID(ctx, *act.GroupID); err != nil {
 			if errors.Is(err, domainerrors.ErrNotFound) {
-				return nil, domainerrors.ErrForeignKeyViolation
+				return action.ScriptPolicyResult{}, domainerrors.ErrForeignKeyViolation
 			}
-			return nil, err
+			return action.ScriptPolicyResult{}, err
 		}
 	}
 
 	// Set defaults
-	config := req.Config
+	config := act.Config
 	if config == nil {
 		config = make(map[string]interface{})
 	}
 
-	defaultConfig := req.DefaultConfig
+	defaultConfig := act.DefaultConfig
 	if defaultConfig == nil {
 		defaultConfig = make(map[string]interface{})
 	}
 
-	priority := req.Priority
+	priority := act.Priority
 	if priority == 0 {
 		priority = 100
 	}
@@ -143,71 +147,91 @@ func (s *ScriptPolicyService) CreateDirect(ctx context.Context, req dto.CreateSc
 	// Create instance directly
 	instance := &domain.ScriptPolicy{
 		ID:            uuid.New().String(),
-		Name:          req.Name,
-		ScriptType:    req.ScriptType,
-		ScriptContent: req.ScriptContent,
-		Language:      req.Language,
+		Name:          act.Name,
+		ScriptType:    act.ScriptType,
+		ScriptContent: act.ScriptContent,
+		Language:      act.Language,
 		DefaultConfig: defaultConfig,
-		Description:   req.Description,
-		Version:       req.Version,
-		Scope:         req.Scope,
-		NamespaceID:   req.NamespaceID,
-		GroupID:       req.GroupID,
+		Description:   act.Description,
+		Version:       act.Version,
+		Scope:         act.Scope,
+		NamespaceID:   act.NamespaceID,
+		GroupID:       act.GroupID,
 		Config:        config,
 		Priority:      priority,
-		IsActive:      req.IsActive,
+		IsActive:      act.IsActive,
 	}
 
 	if err := s.policyRepo.Create(ctx, instance); err != nil {
-		return nil, err
+		return action.ScriptPolicyResult{}, err
 	}
 
-	return s.policyRepo.GetByID(ctx, instance.ID)
+	instance, err := s.policyRepo.GetByID(ctx, instance.ID)
+	if err != nil {
+		return action.ScriptPolicyResult{}, err
+	}
+	return action.NewScriptPolicyResult(instance), nil
 }
 
 // GetByID retrieves a script policy by ID
-func (s *ScriptPolicyService) GetByID(ctx context.Context, id string) (*domain.ScriptPolicy, error) {
+func (s *ScriptPolicyService) GetByID(ctx context.Context, id string) (action.ScriptPolicyResult, error) {
 	instance, err := s.policyRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
-			return nil, domainerrors.ErrNotFound
+			return action.ScriptPolicyResult{}, domainerrors.ErrNotFound
 		}
-		return nil, err
+		return action.ScriptPolicyResult{}, err
 	}
-	return instance, nil
+	return action.NewScriptPolicyResult(instance), nil
 }
 
 // GetByTemplateID retrieves all instances for a specific template
-func (s *ScriptPolicyService) GetByTemplateID(ctx context.Context, templateID string) ([]domain.ScriptPolicy, error) {
-	return s.policyRepo.GetByTemplateID(ctx, templateID)
+func (s *ScriptPolicyService) GetByTemplateID(ctx context.Context, templateID string) ([]action.ScriptPolicyResult, error) {
+	instances, err := s.policyRepo.GetByTemplateID(ctx, templateID)
+	if err != nil {
+		return nil, err
+	}
+	return action.NewScriptPolicyResultList(instances), nil
 }
 
 // GetGlobalInstances retrieves all global-scope instances
-func (s *ScriptPolicyService) GetGlobalInstances(ctx context.Context) ([]domain.ScriptPolicy, error) {
-	return s.policyRepo.GetGlobalInstances(ctx)
+func (s *ScriptPolicyService) GetGlobalInstances(ctx context.Context) ([]action.ScriptPolicyResult, error) {
+	instances, err := s.policyRepo.GetGlobalInstances(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return action.NewScriptPolicyResultList(instances), nil
 }
 
 // GetByNamespaceID retrieves all namespace-level instances for a specific namespace
-func (s *ScriptPolicyService) GetByNamespaceID(ctx context.Context, namespaceID string) ([]domain.ScriptPolicy, error) {
-	return s.policyRepo.GetByNamespaceID(ctx, namespaceID)
+func (s *ScriptPolicyService) GetByNamespaceID(ctx context.Context, namespaceID string) ([]action.ScriptPolicyResult, error) {
+	instances, err := s.policyRepo.GetByNamespaceID(ctx, namespaceID)
+	if err != nil {
+		return nil, err
+	}
+	return action.NewScriptPolicyResultList(instances), nil
 }
 
 // GetByGroupID retrieves all group-level instances for a specific group
-func (s *ScriptPolicyService) GetByGroupID(ctx context.Context, groupID string) ([]domain.ScriptPolicy, error) {
-	return s.policyRepo.GetByGroupID(ctx, groupID)
+func (s *ScriptPolicyService) GetByGroupID(ctx context.Context, groupID string) ([]action.ScriptPolicyResult, error) {
+	instances, err := s.policyRepo.GetByGroupID(ctx, groupID)
+	if err != nil {
+		return nil, err
+	}
+	return action.NewScriptPolicyResultList(instances), nil
 }
 
 // GetEffectiveInstance finds the most specific active instance for a template
 // Priority: Group > Namespace > Global
-func (s *ScriptPolicyService) GetEffectiveInstance(ctx context.Context, templateID, namespaceID, groupID string) (*domain.ScriptPolicy, error) {
+func (s *ScriptPolicyService) GetEffectiveInstance(ctx context.Context, templateID, namespaceID, groupID string) (action.ScriptPolicyResult, error) {
 	instance, err := s.policyRepo.GetEffectiveInstance(ctx, templateID, namespaceID, groupID)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
-			return nil, domainerrors.ErrNotFound
+			return action.ScriptPolicyResult{}, domainerrors.ErrNotFound
 		}
-		return nil, err
+		return action.ScriptPolicyResult{}, err
 	}
-	return instance, nil
+	return action.NewScriptPolicyResult(instance), nil
 }
 
 // GetEffectiveChecksByTargetID retrieves all effective checks for a specific target
@@ -247,7 +271,7 @@ func (s *ScriptPolicyService) GetEffectiveChecksByTargetID(ctx context.Context, 
 }
 
 // GetEffectiveChecksByNamespace retrieves all effective checks for a namespace
-func (s *ScriptPolicyService) GetEffectiveChecksByNamespace(ctx context.Context, namespaceID string) ([]domain.ScriptPolicy, error) {
+func (s *ScriptPolicyService) GetEffectiveChecksByNamespace(ctx context.Context, namespaceID string) ([]action.ScriptPolicyResult, error) {
 	// Verify namespace exists
 	if _, err := s.namespaceRepo.GetByID(ctx, namespaceID); err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
@@ -256,11 +280,15 @@ func (s *ScriptPolicyService) GetEffectiveChecksByNamespace(ctx context.Context,
 		return nil, err
 	}
 
-	return s.policyRepo.GetEffectiveInstancesByNamespace(ctx, namespaceID)
+	instances, err := s.policyRepo.GetEffectiveInstancesByNamespace(ctx, namespaceID)
+	if err != nil {
+		return nil, err
+	}
+	return action.NewScriptPolicyResultList(instances), nil
 }
 
 // GetEffectiveChecksByGroup retrieves all effective checks for a group
-func (s *ScriptPolicyService) GetEffectiveChecksByGroup(ctx context.Context, namespaceID, groupID string) ([]domain.ScriptPolicy, error) {
+func (s *ScriptPolicyService) GetEffectiveChecksByGroup(ctx context.Context, namespaceID, groupID string) ([]action.ScriptPolicyResult, error) {
 	// Verify group exists
 	group, err := s.groupRepo.GetByID(ctx, groupID)
 	if err != nil {
@@ -275,40 +303,44 @@ func (s *ScriptPolicyService) GetEffectiveChecksByGroup(ctx context.Context, nam
 		return nil, domainerrors.NewValidationError("namespace_id", "group does not belong to the specified namespace")
 	}
 
-	return s.policyRepo.GetEffectiveInstancesByGroup(ctx, namespaceID, groupID)
+	instances, err := s.policyRepo.GetEffectiveInstancesByGroup(ctx, namespaceID, groupID)
+	if err != nil {
+		return nil, err
+	}
+	return action.NewScriptPolicyResultList(instances), nil
 }
 
 // Update updates an existing script policy
-func (s *ScriptPolicyService) Update(ctx context.Context, id string, req dto.UpdateScriptPolicyRequest) (*domain.ScriptPolicy, error) {
+func (s *ScriptPolicyService) Update(ctx context.Context, id string, act action.UpdateScriptPolicy) (action.ScriptPolicyResult, error) {
 	instance, err := s.policyRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
-			return nil, domainerrors.ErrNotFound
+			return action.ScriptPolicyResult{}, domainerrors.ErrNotFound
 		}
-		return nil, err
+		return action.ScriptPolicyResult{}, err
 	}
 
 	// Update fields if provided
-	if req.Config != nil {
-		instance.Config = req.Config
+	if act.Config != nil {
+		instance.Config = act.Config
 	}
-	if req.Priority != nil {
-		instance.Priority = *req.Priority
+	if act.Priority != nil {
+		instance.Priority = *act.Priority
 	}
-	if req.IsActive != nil {
-		instance.IsActive = *req.IsActive
+	if act.IsActive != nil {
+		instance.IsActive = *act.IsActive
 	}
 
 	// Validate updated instance
 	if err := instance.Validate(); err != nil {
-		return nil, err
+		return action.ScriptPolicyResult{}, err
 	}
 
 	if err := s.policyRepo.Update(ctx, instance); err != nil {
-		return nil, err
+		return action.ScriptPolicyResult{}, err
 	}
 
-	return instance, nil
+	return action.NewScriptPolicyResult(instance), nil
 }
 
 // Delete performs soft delete on a script policy
@@ -336,14 +368,23 @@ func (s *ScriptPolicyService) Restore(ctx context.Context, id string) error {
 }
 
 // List retrieves a paginated list of script policys
-func (s *ScriptPolicyService) List(ctx context.Context, pagination dto.PaginationRequest) ([]domain.ScriptPolicy, int, error) {
-	pagination.Normalize()
-	return s.policyRepo.List(ctx, pagination.Page, pagination.Limit)
+func (s *ScriptPolicyService) List(ctx context.Context, pagination action.Pagination) (action.ListResult[action.ScriptPolicyResult], error) {
+	instances, total, err := s.policyRepo.List(ctx, pagination.Page, pagination.Limit)
+	if err != nil {
+		return action.ListResult[action.ScriptPolicyResult]{}, err
+	}
+
+	results := action.NewScriptPolicyResultList(instances)
+	return action.NewListResult(results, pagination, total), nil
 }
 
 // ListActive retrieves all active (non-deleted) instances
-func (s *ScriptPolicyService) ListActive(ctx context.Context) ([]domain.ScriptPolicy, error) {
-	return s.policyRepo.ListActive(ctx)
+func (s *ScriptPolicyService) ListActive(ctx context.Context) ([]action.ScriptPolicyResult, error) {
+	instances, err := s.policyRepo.ListActive(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return action.NewScriptPolicyResultList(instances), nil
 }
 
 // validateScopeConsistency validates that scope and IDs are consistent

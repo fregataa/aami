@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/fregataa/aami/config-server/internal/api/dto"
+	"github.com/fregataa/aami/config-server/internal/action"
 	"github.com/fregataa/aami/config-server/internal/domain"
 	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 	"github.com/fregataa/aami/config-server/internal/repository"
@@ -29,30 +29,25 @@ func NewMonitoringScriptService(
 }
 
 // Create creates a new monitoring script
-func (s *MonitoringScriptService) Create(ctx context.Context, req dto.CreateMonitoringScriptRequest) (*domain.MonitoringScript, error) {
-	// Validate required fields
-	if err := req.Validate(); err != nil {
-		return nil, err
-	}
-
+func (s *MonitoringScriptService) Create(ctx context.Context, act action.CreateMonitoringScript) (action.MonitoringScriptResult, error) {
 	// Check if script name already exists
-	existing, err := s.scriptRepo.GetByName(ctx, req.Name)
+	existing, err := s.scriptRepo.GetByName(ctx, act.Name)
 	if err != nil && !errors.Is(err, domainerrors.ErrNotFound) {
-		return nil, err
+		return action.MonitoringScriptResult{}, err
 	}
 	if existing != nil {
-		return nil, domainerrors.ErrAlreadyExists
+		return action.MonitoringScriptResult{}, domainerrors.ErrAlreadyExists
 	}
 
 	script := &domain.MonitoringScript{
 		ID:            uuid.New().String(),
-		Name:          req.Name,
-		ScriptType:    req.ScriptType,
-		ScriptContent: req.ScriptContent,
-		Language:      req.Language,
-		DefaultConfig: req.DefaultConfig,
-		Description:   req.Description,
-		Version:       req.Version,
+		Name:          act.Name,
+		ScriptType:    act.ScriptType,
+		ScriptContent: act.ScriptContent,
+		Language:      act.Language,
+		DefaultConfig: act.DefaultConfig,
+		Description:   act.Description,
+		Version:       act.Version,
 	}
 
 	// Compute hash from script content
@@ -60,84 +55,94 @@ func (s *MonitoringScriptService) Create(ctx context.Context, req dto.CreateMoni
 
 	// Validate domain object
 	if err := script.Validate(); err != nil {
-		return nil, err
+		return action.MonitoringScriptResult{}, err
 	}
 
 	if err := s.scriptRepo.Create(ctx, script); err != nil {
-		return nil, err
+		return action.MonitoringScriptResult{}, err
 	}
 
-	return script, nil
+	return action.NewMonitoringScriptResult(script), nil
 }
 
 // GetByID retrieves a monitoring script by ID
-func (s *MonitoringScriptService) GetByID(ctx context.Context, id string) (*domain.MonitoringScript, error) {
+func (s *MonitoringScriptService) GetByID(ctx context.Context, id string) (action.MonitoringScriptResult, error) {
 	script, err := s.scriptRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
-			return nil, domainerrors.ErrNotFound
+			return action.MonitoringScriptResult{}, domainerrors.ErrNotFound
 		}
-		return nil, err
+		return action.MonitoringScriptResult{}, err
 	}
-	return script, nil
+	return action.NewMonitoringScriptResult(script), nil
 }
 
 // GetByName retrieves a monitoring script by name
-func (s *MonitoringScriptService) GetByName(ctx context.Context, name string) (*domain.MonitoringScript, error) {
+func (s *MonitoringScriptService) GetByName(ctx context.Context, name string) (action.MonitoringScriptResult, error) {
 	script, err := s.scriptRepo.GetByName(ctx, name)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
-			return nil, domainerrors.ErrNotFound
+			return action.MonitoringScriptResult{}, domainerrors.ErrNotFound
 		}
-		return nil, err
+		return action.MonitoringScriptResult{}, err
 	}
-	return script, nil
+	return action.NewMonitoringScriptResult(script), nil
 }
 
 // GetByScriptType retrieves all scripts for a specific script type
-func (s *MonitoringScriptService) GetByScriptType(ctx context.Context, scriptType string) ([]domain.MonitoringScript, error) {
-	return s.scriptRepo.GetByScriptType(ctx, scriptType)
+func (s *MonitoringScriptService) GetByScriptType(ctx context.Context, scriptType string) ([]action.MonitoringScriptResult, error) {
+	scripts, err := s.scriptRepo.GetByScriptType(ctx, scriptType)
+	if err != nil {
+		return nil, err
+	}
+	return action.NewMonitoringScriptResultList(scripts), nil
 }
 
 // Update updates an existing monitoring script
-func (s *MonitoringScriptService) Update(ctx context.Context, id string, req dto.UpdateMonitoringScriptRequest) (*domain.MonitoringScript, error) {
+func (s *MonitoringScriptService) Update(ctx context.Context, id string, act action.UpdateMonitoringScript) (action.MonitoringScriptResult, error) {
 	script, err := s.scriptRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
-			return nil, domainerrors.ErrNotFound
+			return action.MonitoringScriptResult{}, domainerrors.ErrNotFound
 		}
-		return nil, err
+		return action.MonitoringScriptResult{}, err
 	}
 
 	// Update fields if provided
-	if req.Description != nil {
-		script.Description = *req.Description
+	if act.Name != nil {
+		script.Name = *act.Name
 	}
-	if req.ScriptContent != nil {
-		script.ScriptContent = *req.ScriptContent
+	if act.ScriptType != nil {
+		script.ScriptType = *act.ScriptType
+	}
+	if act.Description != nil {
+		script.Description = *act.Description
+	}
+	if act.ScriptContent != nil {
+		script.ScriptContent = *act.ScriptContent
 		// Recalculate hash when script content changes
 		script.UpdateHash()
 	}
-	if req.Language != nil {
-		script.Language = *req.Language
+	if act.Language != nil {
+		script.Language = *act.Language
 	}
-	if req.DefaultConfig != nil {
-		script.DefaultConfig = req.DefaultConfig
+	if act.DefaultConfig != nil {
+		script.DefaultConfig = act.DefaultConfig
 	}
-	if req.Version != nil {
-		script.Version = *req.Version
+	if act.Version != nil {
+		script.Version = *act.Version
 	}
 
 	// Validate updated script
 	if err := script.Validate(); err != nil {
-		return nil, err
+		return action.MonitoringScriptResult{}, err
 	}
 
 	if err := s.scriptRepo.Update(ctx, script); err != nil {
-		return nil, err
+		return action.MonitoringScriptResult{}, err
 	}
 
-	return script, nil
+	return action.NewMonitoringScriptResult(script), nil
 }
 
 // Delete performs soft delete on a monitoring script
@@ -174,20 +179,32 @@ func (s *MonitoringScriptService) Restore(ctx context.Context, id string) error 
 }
 
 // List retrieves a paginated list of monitoring scripts
-func (s *MonitoringScriptService) List(ctx context.Context, pagination dto.PaginationRequest) ([]domain.MonitoringScript, int, error) {
-	pagination.Normalize()
-	return s.scriptRepo.List(ctx, pagination.Page, pagination.Limit)
+func (s *MonitoringScriptService) List(ctx context.Context, pagination action.Pagination) (action.ListResult[action.MonitoringScriptResult], error) {
+	scripts, total, err := s.scriptRepo.List(ctx, pagination.Page, pagination.Limit)
+	if err != nil {
+		return action.ListResult[action.MonitoringScriptResult]{}, err
+	}
+
+	results := action.NewMonitoringScriptResultList(scripts)
+	return action.NewListResult(results, pagination, total), nil
 }
 
 // ListActive retrieves all active (non-deleted) scripts
-func (s *MonitoringScriptService) ListActive(ctx context.Context) ([]domain.MonitoringScript, error) {
-	return s.scriptRepo.ListActive(ctx)
+func (s *MonitoringScriptService) ListActive(ctx context.Context) ([]action.MonitoringScriptResult, error) {
+	scripts, err := s.scriptRepo.ListActive(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return action.NewMonitoringScriptResultList(scripts), nil
 }
 
 // VerifyHash checks if the stored hash matches the script content
 func (s *MonitoringScriptService) VerifyHash(ctx context.Context, id string) (bool, error) {
-	script, err := s.GetByID(ctx, id)
+	script, err := s.scriptRepo.GetByID(ctx, id)
 	if err != nil {
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return false, domainerrors.ErrNotFound
+		}
 		return false, err
 	}
 	return script.VerifyHash(), nil

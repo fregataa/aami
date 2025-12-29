@@ -29,39 +29,39 @@ func (h *NamespaceHandler) Create(c *gin.Context) {
 		return
 	}
 
-	namespace, err := h.namespaceService.Create(c.Request.Context(), req)
+	result, err := h.namespaceService.Create(c.Request.Context(), req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, dto.ToNamespaceResponse(namespace))
+	c.JSON(http.StatusCreated, dto.ToNamespaceResponse(result))
 }
 
 // GetByID handles GET /namespaces/:id
 func (h *NamespaceHandler) GetByID(c *gin.Context) {
 	id := c.Param("id")
 
-	namespace, err := h.namespaceService.GetByID(c.Request.Context(), id)
+	result, err := h.namespaceService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToNamespaceResponse(namespace))
+	c.JSON(http.StatusOK, dto.ToNamespaceResponse(result))
 }
 
 // GetByName handles GET /namespaces/name/:name
 func (h *NamespaceHandler) GetByName(c *gin.Context) {
 	name := c.Param("name")
 
-	namespace, err := h.namespaceService.GetByName(c.Request.Context(), name)
+	result, err := h.namespaceService.GetByName(c.Request.Context(), name)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToNamespaceResponse(namespace))
+	c.JSON(http.StatusOK, dto.ToNamespaceResponse(result))
 }
 
 // Update handles PUT /namespaces/:id
@@ -74,13 +74,13 @@ func (h *NamespaceHandler) Update(c *gin.Context) {
 		return
 	}
 
-	namespace, err := h.namespaceService.Update(c.Request.Context(), id, req)
+	result, err := h.namespaceService.Update(c.Request.Context(), id, req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToNamespaceResponse(namespace))
+	c.JSON(http.StatusOK, dto.ToNamespaceResponse(result))
 }
 
 // DeleteResource handles POST /namespaces/delete
@@ -135,24 +135,24 @@ func (h *NamespaceHandler) RestoreResource(c *gin.Context) {
 func (h *NamespaceHandler) List(c *gin.Context) {
 	pagination := getPagination(c)
 
-	namespaces, total, err := h.namespaceService.List(c.Request.Context(), pagination)
+	listResult, err := h.namespaceService.List(c.Request.Context(), pagination.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	respondList(c, dto.ToNamespaceResponseList(namespaces), total, pagination)
+	respondList(c, dto.ToNamespaceResponseList(listResult.Items), listResult.Total, pagination)
 }
 
 // GetAll handles GET /namespaces/all
 func (h *NamespaceHandler) GetAll(c *gin.Context) {
-	namespaces, err := h.namespaceService.GetAll(c.Request.Context())
+	results, err := h.namespaceService.GetAll(c.Request.Context())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToNamespaceResponseList(namespaces))
+	c.JSON(http.StatusOK, dto.ToNamespaceResponseList(results))
 }
 
 // GetStats handles GET /namespaces/:id/stats

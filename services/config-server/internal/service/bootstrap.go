@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/fregataa/aami/config-server/internal/api/dto"
+	"github.com/fregataa/aami/config-server/internal/action"
 	"github.com/fregataa/aami/config-server/internal/domain"
 	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 	"github.com/fregataa/aami/config-server/internal/repository"
@@ -33,15 +33,15 @@ func NewBootstrapTokenService(
 }
 
 // Create creates a new bootstrap token
-func (s *BootstrapTokenService) Create(ctx context.Context, req dto.CreateBootstrapTokenRequest) (*domain.BootstrapToken, error) {
+func (s *BootstrapTokenService) Create(ctx context.Context, act action.CreateBootstrapToken) (action.BootstrapTokenResult, error) {
 	// Generate token
 	tokenStr, err := domain.GenerateToken()
 	if err != nil {
-		return nil, err
+		return action.BootstrapTokenResult{}, err
 	}
 
 	// Set default expiry if not provided
-	expiresAt := req.ExpiresAt
+	expiresAt := act.ExpiresAt
 	if expiresAt.IsZero() {
 		expiresAt = time.Now().Add(30 * 24 * time.Hour) // 30 days default
 	}
@@ -49,11 +49,11 @@ func (s *BootstrapTokenService) Create(ctx context.Context, req dto.CreateBootst
 	token := &domain.BootstrapToken{
 		ID:        uuid.New().String(),
 		Token:     tokenStr,
-		Name:      req.Name,
-		MaxUses:   req.MaxUses,
+		Name:      act.Name,
+		MaxUses:   act.MaxUses,
 		Uses:      0,
 		ExpiresAt: expiresAt,
-		Labels:    req.Labels,
+		Labels:    act.Labels,
 	}
 
 	if token.MaxUses == 0 {
@@ -64,91 +64,91 @@ func (s *BootstrapTokenService) Create(ctx context.Context, req dto.CreateBootst
 	}
 
 	if err := s.tokenRepo.Create(ctx, token); err != nil {
-		return nil, err
+		return action.BootstrapTokenResult{}, err
 	}
 
-	return token, nil
+	return action.NewBootstrapTokenResult(token), nil
 }
 
 // GetByID retrieves a bootstrap token by ID
-func (s *BootstrapTokenService) GetByID(ctx context.Context, id string) (*domain.BootstrapToken, error) {
+func (s *BootstrapTokenService) GetByID(ctx context.Context, id string) (action.BootstrapTokenResult, error) {
 	token, err := s.tokenRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
-			return nil, domainerrors.ErrNotFound
+			return action.BootstrapTokenResult{}, domainerrors.ErrNotFound
 		}
-		return nil, err
+		return action.BootstrapTokenResult{}, err
 	}
-	return token, nil
+	return action.NewBootstrapTokenResult(token), nil
 }
 
 // GetByToken retrieves a bootstrap token by token string
-func (s *BootstrapTokenService) GetByToken(ctx context.Context, tokenStr string) (*domain.BootstrapToken, error) {
+func (s *BootstrapTokenService) GetByToken(ctx context.Context, tokenStr string) (action.BootstrapTokenResult, error) {
 	token, err := s.tokenRepo.GetByToken(ctx, tokenStr)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
-			return nil, domainerrors.ErrNotFound
+			return action.BootstrapTokenResult{}, domainerrors.ErrNotFound
 		}
-		return nil, err
+		return action.BootstrapTokenResult{}, err
 	}
-	return token, nil
+	return action.NewBootstrapTokenResult(token), nil
 }
 
 // ValidateAndUse validates a token and increments its usage counter
-func (s *BootstrapTokenService) ValidateAndUse(ctx context.Context, req dto.ValidateTokenRequest) (*domain.BootstrapToken, error) {
-	token, err := s.tokenRepo.GetByToken(ctx, req.Token)
+func (s *BootstrapTokenService) ValidateAndUse(ctx context.Context, act action.ValidateToken) (action.BootstrapTokenResult, error) {
+	token, err := s.tokenRepo.GetByToken(ctx, act.Token)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
-			return nil, domainerrors.ErrNotFound
+			return action.BootstrapTokenResult{}, domainerrors.ErrNotFound
 		}
-		return nil, err
+		return action.BootstrapTokenResult{}, err
 	}
 
 	// Check if token can be used
 	if !token.CanUse() {
-		return nil, domainerrors.NewValidationError("token", "token is expired or exhausted")
+		return action.BootstrapTokenResult{}, domainerrors.NewValidationError("token", "token is expired or exhausted")
 	}
 
 	// Increment uses
 	if err := token.IncrementUses(); err != nil {
-		return nil, err
+		return action.BootstrapTokenResult{}, err
 	}
 
 	if err := s.tokenRepo.Update(ctx, token); err != nil {
-		return nil, err
+		return action.BootstrapTokenResult{}, err
 	}
 
-	return token, nil
+	return action.NewBootstrapTokenResult(token), nil
 }
 
 // Update updates an existing bootstrap token
-func (s *BootstrapTokenService) Update(ctx context.Context, id string, req dto.UpdateBootstrapTokenRequest) (*domain.BootstrapToken, error) {
+func (s *BootstrapTokenService) Update(ctx context.Context, id string, act action.UpdateBootstrapToken) (action.BootstrapTokenResult, error) {
 	token, err := s.tokenRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
-			return nil, domainerrors.ErrNotFound
+			return action.BootstrapTokenResult{}, domainerrors.ErrNotFound
 		}
-		return nil, err
+		return action.BootstrapTokenResult{}, err
 	}
 
-	if req.Name != nil {
-		token.Name = *req.Name
+	if act.Name != nil {
+		token.Name = *act.Name
 	}
-	if req.MaxUses != nil {
-		token.MaxUses = *req.MaxUses
+	if act.MaxUses != nil {
+		token.MaxUses = *act.MaxUses
 	}
-	if req.ExpiresAt != nil {
-		token.ExpiresAt = *req.ExpiresAt
+	if act.ExpiresAt != nil {
+		token.ExpiresAt = *act.ExpiresAt
 	}
-	if req.Labels != nil {
-		token.Labels = req.Labels
+	if act.Labels != nil {
+		token.Labels = act.Labels
 	}
 
 	if err := s.tokenRepo.Update(ctx, token); err != nil {
-		return nil, err
+		return action.BootstrapTokenResult{}, err
 	}
 
-	return token, nil
+	return action.NewBootstrapTokenResult(token), nil
 }
 
 // Delete performs soft delete on a bootstrap token
@@ -175,46 +175,55 @@ func (s *BootstrapTokenService) Restore(ctx context.Context, id string) error {
 }
 
 // List retrieves a paginated list of bootstrap tokens
-func (s *BootstrapTokenService) List(ctx context.Context, pagination dto.PaginationRequest) ([]domain.BootstrapToken, int, error) {
-	pagination.Normalize()
-	return s.tokenRepo.List(ctx, pagination.Page, pagination.Limit)
+func (s *BootstrapTokenService) List(ctx context.Context, pagination action.Pagination) (action.ListResult[action.BootstrapTokenResult], error) {
+	tokens, total, err := s.tokenRepo.List(ctx, pagination.Page, pagination.Limit)
+	if err != nil {
+		return action.ListResult[action.BootstrapTokenResult]{}, err
+	}
+
+	results := action.NewBootstrapTokenResultList(tokens)
+	return action.NewListResult(results, pagination, total), nil
 }
 
 // RegisterNode validates token and creates target with specified or own group
 func (s *BootstrapTokenService) RegisterNode(
 	ctx context.Context,
-	req dto.BootstrapRegisterRequest,
-) (*domain.Target, *domain.BootstrapToken, error) {
+	act action.BootstrapRegister,
+) (action.TargetResult, action.BootstrapTokenResult, error) {
 	// 1. Validate and use token
-	token, err := s.ValidateAndUse(ctx, dto.ValidateTokenRequest{
-		Token: req.Token,
+	tokenResult, err := s.ValidateAndUse(ctx, action.ValidateToken{
+		Token: act.Token,
 	})
 	if err != nil {
-		return nil, nil, err
+		return action.TargetResult{}, action.BootstrapTokenResult{}, err
 	}
 
 	// 2. Prepare group IDs
 	var groupIDs []string
-	if req.GroupID != "" {
+	if act.GroupID != "" {
 		// Use specified group
-		groupIDs = []string{req.GroupID}
+		groupIDs = []string{act.GroupID}
 	}
 	// If GroupID is empty, target service will create own group automatically
 
 	// 3. Create target
-	target, err := s.targetService.Create(ctx, dto.CreateTargetRequest{
-		Hostname:  req.Hostname,
-		IPAddress: req.IPAddress,
+	targetResult, err := s.targetService.Create(ctx, action.CreateTarget{
+		Hostname:  act.Hostname,
+		IPAddress: act.IPAddress,
 		GroupIDs:  groupIDs,
-		Labels:    req.Labels,
-		Metadata:  req.Metadata,
+		Labels:    act.Labels,
+		Metadata:  act.Metadata,
 	})
 	if err != nil {
 		// Rollback: Decrement token usage on failure
-		token.Uses--
-		_ = s.tokenRepo.Update(ctx, token)
-		return nil, nil, err
+		// Need to get token from repo to rollback
+		token, getErr := s.tokenRepo.GetByToken(ctx, act.Token)
+		if getErr == nil {
+			token.Uses--
+			_ = s.tokenRepo.Update(ctx, token)
+		}
+		return action.TargetResult{}, action.BootstrapTokenResult{}, err
 	}
 
-	return target, token, nil
+	return targetResult, tokenResult, nil
 }

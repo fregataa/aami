@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"github.com/fregataa/aami/config-server/internal/action"
 	"github.com/fregataa/aami/config-server/internal/domain"
 )
 
@@ -14,6 +15,18 @@ type CreateAlertTemplateRequest struct {
 	DefaultConfig domain.AlertRuleConfig `json:"default_config,omitempty"`
 }
 
+// ToAction converts CreateAlertTemplateRequest to action.CreateAlertTemplate
+func (r *CreateAlertTemplateRequest) ToAction() action.CreateAlertTemplate {
+	return action.CreateAlertTemplate{
+		ID:            r.ID,
+		Name:          r.Name,
+		Description:   r.Description,
+		Severity:      r.Severity,
+		QueryTemplate: r.QueryTemplate,
+		DefaultConfig: r.DefaultConfig,
+	}
+}
+
 // UpdateAlertTemplateRequest represents a request to update an existing alert template
 type UpdateAlertTemplateRequest struct {
 	Name          *string                 `json:"name,omitempty" binding:"omitempty,min=1,max=255"`
@@ -21,6 +34,17 @@ type UpdateAlertTemplateRequest struct {
 	Severity      *domain.AlertSeverity   `json:"severity,omitempty"`
 	QueryTemplate *string                 `json:"query_template,omitempty"`
 	DefaultConfig *domain.AlertRuleConfig `json:"default_config,omitempty"`
+}
+
+// ToAction converts UpdateAlertTemplateRequest to action.UpdateAlertTemplate
+func (r *UpdateAlertTemplateRequest) ToAction() action.UpdateAlertTemplate {
+	return action.UpdateAlertTemplate{
+		Name:          r.Name,
+		Description:   r.Description,
+		Severity:      r.Severity,
+		QueryTemplate: r.QueryTemplate,
+		DefaultConfig: r.DefaultConfig,
+	}
 }
 
 // AlertTemplateResponse represents an alert template in API responses
@@ -34,27 +58,27 @@ type AlertTemplateResponse struct {
 	TimestampResponse
 }
 
-// ToAlertTemplateResponse converts a domain.AlertTemplate to AlertTemplateResponse
-func ToAlertTemplateResponse(template *domain.AlertTemplate) AlertTemplateResponse {
+// ToAlertTemplateResponse converts action.AlertTemplateResult to AlertTemplateResponse
+func ToAlertTemplateResponse(result action.AlertTemplateResult) AlertTemplateResponse {
 	return AlertTemplateResponse{
-		ID:            template.ID,
-		Name:          template.Name,
-		Description:   template.Description,
-		Severity:      template.Severity,
-		QueryTemplate: template.QueryTemplate,
-		DefaultConfig: template.DefaultConfig,
+		ID:            result.ID,
+		Name:          result.Name,
+		Description:   result.Description,
+		Severity:      result.Severity,
+		QueryTemplate: result.QueryTemplate,
+		DefaultConfig: result.DefaultConfig,
 		TimestampResponse: TimestampResponse{
-			CreatedAt: template.CreatedAt,
-			UpdatedAt: template.UpdatedAt,
+			CreatedAt: result.CreatedAt,
+			UpdatedAt: result.UpdatedAt,
 		},
 	}
 }
 
-// ToAlertTemplateResponseList converts a slice of domain.AlertTemplate to slice of AlertTemplateResponse
-func ToAlertTemplateResponseList(templates []domain.AlertTemplate) []AlertTemplateResponse {
-	responses := make([]AlertTemplateResponse, len(templates))
-	for i, template := range templates {
-		responses[i] = ToAlertTemplateResponse(&template)
+// ToAlertTemplateResponseList converts a slice of action.AlertTemplateResult to slice of AlertTemplateResponse
+func ToAlertTemplateResponseList(results []action.AlertTemplateResult) []AlertTemplateResponse {
+	responses := make([]AlertTemplateResponse, len(results))
+	for i, result := range results {
+		responses[i] = ToAlertTemplateResponse(result)
 	}
 	return responses
 }
@@ -69,6 +93,18 @@ type CreateAlertRuleFromTemplateRequest struct {
 	Priority      int                   `json:"priority" binding:"omitempty,min=0,max=1000"`
 }
 
+// ToAction converts CreateAlertRuleFromTemplateRequest to action.CreateAlertRuleFromTemplate
+func (r *CreateAlertRuleFromTemplateRequest) ToAction() action.CreateAlertRuleFromTemplate {
+	return action.CreateAlertRuleFromTemplate{
+		GroupID:       r.GroupID,
+		TemplateID:    r.TemplateID,
+		Enabled:       r.Enabled,
+		Config:        r.Config,
+		MergeStrategy: r.MergeStrategy,
+		Priority:      r.Priority,
+	}
+}
+
 // CreateAlertRuleDirectRequest represents a request to create an alert rule directly (without template)
 type CreateAlertRuleDirectRequest struct {
 	GroupID       string                `json:"group_id" binding:"required,uuid"`
@@ -81,6 +117,22 @@ type CreateAlertRuleDirectRequest struct {
 	Config        domain.AlertRuleConfig `json:"config,omitempty"`
 	MergeStrategy string                `json:"merge_strategy" binding:"omitempty,oneof=override merge"`
 	Priority      int                   `json:"priority" binding:"omitempty,min=0,max=1000"`
+}
+
+// ToAction converts CreateAlertRuleDirectRequest to action.CreateAlertRuleDirect
+func (r *CreateAlertRuleDirectRequest) ToAction() action.CreateAlertRuleDirect {
+	return action.CreateAlertRuleDirect{
+		GroupID:       r.GroupID,
+		Name:          r.Name,
+		Description:   r.Description,
+		Severity:      r.Severity,
+		QueryTemplate: r.QueryTemplate,
+		DefaultConfig: r.DefaultConfig,
+		Enabled:       r.Enabled,
+		Config:        r.Config,
+		MergeStrategy: r.MergeStrategy,
+		Priority:      r.Priority,
+	}
 }
 
 // CreateAlertRuleRequest represents a request to create a new alert rule
@@ -114,6 +166,16 @@ type UpdateAlertRuleRequest struct {
 	Priority      *int                    `json:"priority,omitempty" binding:"omitempty,min=0,max=1000"`
 }
 
+// ToAction converts UpdateAlertRuleRequest to action.UpdateAlertRule
+func (r *UpdateAlertRuleRequest) ToAction() action.UpdateAlertRule {
+	return action.UpdateAlertRule{
+		Enabled:       r.Enabled,
+		Config:        r.Config,
+		MergeStrategy: r.MergeStrategy,
+		Priority:      r.Priority,
+	}
+}
+
 // AlertRuleResponse represents an alert rule in API responses
 type AlertRuleResponse struct {
 	ID      string         `json:"id"`
@@ -140,49 +202,49 @@ type AlertRuleResponse struct {
 	TimestampResponse
 }
 
-// ToAlertRuleResponse converts a domain.AlertRule to AlertRuleResponse
-func ToAlertRuleResponse(rule *domain.AlertRule) AlertRuleResponse {
+// ToAlertRuleResponse converts action.AlertRuleResult to AlertRuleResponse
+func ToAlertRuleResponse(result action.AlertRuleResult) AlertRuleResponse {
 	resp := AlertRuleResponse{
-		ID:      rule.ID,
-		GroupID: rule.GroupID,
+		ID:      result.ID,
+		GroupID: result.GroupID,
 
 		// Template fields
-		Name:          rule.Name,
-		Description:   rule.Description,
-		Severity:      rule.Severity,
-		QueryTemplate: rule.QueryTemplate,
-		DefaultConfig: rule.DefaultConfig,
+		Name:          result.Name,
+		Description:   result.Description,
+		Severity:      result.Severity,
+		QueryTemplate: result.QueryTemplate,
+		DefaultConfig: result.DefaultConfig,
 
 		// Rule-specific fields
-		Enabled:       rule.Enabled,
-		Config:        rule.Config,
-		MergeStrategy: rule.MergeStrategy,
-		Priority:      rule.Priority,
+		Enabled:       result.Enabled,
+		Config:        result.Config,
+		MergeStrategy: result.MergeStrategy,
+		Priority:      result.Priority,
 
 		// Metadata
-		CreatedFromTemplateID:   rule.CreatedFromTemplateID,
-		CreatedFromTemplateName: rule.CreatedFromTemplateName,
+		CreatedFromTemplateID:   result.CreatedFromTemplateID,
+		CreatedFromTemplateName: result.CreatedFromTemplateName,
 
 		TimestampResponse: TimestampResponse{
-			CreatedAt: rule.CreatedAt,
-			UpdatedAt: rule.UpdatedAt,
+			CreatedAt: result.CreatedAt,
+			UpdatedAt: result.UpdatedAt,
 		},
 	}
 
 	// Include group if loaded
-	if rule.Group.ID != "" {
-		group := ToGroupResponse(&rule.Group)
+	if result.Group != nil {
+		group := ToGroupResponse(*result.Group)
 		resp.Group = &group
 	}
 
 	return resp
 }
 
-// ToAlertRuleResponseList converts a slice of domain.AlertRule to slice of AlertRuleResponse
-func ToAlertRuleResponseList(rules []domain.AlertRule) []AlertRuleResponse {
-	responses := make([]AlertRuleResponse, len(rules))
-	for i, rule := range rules {
-		responses[i] = ToAlertRuleResponse(&rule)
+// ToAlertRuleResponseList converts a slice of action.AlertRuleResult to slice of AlertRuleResponse
+func ToAlertRuleResponseList(results []action.AlertRuleResult) []AlertRuleResponse {
+	responses := make([]AlertRuleResponse, len(results))
+	for i, result := range results {
+		responses[i] = ToAlertRuleResponse(result)
 	}
 	return responses
 }

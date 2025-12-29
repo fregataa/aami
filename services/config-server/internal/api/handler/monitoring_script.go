@@ -29,52 +29,52 @@ func (h *MonitoringScriptHandler) Create(c *gin.Context) {
 		return
 	}
 
-	template, err := h.scriptService.Create(c.Request.Context(), req)
+	result, err := h.scriptService.Create(c.Request.Context(), req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, dto.ToMonitoringScriptResponse(template))
+	c.JSON(http.StatusCreated, dto.ToMonitoringScriptResponse(result))
 }
 
 // GetByID handles GET /monitoring-scripts/:id
 func (h *MonitoringScriptHandler) GetByID(c *gin.Context) {
 	id := c.Param("id")
 
-	template, err := h.scriptService.GetByID(c.Request.Context(), id)
+	result, err := h.scriptService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToMonitoringScriptResponse(template))
+	c.JSON(http.StatusOK, dto.ToMonitoringScriptResponse(result))
 }
 
 // GetByName handles GET /monitoring-scripts/name/:name
 func (h *MonitoringScriptHandler) GetByName(c *gin.Context) {
 	name := c.Param("name")
 
-	template, err := h.scriptService.GetByName(c.Request.Context(), name)
+	result, err := h.scriptService.GetByName(c.Request.Context(), name)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToMonitoringScriptResponse(template))
+	c.JSON(http.StatusOK, dto.ToMonitoringScriptResponse(result))
 }
 
 // GetByScriptType handles GET /monitoring-scripts/type/:scriptType
 func (h *MonitoringScriptHandler) GetByScriptType(c *gin.Context) {
 	scriptType := c.Param("scriptType")
 
-	templates, err := h.scriptService.GetByScriptType(c.Request.Context(), scriptType)
+	results, err := h.scriptService.GetByScriptType(c.Request.Context(), scriptType)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToMonitoringScriptSummaryResponseList(templates))
+	c.JSON(http.StatusOK, dto.ToMonitoringScriptSummaryResponseList(results))
 }
 
 // Update handles PUT /monitoring-scripts/:id
@@ -87,13 +87,13 @@ func (h *MonitoringScriptHandler) Update(c *gin.Context) {
 		return
 	}
 
-	template, err := h.scriptService.Update(c.Request.Context(), id, req)
+	result, err := h.scriptService.Update(c.Request.Context(), id, req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToMonitoringScriptResponse(template))
+	c.JSON(http.StatusOK, dto.ToMonitoringScriptResponse(result))
 }
 
 // DeleteResource handles POST /monitoring-scripts/delete
@@ -148,24 +148,24 @@ func (h *MonitoringScriptHandler) RestoreResource(c *gin.Context) {
 func (h *MonitoringScriptHandler) List(c *gin.Context) {
 	pagination := getPagination(c)
 
-	templates, total, err := h.scriptService.List(c.Request.Context(), pagination)
+	listResult, err := h.scriptService.List(c.Request.Context(), pagination.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	respondList(c, dto.ToMonitoringScriptSummaryResponseList(templates), total, pagination)
+	respondList(c, dto.ToMonitoringScriptSummaryResponseList(listResult.Items), listResult.Total, pagination)
 }
 
 // ListActive handles GET /monitoring-scripts/active
 func (h *MonitoringScriptHandler) ListActive(c *gin.Context) {
-	templates, err := h.scriptService.ListActive(c.Request.Context())
+	results, err := h.scriptService.ListActive(c.Request.Context())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToMonitoringScriptSummaryResponseList(templates))
+	c.JSON(http.StatusOK, dto.ToMonitoringScriptSummaryResponseList(results))
 }
 
 // VerifyHash handles GET /monitoring-scripts/:id/verify-hash

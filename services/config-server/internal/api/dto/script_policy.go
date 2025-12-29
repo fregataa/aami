@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"github.com/fregataa/aami/config-server/internal/action"
 	"github.com/fregataa/aami/config-server/internal/domain"
 	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 )
@@ -14,6 +15,19 @@ type CreateScriptPolicyFromTemplateRequest struct {
 	Config      map[string]interface{} `json:"config,omitempty"`
 	Priority    int                    `json:"priority" binding:"omitempty,min=0,max=1000"`
 	IsActive    bool                   `json:"is_active"`
+}
+
+// ToAction converts CreateScriptPolicyFromTemplateRequest to action.CreateScriptPolicyFromTemplate
+func (r *CreateScriptPolicyFromTemplateRequest) ToAction() action.CreateScriptPolicyFromTemplate {
+	return action.CreateScriptPolicyFromTemplate{
+		TemplateID:  r.TemplateID,
+		Scope:       r.Scope,
+		NamespaceID: r.NamespaceID,
+		GroupID:     r.GroupID,
+		Config:      r.Config,
+		Priority:    r.Priority,
+		IsActive:    r.IsActive,
+	}
 }
 
 // CreateScriptPolicyDirectRequest represents a request to create a script policy directly (without template)
@@ -31,6 +45,26 @@ type CreateScriptPolicyDirectRequest struct {
 	Config        map[string]interface{} `json:"config,omitempty"`
 	Priority      int                    `json:"priority" binding:"omitempty,min=0,max=1000"`
 	IsActive      bool                   `json:"is_active"`
+}
+
+// ToAction converts CreateScriptPolicyDirectRequest to action.CreateScriptPolicyDirect
+func (r *CreateScriptPolicyDirectRequest) ToAction() action.CreateScriptPolicyDirect {
+	return action.CreateScriptPolicyDirect{
+		Name:          r.Name,
+		ScriptType:    r.ScriptType,
+		ScriptContent: r.ScriptContent,
+		Language:      r.Language,
+		DefaultConfig: r.DefaultConfig,
+		Description:   r.Description,
+		Version:       r.Version,
+		Hash:          "", // Hash will be computed by service layer
+		Scope:         r.Scope,
+		NamespaceID:   r.NamespaceID,
+		GroupID:       r.GroupID,
+		Config:        r.Config,
+		Priority:      r.Priority,
+		IsActive:      r.IsActive,
+	}
 }
 
 // CreateScriptPolicyRequest represents a request to create a new check instance
@@ -103,6 +137,15 @@ type UpdateScriptPolicyRequest struct {
 	IsActive *bool                  `json:"is_active,omitempty"`
 }
 
+// ToAction converts UpdateScriptPolicyRequest to action.UpdateScriptPolicy
+func (r *UpdateScriptPolicyRequest) ToAction() action.UpdateScriptPolicy {
+	return action.UpdateScriptPolicy{
+		Config:   r.Config,
+		Priority: r.Priority,
+		IsActive: r.IsActive,
+	}
+}
+
 // ScriptPolicyResponse represents a check instance in API responses
 type ScriptPolicyResponse struct {
 	ID string `json:"id"`
@@ -146,46 +189,46 @@ type EffectiveCheckResponse struct {
 	InstanceID    string                 `json:"instance_id"`
 }
 
-// ToScriptPolicyResponse converts a domain.ScriptPolicy to ScriptPolicyResponse
-func ToScriptPolicyResponse(instance *domain.ScriptPolicy) ScriptPolicyResponse {
+// ToScriptPolicyResponse converts action.ScriptPolicyResult to ScriptPolicyResponse
+func ToScriptPolicyResponse(result action.ScriptPolicyResult) ScriptPolicyResponse {
 	return ScriptPolicyResponse{
-		ID: instance.ID,
+		ID: result.ID,
 
 		// Template fields
-		Name:          instance.Name,
-		ScriptType:     instance.ScriptType,
-		ScriptContent: instance.ScriptContent,
-		Language:      instance.Language,
-		DefaultConfig: instance.DefaultConfig,
-		Description:   instance.Description,
-		Version:       instance.Version,
-		Hash:          instance.Hash,
+		Name:          result.Name,
+		ScriptType:    result.ScriptType,
+		ScriptContent: result.ScriptContent,
+		Language:      result.Language,
+		DefaultConfig: result.DefaultConfig,
+		Description:   result.Description,
+		Version:       result.Version,
+		Hash:          result.Hash,
 
 		// Instance-specific fields
-		Scope:       string(instance.Scope),
-		NamespaceID: instance.NamespaceID,
-		GroupID:     instance.GroupID,
-		Config:      instance.Config,
-		Priority:    instance.Priority,
-		IsActive:    instance.IsActive,
+		Scope:       string(result.Scope),
+		NamespaceID: result.NamespaceID,
+		GroupID:     result.GroupID,
+		Config:      result.Config,
+		Priority:    result.Priority,
+		IsActive:    result.IsActive,
 
 		// Metadata
-		CreatedFromTemplateID:   instance.CreatedFromTemplateID,
-		CreatedFromTemplateName: instance.CreatedFromTemplateName,
-		TemplateVersion:         instance.TemplateVersion,
+		CreatedFromTemplateID:   result.CreatedFromTemplateID,
+		CreatedFromTemplateName: result.CreatedFromTemplateName,
+		TemplateVersion:         result.TemplateVersion,
 
 		TimestampResponse: TimestampResponse{
-			CreatedAt: instance.CreatedAt,
-			UpdatedAt: instance.UpdatedAt,
+			CreatedAt: result.CreatedAt,
+			UpdatedAt: result.UpdatedAt,
 		},
 	}
 }
 
-// ToScriptPolicyResponseList converts a slice of domain.ScriptPolicy to slice of ScriptPolicyResponse
-func ToScriptPolicyResponseList(instances []domain.ScriptPolicy) []ScriptPolicyResponse {
-	responses := make([]ScriptPolicyResponse, len(instances))
-	for i, instance := range instances {
-		responses[i] = ToScriptPolicyResponse(&instance)
+// ToScriptPolicyResponseList converts a slice of action.ScriptPolicyResult to slice of ScriptPolicyResponse
+func ToScriptPolicyResponseList(results []action.ScriptPolicyResult) []ScriptPolicyResponse {
+	responses := make([]ScriptPolicyResponse, len(results))
+	for i, result := range results {
+		responses[i] = ToScriptPolicyResponse(result)
 	}
 	return responses
 }

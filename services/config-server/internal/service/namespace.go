@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/fregataa/aami/config-server/internal/api/dto"
+	"github.com/fregataa/aami/config-server/internal/action"
 	"github.com/fregataa/aami/config-server/internal/domain"
 	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 	"github.com/fregataa/aami/config-server/internal/repository"
@@ -32,89 +32,89 @@ func NewNamespaceService(
 }
 
 // Create creates a new namespace
-func (s *NamespaceService) Create(ctx context.Context, req dto.CreateNamespaceRequest) (*domain.Namespace, error) {
+func (s *NamespaceService) Create(ctx context.Context, act action.CreateNamespace) (action.NamespaceResult, error) {
 	// Validate merge strategy
-	if !domain.IsValidMergeStrategy(req.MergeStrategy) {
-		return nil, domainerrors.NewValidationError("merge_strategy", "invalid merge strategy")
+	if !domain.IsValidMergeStrategy(act.MergeStrategy) {
+		return action.NamespaceResult{}, domainerrors.NewValidationError("merge_strategy", "invalid merge strategy")
 	}
 
 	// Check if namespace name already exists
-	existing, err := s.namespaceRepo.GetByName(ctx, req.Name)
+	existing, err := s.namespaceRepo.GetByName(ctx, act.Name)
 	if err != nil && !errors.Is(err, domainerrors.ErrNotFound) {
-		return nil, err
+		return action.NamespaceResult{}, err
 	}
 	if existing != nil {
-		return nil, domainerrors.ErrAlreadyExists
+		return action.NamespaceResult{}, domainerrors.ErrAlreadyExists
 	}
 
 	namespace := &domain.Namespace{
 		ID:             uuid.New().String(),
-		Name:           req.Name,
-		Description:    req.Description,
-		PolicyPriority: req.PolicyPriority,
-		MergeStrategy:  req.MergeStrategy,
+		Name:           act.Name,
+		Description:    act.Description,
+		PolicyPriority: act.PolicyPriority,
+		MergeStrategy:  act.MergeStrategy,
 	}
 
 	if err := s.namespaceRepo.Create(ctx, namespace); err != nil {
-		return nil, err
+		return action.NamespaceResult{}, err
 	}
 
-	return namespace, nil
+	return action.NewNamespaceResult(namespace), nil
 }
 
 // GetByID retrieves a namespace by ID
-func (s *NamespaceService) GetByID(ctx context.Context, id string) (*domain.Namespace, error) {
+func (s *NamespaceService) GetByID(ctx context.Context, id string) (action.NamespaceResult, error) {
 	namespace, err := s.namespaceRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
-			return nil, domainerrors.ErrNotFound
+			return action.NamespaceResult{}, domainerrors.ErrNotFound
 		}
-		return nil, err
+		return action.NamespaceResult{}, err
 	}
-	return namespace, nil
+	return action.NewNamespaceResult(namespace), nil
 }
 
 // GetByName retrieves a namespace by name
-func (s *NamespaceService) GetByName(ctx context.Context, name string) (*domain.Namespace, error) {
+func (s *NamespaceService) GetByName(ctx context.Context, name string) (action.NamespaceResult, error) {
 	namespace, err := s.namespaceRepo.GetByName(ctx, name)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
-			return nil, domainerrors.ErrNotFound
+			return action.NamespaceResult{}, domainerrors.ErrNotFound
 		}
-		return nil, err
+		return action.NamespaceResult{}, err
 	}
-	return namespace, nil
+	return action.NewNamespaceResult(namespace), nil
 }
 
 // Update updates an existing namespace
-func (s *NamespaceService) Update(ctx context.Context, id string, req dto.UpdateNamespaceRequest) (*domain.Namespace, error) {
+func (s *NamespaceService) Update(ctx context.Context, id string, act action.UpdateNamespace) (action.NamespaceResult, error) {
 	namespace, err := s.namespaceRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
-			return nil, domainerrors.ErrNotFound
+			return action.NamespaceResult{}, domainerrors.ErrNotFound
 		}
-		return nil, err
+		return action.NamespaceResult{}, err
 	}
 
 	// Update fields if provided
-	if req.Description != nil {
-		namespace.Description = *req.Description
+	if act.Description != nil {
+		namespace.Description = *act.Description
 	}
-	if req.PolicyPriority != nil {
-		namespace.PolicyPriority = *req.PolicyPriority
+	if act.PolicyPriority != nil {
+		namespace.PolicyPriority = *act.PolicyPriority
 	}
-	if req.MergeStrategy != nil {
-		if !domain.IsValidMergeStrategy(*req.MergeStrategy) {
-			return nil, domainerrors.NewValidationError("merge_strategy", "invalid merge strategy")
+	if act.MergeStrategy != nil {
+		if !domain.IsValidMergeStrategy(*act.MergeStrategy) {
+			return action.NamespaceResult{}, domainerrors.NewValidationError("merge_strategy", "invalid merge strategy")
 		}
-		namespace.MergeStrategy = *req.MergeStrategy
+		namespace.MergeStrategy = *act.MergeStrategy
 	}
 
 	if err := s.namespaceRepo.Update(ctx, namespace); err != nil {
-		return nil, err
+		return action.NamespaceResult{}, err
 	}
 
-	return namespace, nil
+	return action.NewNamespaceResult(namespace), nil
 }
 
 // Delete performs soft delete on a namespace
@@ -151,37 +151,46 @@ func (s *NamespaceService) Restore(ctx context.Context, id string) error {
 }
 
 // List retrieves a paginated list of namespaces
-func (s *NamespaceService) List(ctx context.Context, pagination dto.PaginationRequest) ([]domain.Namespace, int, error) {
-	pagination.Normalize()
-	return s.namespaceRepo.List(ctx, pagination.Page, pagination.Limit)
+func (s *NamespaceService) List(ctx context.Context, pagination action.Pagination) (action.ListResult[action.NamespaceResult], error) {
+	namespaces, total, err := s.namespaceRepo.List(ctx, pagination.Page, pagination.Limit)
+	if err != nil {
+		return action.ListResult[action.NamespaceResult]{}, err
+	}
+
+	results := action.NewNamespaceResultList(namespaces)
+	return action.NewListResult(results, pagination, total), nil
 }
 
 // GetAll retrieves all namespaces without pagination
-func (s *NamespaceService) GetAll(ctx context.Context) ([]domain.Namespace, error) {
-	return s.namespaceRepo.GetAll(ctx)
+func (s *NamespaceService) GetAll(ctx context.Context) ([]action.NamespaceResult, error) {
+	namespaces, err := s.namespaceRepo.GetAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return action.NewNamespaceResultList(namespaces), nil
 }
 
 // GetStats retrieves statistics for a namespace
-func (s *NamespaceService) GetStats(ctx context.Context, id string) (*dto.NamespaceStatsResponse, error) {
+func (s *NamespaceService) GetStats(ctx context.Context, id string) (action.NamespaceStats, error) {
 	namespace, err := s.namespaceRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
-			return nil, domainerrors.ErrNotFound
+			return action.NamespaceStats{}, domainerrors.ErrNotFound
 		}
-		return nil, err
+		return action.NamespaceStats{}, err
 	}
 
 	groupCount, err := s.groupRepo.CountByNamespaceID(ctx, id)
 	if err != nil {
-		return nil, err
+		return action.NamespaceStats{}, err
 	}
 
 	targetCount, err := s.targetRepo.CountByNamespaceID(ctx, id)
 	if err != nil {
-		return nil, err
+		return action.NamespaceStats{}, err
 	}
 
-	return &dto.NamespaceStatsResponse{
+	return action.NamespaceStats{
 		NamespaceID:    namespace.ID,
 		NamespaceName:  namespace.Name,
 		GroupCount:     groupCount,
@@ -191,13 +200,13 @@ func (s *NamespaceService) GetStats(ctx context.Context, id string) (*dto.Namesp
 }
 
 // GetAllStats retrieves statistics for all namespaces
-func (s *NamespaceService) GetAllStats(ctx context.Context) ([]dto.NamespaceStatsResponse, error) {
+func (s *NamespaceService) GetAllStats(ctx context.Context) ([]action.NamespaceStats, error) {
 	namespaces, err := s.namespaceRepo.GetAll(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	stats := make([]dto.NamespaceStatsResponse, len(namespaces))
+	stats := make([]action.NamespaceStats, len(namespaces))
 	for i, ns := range namespaces {
 		groupCount, err := s.groupRepo.CountByNamespaceID(ctx, ns.ID)
 		if err != nil {
@@ -209,7 +218,7 @@ func (s *NamespaceService) GetAllStats(ctx context.Context) ([]dto.NamespaceStat
 			return nil, err
 		}
 
-		stats[i] = dto.NamespaceStatsResponse{
+		stats[i] = action.NamespaceStats{
 			NamespaceID:    ns.ID,
 			NamespaceName:  ns.Name,
 			GroupCount:     groupCount,

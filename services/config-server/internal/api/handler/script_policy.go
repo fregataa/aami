@@ -3,8 +3,8 @@ package handler
 import (
 	"net/http"
 
+	"github.com/fregataa/aami/config-server/internal/action"
 	"github.com/fregataa/aami/config-server/internal/api/dto"
-	"github.com/fregataa/aami/config-server/internal/domain"
 	"github.com/fregataa/aami/config-server/internal/service"
 	"github.com/gin-gonic/gin"
 	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
@@ -31,7 +31,7 @@ func (h *ScriptPolicyHandler) Create(c *gin.Context) {
 		return
 	}
 
-	var instance *domain.ScriptPolicy
+	var result action.ScriptPolicyResult
 	var err error
 
 	// Check if template_id exists to determine creation mode
@@ -42,7 +42,7 @@ func (h *ScriptPolicyHandler) Create(c *gin.Context) {
 			respondError(c, domainerrors.NewBindingError(err))
 			return
 		}
-		instance, err = h.policyService.CreateFromTemplate(c.Request.Context(), req)
+		result, err = h.policyService.CreateFromTemplate(c.Request.Context(), req.ToAction())
 	} else {
 		// Create directly
 		var req dto.CreateScriptPolicyDirectRequest
@@ -50,7 +50,7 @@ func (h *ScriptPolicyHandler) Create(c *gin.Context) {
 			respondError(c, domainerrors.NewBindingError(err))
 			return
 		}
-		instance, err = h.policyService.CreateDirect(c.Request.Context(), req)
+		result, err = h.policyService.CreateDirect(c.Request.Context(), req.ToAction())
 	}
 
 	if err != nil {
@@ -58,83 +58,83 @@ func (h *ScriptPolicyHandler) Create(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, dto.ToScriptPolicyResponse(instance))
+	c.JSON(http.StatusCreated, dto.ToScriptPolicyResponse(result))
 }
 
 // GetByID handles GET /check-instances/:id
 func (h *ScriptPolicyHandler) GetByID(c *gin.Context) {
 	id := c.Param("id")
 
-	instance, err := h.policyService.GetByID(c.Request.Context(), id)
+	result, err := h.policyService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToScriptPolicyResponse(instance))
+	c.JSON(http.StatusOK, dto.ToScriptPolicyResponse(result))
 }
 
 // GetByTemplateID handles GET /check-instances/template/:templateId
 func (h *ScriptPolicyHandler) GetByTemplateID(c *gin.Context) {
 	templateID := c.Param("templateId")
 
-	instances, err := h.policyService.GetByTemplateID(c.Request.Context(), templateID)
+	results, err := h.policyService.GetByTemplateID(c.Request.Context(), templateID)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToScriptPolicyResponseList(instances))
+	c.JSON(http.StatusOK, dto.ToScriptPolicyResponseList(results))
 }
 
 // GetGlobalInstances handles GET /check-instances/global
 func (h *ScriptPolicyHandler) GetGlobalInstances(c *gin.Context) {
-	instances, err := h.policyService.GetGlobalInstances(c.Request.Context())
+	results, err := h.policyService.GetGlobalInstances(c.Request.Context())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToScriptPolicyResponseList(instances))
+	c.JSON(http.StatusOK, dto.ToScriptPolicyResponseList(results))
 }
 
 // GetByNamespaceID handles GET /check-instances/namespace/:namespaceId
 func (h *ScriptPolicyHandler) GetByNamespaceID(c *gin.Context) {
 	namespaceID := c.Param("namespaceId")
 
-	instances, err := h.policyService.GetByNamespaceID(c.Request.Context(), namespaceID)
+	results, err := h.policyService.GetByNamespaceID(c.Request.Context(), namespaceID)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToScriptPolicyResponseList(instances))
+	c.JSON(http.StatusOK, dto.ToScriptPolicyResponseList(results))
 }
 
 // GetByGroupID handles GET /check-instances/group/:groupId
 func (h *ScriptPolicyHandler) GetByGroupID(c *gin.Context) {
 	groupID := c.Param("groupId")
 
-	instances, err := h.policyService.GetByGroupID(c.Request.Context(), groupID)
+	results, err := h.policyService.GetByGroupID(c.Request.Context(), groupID)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToScriptPolicyResponseList(instances))
+	c.JSON(http.StatusOK, dto.ToScriptPolicyResponseList(results))
 }
 
 // GetEffectiveChecksByNamespace handles GET /check-instances/effective/namespace/:namespaceId
 func (h *ScriptPolicyHandler) GetEffectiveChecksByNamespace(c *gin.Context) {
 	namespaceID := c.Param("namespaceId")
 
-	instances, err := h.policyService.GetEffectiveChecksByNamespace(c.Request.Context(), namespaceID)
+	results, err := h.policyService.GetEffectiveChecksByNamespace(c.Request.Context(), namespaceID)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToScriptPolicyResponseList(instances))
+	c.JSON(http.StatusOK, dto.ToScriptPolicyResponseList(results))
 }
 
 // GetEffectiveChecksByGroup handles GET /check-instances/effective/group/:namespaceId/:groupId
@@ -142,13 +142,13 @@ func (h *ScriptPolicyHandler) GetEffectiveChecksByGroup(c *gin.Context) {
 	namespaceID := c.Param("namespaceId")
 	groupID := c.Param("groupId")
 
-	instances, err := h.policyService.GetEffectiveChecksByGroup(c.Request.Context(), namespaceID, groupID)
+	results, err := h.policyService.GetEffectiveChecksByGroup(c.Request.Context(), namespaceID, groupID)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToScriptPolicyResponseList(instances))
+	c.JSON(http.StatusOK, dto.ToScriptPolicyResponseList(results))
 }
 
 // GetEffectiveChecksByTargetID handles GET /checks/target/:targetId
@@ -175,13 +175,13 @@ func (h *ScriptPolicyHandler) Update(c *gin.Context) {
 		return
 	}
 
-	instance, err := h.policyService.Update(c.Request.Context(), id, req)
+	result, err := h.policyService.Update(c.Request.Context(), id, req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToScriptPolicyResponse(instance))
+	c.JSON(http.StatusOK, dto.ToScriptPolicyResponse(result))
 }
 
 // DeleteResource handles POST /check-instances/delete
@@ -236,22 +236,22 @@ func (h *ScriptPolicyHandler) RestoreResource(c *gin.Context) {
 func (h *ScriptPolicyHandler) List(c *gin.Context) {
 	pagination := getPagination(c)
 
-	instances, total, err := h.policyService.List(c.Request.Context(), pagination)
+	listResult, err := h.policyService.List(c.Request.Context(), pagination.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	respondList(c, dto.ToScriptPolicyResponseList(instances), total, pagination)
+	respondList(c, dto.ToScriptPolicyResponseList(listResult.Items), listResult.Total, pagination)
 }
 
 // ListActive handles GET /check-instances/active
 func (h *ScriptPolicyHandler) ListActive(c *gin.Context) {
-	instances, err := h.policyService.ListActive(c.Request.Context())
+	results, err := h.policyService.ListActive(c.Request.Context())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToScriptPolicyResponseList(instances))
+	c.JSON(http.StatusOK, dto.ToScriptPolicyResponseList(results))
 }

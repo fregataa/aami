@@ -2,6 +2,8 @@ package dto
 
 import (
 	"time"
+
+	"github.com/fregataa/aami/config-server/internal/action"
 )
 
 // ErrorResponse represents an API error response
@@ -36,6 +38,11 @@ func (p *PaginationRequest) Normalize() {
 	if p.Limit > 100 {
 		p.Limit = 100
 	}
+}
+
+// ToAction converts PaginationRequest to action.Pagination
+func (p *PaginationRequest) ToAction() action.Pagination {
+	return action.NewPagination(p.Page, p.Limit)
 }
 
 // PaginationResponse represents pagination metadata in API responses

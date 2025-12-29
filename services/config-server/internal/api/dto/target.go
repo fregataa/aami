@@ -3,6 +3,7 @@ package dto
 import (
 	"time"
 
+	"github.com/fregataa/aami/config-server/internal/action"
 	"github.com/fregataa/aami/config-server/internal/domain"
 )
 
@@ -16,6 +17,18 @@ type CreateTargetRequest struct {
 	Metadata  map[string]string   `json:"metadata,omitempty"`
 }
 
+// ToAction converts CreateTargetRequest to action.CreateTarget
+func (r *CreateTargetRequest) ToAction() action.CreateTarget {
+	return action.CreateTarget{
+		Hostname:  r.Hostname,
+		IPAddress: r.IPAddress,
+		GroupIDs:  r.GroupIDs,
+		Status:    r.Status,
+		Labels:    r.Labels,
+		Metadata:  r.Metadata,
+	}
+}
+
 // UpdateTargetRequest represents a request to update an existing target
 type UpdateTargetRequest struct {
 	Hostname  *string              `json:"hostname,omitempty" binding:"omitempty,min=1,max=255"`
@@ -25,9 +38,27 @@ type UpdateTargetRequest struct {
 	Metadata  map[string]string    `json:"metadata,omitempty"`
 }
 
+// ToAction converts UpdateTargetRequest to action.UpdateTarget
+func (r *UpdateTargetRequest) ToAction() action.UpdateTarget {
+	return action.UpdateTarget{
+		Hostname:  r.Hostname,
+		IPAddress: r.IPAddress,
+		Status:    r.Status,
+		Labels:    r.Labels,
+		Metadata:  r.Metadata,
+	}
+}
+
 // UpdateTargetStatusRequest represents a request to update target status
 type UpdateTargetStatusRequest struct {
 	Status domain.TargetStatus `json:"status" binding:"required"`
+}
+
+// ToAction converts UpdateTargetStatusRequest to action.UpdateTargetStatus
+func (r *UpdateTargetStatusRequest) ToAction() action.UpdateTargetStatus {
+	return action.UpdateTargetStatus{
+		Status: r.Status,
+	}
 }
 
 // UpdateTargetGroupsRequest represents a request to replace all group mappings for a target
@@ -61,40 +92,40 @@ type TargetResponse struct {
 	TimestampResponse
 }
 
-// ToTargetResponse converts a domain.Target to TargetResponse
-func ToTargetResponse(target *domain.Target) TargetResponse {
+// ToTargetResponse converts action.TargetResult to TargetResponse
+func ToTargetResponse(result action.TargetResult) TargetResponse {
 	resp := TargetResponse{
-		ID:        target.ID,
-		Hostname:  target.Hostname,
-		IPAddress: target.IPAddress,
-		Status:    target.Status,
-		Labels:    target.Labels,
-		Metadata:  target.Metadata,
-		LastSeen:  target.LastSeen,
+		ID:        result.ID,
+		Hostname:  result.Hostname,
+		IPAddress: result.IPAddress,
+		Status:    result.Status,
+		Labels:    result.Labels,
+		Metadata:  result.Metadata,
+		LastSeen:  result.LastSeen,
 		TimestampResponse: TimestampResponse{
-			CreatedAt: target.CreatedAt,
-			UpdatedAt: target.UpdatedAt,
+			CreatedAt: result.CreatedAt,
+			UpdatedAt: result.UpdatedAt,
 		},
 	}
 
 	// Include groups if loaded
-	if len(target.Groups) > 0 {
-		resp.Groups = ToGroupResponseList(target.Groups)
+	if len(result.Groups) > 0 {
+		resp.Groups = ToGroupResponseList(result.Groups)
 	}
 
 	// Include exporters if loaded
-	if len(target.Exporters) > 0 {
-		resp.Exporters = ToExporterResponseList(target.Exporters)
+	if len(result.Exporters) > 0 {
+		resp.Exporters = ToExporterResponseList(result.Exporters)
 	}
 
 	return resp
 }
 
-// ToTargetResponseList converts a slice of domain.Target to slice of TargetResponse
-func ToTargetResponseList(targets []domain.Target) []TargetResponse {
-	responses := make([]TargetResponse, len(targets))
-	for i, target := range targets {
-		responses[i] = ToTargetResponse(&target)
+// ToTargetResponseList converts a slice of action.TargetResult to slice of TargetResponse
+func ToTargetResponseList(results []action.TargetResult) []TargetResponse {
+	responses := make([]TargetResponse, len(results))
+	for i, result := range results {
+		responses[i] = ToTargetResponse(result)
 	}
 	return responses
 }

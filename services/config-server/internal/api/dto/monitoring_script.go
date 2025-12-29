@@ -1,7 +1,7 @@
 package dto
 
 import (
-	"github.com/fregataa/aami/config-server/internal/domain"
+	"github.com/fregataa/aami/config-server/internal/action"
 )
 
 // CreateMonitoringScriptRequest represents a request to create a new monitoring script
@@ -23,6 +23,19 @@ func (req *CreateMonitoringScriptRequest) Validate() error {
 	return nil
 }
 
+// ToAction converts CreateMonitoringScriptRequest to action.CreateMonitoringScript
+func (r *CreateMonitoringScriptRequest) ToAction() action.CreateMonitoringScript {
+	return action.CreateMonitoringScript{
+		Name:          r.Name,
+		ScriptType:    r.ScriptType,
+		ScriptContent: r.ScriptContent,
+		Language:      r.Language,
+		DefaultConfig: r.DefaultConfig,
+		Description:   r.Description,
+		Version:       r.Version,
+	}
+}
+
 // UpdateMonitoringScriptRequest represents a request to update an existing monitoring script
 type UpdateMonitoringScriptRequest struct {
 	ScriptContent *string                 `json:"script_content,omitempty" binding:"omitempty,min=1"`
@@ -30,6 +43,17 @@ type UpdateMonitoringScriptRequest struct {
 	DefaultConfig map[string]interface{}  `json:"default_config,omitempty" binding:"omitempty"`
 	Description   *string                 `json:"description,omitempty" binding:"omitempty,max=1000"`
 	Version       *string                 `json:"version,omitempty" binding:"omitempty,min=1,max=50"`
+}
+
+// ToAction converts UpdateMonitoringScriptRequest to action.UpdateMonitoringScript
+func (r *UpdateMonitoringScriptRequest) ToAction() action.UpdateMonitoringScript {
+	return action.UpdateMonitoringScript{
+		ScriptContent: r.ScriptContent,
+		Language:      r.Language,
+		DefaultConfig: r.DefaultConfig,
+		Description:   r.Description,
+		Version:       r.Version,
+	}
 }
 
 // MonitoringScriptResponse represents a monitoring script in API responses
@@ -59,56 +83,56 @@ type MonitoringScriptSummaryResponse struct {
 	TimestampResponse
 }
 
-// ToMonitoringScriptResponse converts a domain.MonitoringScript to MonitoringScriptResponse
-func ToMonitoringScriptResponse(script *domain.MonitoringScript) MonitoringScriptResponse {
+// ToMonitoringScriptResponse converts action.MonitoringScriptResult to MonitoringScriptResponse
+func ToMonitoringScriptResponse(result action.MonitoringScriptResult) MonitoringScriptResponse {
 	return MonitoringScriptResponse{
-		ID:            script.ID,
-		Name:          script.Name,
-		ScriptType:    script.ScriptType,
-		ScriptContent: script.ScriptContent,
-		Language:      script.Language,
-		DefaultConfig: script.DefaultConfig,
-		Description:   script.Description,
-		Version:       script.Version,
-		Hash:          script.Hash,
+		ID:            result.ID,
+		Name:          result.Name,
+		ScriptType:    result.ScriptType,
+		ScriptContent: result.ScriptContent,
+		Language:      result.Language,
+		DefaultConfig: result.DefaultConfig,
+		Description:   result.Description,
+		Version:       result.Version,
+		Hash:          result.Hash,
 		TimestampResponse: TimestampResponse{
-			CreatedAt: script.CreatedAt,
-			UpdatedAt: script.UpdatedAt,
+			CreatedAt: result.CreatedAt,
+			UpdatedAt: result.UpdatedAt,
 		},
 	}
 }
 
-// ToMonitoringScriptSummaryResponse converts a domain.MonitoringScript to MonitoringScriptSummaryResponse
-func ToMonitoringScriptSummaryResponse(script *domain.MonitoringScript) MonitoringScriptSummaryResponse {
+// ToMonitoringScriptSummaryResponse converts action.MonitoringScriptResult to MonitoringScriptSummaryResponse
+func ToMonitoringScriptSummaryResponse(result action.MonitoringScriptResult) MonitoringScriptSummaryResponse {
 	return MonitoringScriptSummaryResponse{
-		ID:          script.ID,
-		Name:        script.Name,
-		ScriptType:  script.ScriptType,
-		Language:    script.Language,
-		Description: script.Description,
-		Version:     script.Version,
-		Hash:        script.Hash,
+		ID:          result.ID,
+		Name:        result.Name,
+		ScriptType:  result.ScriptType,
+		Language:    result.Language,
+		Description: result.Description,
+		Version:     result.Version,
+		Hash:        result.Hash,
 		TimestampResponse: TimestampResponse{
-			CreatedAt: script.CreatedAt,
-			UpdatedAt: script.UpdatedAt,
+			CreatedAt: result.CreatedAt,
+			UpdatedAt: result.UpdatedAt,
 		},
 	}
 }
 
-// ToMonitoringScriptResponseList converts a slice of domain.MonitoringScript to slice of MonitoringScriptResponse
-func ToMonitoringScriptResponseList(scripts []domain.MonitoringScript) []MonitoringScriptResponse {
-	responses := make([]MonitoringScriptResponse, len(scripts))
-	for i, script := range scripts {
-		responses[i] = ToMonitoringScriptResponse(&script)
+// ToMonitoringScriptResponseList converts a slice of action.MonitoringScriptResult to slice of MonitoringScriptResponse
+func ToMonitoringScriptResponseList(results []action.MonitoringScriptResult) []MonitoringScriptResponse {
+	responses := make([]MonitoringScriptResponse, len(results))
+	for i, result := range results {
+		responses[i] = ToMonitoringScriptResponse(result)
 	}
 	return responses
 }
 
-// ToMonitoringScriptSummaryResponseList converts a slice of domain.MonitoringScript to slice of MonitoringScriptSummaryResponse
-func ToMonitoringScriptSummaryResponseList(scripts []domain.MonitoringScript) []MonitoringScriptSummaryResponse {
-	responses := make([]MonitoringScriptSummaryResponse, len(scripts))
-	for i, script := range scripts {
-		responses[i] = ToMonitoringScriptSummaryResponse(&script)
+// ToMonitoringScriptSummaryResponseList converts a slice of action.MonitoringScriptResult to slice of MonitoringScriptSummaryResponse
+func ToMonitoringScriptSummaryResponseList(results []action.MonitoringScriptResult) []MonitoringScriptSummaryResponse {
+	responses := make([]MonitoringScriptSummaryResponse, len(results))
+	for i, result := range results {
+		responses[i] = ToMonitoringScriptSummaryResponse(result)
 	}
 	return responses
 }

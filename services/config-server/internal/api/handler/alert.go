@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/fregataa/aami/config-server/internal/action"
 	"github.com/fregataa/aami/config-server/internal/api/dto"
 	"github.com/fregataa/aami/config-server/internal/domain"
 	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
@@ -31,26 +32,26 @@ func (h *AlertTemplateHandler) Create(c *gin.Context) {
 		return
 	}
 
-	template, err := h.templateService.Create(c.Request.Context(), req)
+	result, err := h.templateService.Create(c.Request.Context(), req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, dto.ToAlertTemplateResponse(template))
+	c.JSON(http.StatusCreated, dto.ToAlertTemplateResponse(result))
 }
 
 // GetByID handles GET /alert-templates/:id
 func (h *AlertTemplateHandler) GetByID(c *gin.Context) {
 	id := c.Param("id")
 
-	template, err := h.templateService.GetByID(c.Request.Context(), id)
+	result, err := h.templateService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToAlertTemplateResponse(template))
+	c.JSON(http.StatusOK, dto.ToAlertTemplateResponse(result))
 }
 
 // Update handles PUT /alert-templates/:id
@@ -63,13 +64,13 @@ func (h *AlertTemplateHandler) Update(c *gin.Context) {
 		return
 	}
 
-	template, err := h.templateService.Update(c.Request.Context(), id, req)
+	result, err := h.templateService.Update(c.Request.Context(), id, req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToAlertTemplateResponse(template))
+	c.JSON(http.StatusOK, dto.ToAlertTemplateResponse(result))
 }
 
 // DeleteResource handles POST /alert-templates/delete
@@ -124,26 +125,26 @@ func (h *AlertTemplateHandler) RestoreResource(c *gin.Context) {
 func (h *AlertTemplateHandler) List(c *gin.Context) {
 	pagination := getPagination(c)
 
-	templates, total, err := h.templateService.List(c.Request.Context(), pagination)
+	listResult, err := h.templateService.List(c.Request.Context(), pagination.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	respondList(c, dto.ToAlertTemplateResponseList(templates), total, pagination)
+	respondList(c, dto.ToAlertTemplateResponseList(listResult.Items), listResult.Total, pagination)
 }
 
 // GetBySeverity handles GET /alert-templates/severity/:severity
 func (h *AlertTemplateHandler) GetBySeverity(c *gin.Context) {
 	severity := domain.AlertSeverity(c.Param("severity"))
 
-	templates, err := h.templateService.GetBySeverity(c.Request.Context(), severity)
+	results, err := h.templateService.GetBySeverity(c.Request.Context(), severity)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToAlertTemplateResponseList(templates))
+	c.JSON(http.StatusOK, dto.ToAlertTemplateResponseList(results))
 }
 
 // AlertRuleHandler handles HTTP requests for alert rules
@@ -167,7 +168,7 @@ func (h *AlertRuleHandler) Create(c *gin.Context) {
 		return
 	}
 
-	var rule *domain.AlertRule
+	var result action.AlertRuleResult
 	var err error
 
 	// Check if template_id exists to determine creation mode
@@ -178,7 +179,7 @@ func (h *AlertRuleHandler) Create(c *gin.Context) {
 			respondError(c, domainerrors.NewBindingError(err))
 			return
 		}
-		rule, err = h.ruleService.CreateFromTemplate(c.Request.Context(), req)
+		result, err = h.ruleService.CreateFromTemplate(c.Request.Context(), req.ToAction())
 	} else {
 		// Create directly
 		var req dto.CreateAlertRuleDirectRequest
@@ -186,7 +187,7 @@ func (h *AlertRuleHandler) Create(c *gin.Context) {
 			respondError(c, domainerrors.NewBindingError(err))
 			return
 		}
-		rule, err = h.ruleService.CreateDirect(c.Request.Context(), req)
+		result, err = h.ruleService.CreateDirect(c.Request.Context(), req.ToAction())
 	}
 
 	if err != nil {
@@ -194,20 +195,20 @@ func (h *AlertRuleHandler) Create(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, dto.ToAlertRuleResponse(rule))
+	c.JSON(http.StatusCreated, dto.ToAlertRuleResponse(result))
 }
 
 // GetByID handles GET /alert-rules/:id
 func (h *AlertRuleHandler) GetByID(c *gin.Context) {
 	id := c.Param("id")
 
-	rule, err := h.ruleService.GetByID(c.Request.Context(), id)
+	result, err := h.ruleService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToAlertRuleResponse(rule))
+	c.JSON(http.StatusOK, dto.ToAlertRuleResponse(result))
 }
 
 // Update handles PUT /alert-rules/:id
@@ -220,13 +221,13 @@ func (h *AlertRuleHandler) Update(c *gin.Context) {
 		return
 	}
 
-	rule, err := h.ruleService.Update(c.Request.Context(), id, req)
+	result, err := h.ruleService.Update(c.Request.Context(), id, req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToAlertRuleResponse(rule))
+	c.JSON(http.StatusOK, dto.ToAlertRuleResponse(result))
 }
 
 // DeleteResource handles POST /alert-rules/delete
@@ -281,39 +282,39 @@ func (h *AlertRuleHandler) RestoreResource(c *gin.Context) {
 func (h *AlertRuleHandler) List(c *gin.Context) {
 	pagination := getPagination(c)
 
-	rules, total, err := h.ruleService.List(c.Request.Context(), pagination)
+	listResult, err := h.ruleService.List(c.Request.Context(), pagination.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	respondList(c, dto.ToAlertRuleResponseList(rules), total, pagination)
+	respondList(c, dto.ToAlertRuleResponseList(listResult.Items), listResult.Total, pagination)
 }
 
 // GetByGroupID handles GET /alert-rules/group/:group_id
 func (h *AlertRuleHandler) GetByGroupID(c *gin.Context) {
 	groupID := c.Param("group_id")
 
-	rules, err := h.ruleService.GetByGroupID(c.Request.Context(), groupID)
+	results, err := h.ruleService.GetByGroupID(c.Request.Context(), groupID)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToAlertRuleResponseList(rules))
+	c.JSON(http.StatusOK, dto.ToAlertRuleResponseList(results))
 }
 
 // GetByTemplateID handles GET /alert-rules/template/:template_id
 func (h *AlertRuleHandler) GetByTemplateID(c *gin.Context) {
 	templateID := c.Param("template_id")
 
-	rules, err := h.ruleService.GetByTemplateID(c.Request.Context(), templateID)
+	results, err := h.ruleService.GetByTemplateID(c.Request.Context(), templateID)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToAlertRuleResponseList(rules))
+	c.JSON(http.StatusOK, dto.ToAlertRuleResponseList(results))
 }
 
 // mapToStruct converts a map to a struct using JSON encoding/decoding

@@ -30,26 +30,26 @@ func (h *ExporterHandler) Create(c *gin.Context) {
 		return
 	}
 
-	exporter, err := h.exporterService.Create(c.Request.Context(), req)
+	result, err := h.exporterService.Create(c.Request.Context(), req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, dto.ToExporterResponse(exporter))
+	c.JSON(http.StatusCreated, dto.ToExporterResponse(result))
 }
 
 // GetByID handles GET /exporters/:id
 func (h *ExporterHandler) GetByID(c *gin.Context) {
 	id := c.Param("id")
 
-	exporter, err := h.exporterService.GetByID(c.Request.Context(), id)
+	result, err := h.exporterService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToExporterResponse(exporter))
+	c.JSON(http.StatusOK, dto.ToExporterResponse(result))
 }
 
 // Update handles PUT /exporters/:id
@@ -62,13 +62,13 @@ func (h *ExporterHandler) Update(c *gin.Context) {
 		return
 	}
 
-	exporter, err := h.exporterService.Update(c.Request.Context(), id, req)
+	result, err := h.exporterService.Update(c.Request.Context(), id, req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToExporterResponse(exporter))
+	c.JSON(http.StatusOK, dto.ToExporterResponse(result))
 }
 
 // DeleteResource handles POST /exporters/delete
@@ -123,26 +123,26 @@ func (h *ExporterHandler) RestoreResource(c *gin.Context) {
 func (h *ExporterHandler) List(c *gin.Context) {
 	pagination := getPagination(c)
 
-	exporters, total, err := h.exporterService.List(c.Request.Context(), pagination)
+	listResult, err := h.exporterService.List(c.Request.Context(), pagination.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	respondList(c, dto.ToExporterResponseList(exporters), total, pagination)
+	respondList(c, dto.ToExporterResponseList(listResult.Items), listResult.Total, pagination)
 }
 
 // GetByTargetID handles GET /exporters/target/:target_id
 func (h *ExporterHandler) GetByTargetID(c *gin.Context) {
 	targetID := c.Param("target_id")
 
-	exporters, err := h.exporterService.GetByTargetID(c.Request.Context(), targetID)
+	results, err := h.exporterService.GetByTargetID(c.Request.Context(), targetID)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToExporterResponseList(exporters))
+	c.JSON(http.StatusOK, dto.ToExporterResponseList(results))
 }
 
 // GetByType handles GET /exporters/type/:type

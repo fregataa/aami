@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/fregataa/aami/config-server/internal/api/dto"
+	"github.com/fregataa/aami/config-server/internal/action"
 	"github.com/fregataa/aami/config-server/internal/domain"
 	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 	"github.com/fregataa/aami/config-server/internal/repository"
@@ -26,137 +26,137 @@ func NewGroupService(groupRepo repository.GroupRepository, namespaceRepo reposit
 }
 
 // Create creates a new group
-func (s *GroupService) Create(ctx context.Context, req dto.CreateGroupRequest) (*domain.Group, error) {
+func (s *GroupService) Create(ctx context.Context, act action.CreateGroup) (action.GroupResult, error) {
 	// Validate namespace exists
-	namespace, err := s.namespaceRepo.GetByID(ctx, req.NamespaceID)
+	namespace, err := s.namespaceRepo.GetByID(ctx, act.NamespaceID)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
-			return nil, domainerrors.NewValidationError("namespace_id", "namespace not found")
+			return action.GroupResult{}, domainerrors.NewValidationError("namespace_id", "namespace not found")
 		}
-		return nil, err
+		return action.GroupResult{}, err
 	}
 
 	// Validate parent exists if specified
-	if req.ParentID != nil {
-		parent, err := s.groupRepo.GetByID(ctx, *req.ParentID)
+	if act.ParentID != nil {
+		parent, err := s.groupRepo.GetByID(ctx, *act.ParentID)
 		if err != nil {
 			if errors.Is(err, domainerrors.ErrNotFound) {
-				return nil, domainerrors.ErrForeignKeyViolation
+				return action.GroupResult{}, domainerrors.ErrForeignKeyViolation
 			}
-			return nil, err
+			return action.GroupResult{}, err
 		}
 
 		// Ensure parent is in the same namespace
-		if parent.NamespaceID != req.NamespaceID {
-			return nil, domainerrors.NewValidationError("parent_id", "parent must be in the same namespace")
+		if parent.NamespaceID != act.NamespaceID {
+			return action.GroupResult{}, domainerrors.NewValidationError("parent_id", "parent must be in the same namespace")
 		}
 
 		// Check for circular references
-		if err := s.checkCircularReference(ctx, *req.ParentID, ""); err != nil {
-			return nil, err
+		if err := s.checkCircularReference(ctx, *act.ParentID, ""); err != nil {
+			return action.GroupResult{}, err
 		}
 	}
 
 	// Set default priority based on namespace if not specified
-	priority := req.Priority
+	priority := act.Priority
 	if priority == 0 {
 		priority = namespace.PolicyPriority
 	}
 
 	// Initialize metadata if nil
-	metadata := req.Metadata
+	metadata := act.Metadata
 	if metadata == nil {
 		metadata = make(map[string]string)
 	}
 
 	group := &domain.Group{
 		ID:          uuid.New().String(),
-		Name:        req.Name,
-		NamespaceID: req.NamespaceID,
-		ParentID:    req.ParentID,
-		Description: req.Description,
+		Name:        act.Name,
+		NamespaceID: act.NamespaceID,
+		ParentID:    act.ParentID,
+		Description: act.Description,
 		Priority:    priority,
 		Metadata:    metadata,
 	}
 
 	if err := s.groupRepo.Create(ctx, group); err != nil {
-		return nil, err
+		return action.GroupResult{}, err
 	}
 
 	// Load namespace for response
 	group.Namespace = namespace
 
-	return group, nil
+	return action.NewGroupResult(group), nil
 }
 
 // GetByID retrieves a group by ID
-func (s *GroupService) GetByID(ctx context.Context, id string) (*domain.Group, error) {
+func (s *GroupService) GetByID(ctx context.Context, id string) (action.GroupResult, error) {
 	group, err := s.groupRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
-			return nil, domainerrors.ErrNotFound
+			return action.GroupResult{}, domainerrors.ErrNotFound
 		}
-		return nil, err
+		return action.GroupResult{}, err
 	}
-	return group, nil
+	return action.NewGroupResult(group), nil
 }
 
 // Update updates an existing group
-func (s *GroupService) Update(ctx context.Context, id string, req dto.UpdateGroupRequest) (*domain.Group, error) {
+func (s *GroupService) Update(ctx context.Context, id string, act action.UpdateGroup) (action.GroupResult, error) {
 	// Get existing group
 	group, err := s.groupRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
-			return nil, domainerrors.ErrNotFound
+			return action.GroupResult{}, domainerrors.ErrNotFound
 		}
-		return nil, err
+		return action.GroupResult{}, err
 	}
 
 	// Update fields if provided
-	if req.Name != nil {
-		group.Name = *req.Name
+	if act.Name != nil {
+		group.Name = *act.Name
 	}
 
-	if req.ParentID != nil {
+	if act.ParentID != nil {
 		// Validate parent exists
-		parent, err := s.groupRepo.GetByID(ctx, *req.ParentID)
+		parent, err := s.groupRepo.GetByID(ctx, *act.ParentID)
 		if err != nil {
 			if errors.Is(err, domainerrors.ErrNotFound) {
-				return nil, domainerrors.ErrForeignKeyViolation
+				return action.GroupResult{}, domainerrors.ErrForeignKeyViolation
 			}
-			return nil, err
+			return action.GroupResult{}, err
 		}
 
 		// Ensure parent is in the same namespace
 		if parent.Namespace != group.Namespace {
-			return nil, domainerrors.NewValidationError("parent_id", "parent must be in the same namespace")
+			return action.GroupResult{}, domainerrors.NewValidationError("parent_id", "parent must be in the same namespace")
 		}
 
 		// Check for circular references
-		if err := s.checkCircularReference(ctx, *req.ParentID, id); err != nil {
-			return nil, err
+		if err := s.checkCircularReference(ctx, *act.ParentID, id); err != nil {
+			return action.GroupResult{}, err
 		}
 
-		group.ParentID = req.ParentID
+		group.ParentID = act.ParentID
 	}
 
-	if req.Description != nil {
-		group.Description = *req.Description
+	if act.Description != nil {
+		group.Description = *act.Description
 	}
 
-	if req.Priority != nil {
-		group.Priority = *req.Priority
+	if act.Priority != nil {
+		group.Priority = *act.Priority
 	}
 
-	if req.Metadata != nil {
-		group.Metadata = req.Metadata
+	if act.Metadata != nil {
+		group.Metadata = act.Metadata
 	}
 
 	if err := s.groupRepo.Update(ctx, group); err != nil {
-		return nil, err
+		return action.GroupResult{}, err
 	}
 
-	return group, nil
+	return action.NewGroupResult(group), nil
 }
 
 // Delete deletes a group by ID
@@ -194,13 +194,18 @@ func (s *GroupService) Restore(ctx context.Context, id string) error {
 }
 
 // List retrieves a paginated list of groups
-func (s *GroupService) List(ctx context.Context, pagination dto.PaginationRequest) ([]domain.Group, int, error) {
-	pagination.Normalize()
-	return s.groupRepo.List(ctx, pagination.Page, pagination.Limit)
+func (s *GroupService) List(ctx context.Context, pagination action.Pagination) (action.ListResult[action.GroupResult], error) {
+	groups, total, err := s.groupRepo.List(ctx, pagination.Page, pagination.Limit)
+	if err != nil {
+		return action.ListResult[action.GroupResult]{}, err
+	}
+
+	results := action.NewGroupResultList(groups)
+	return action.NewListResult(results, pagination, total), nil
 }
 
 // GetByNamespaceID retrieves groups by namespace ID
-func (s *GroupService) GetByNamespaceID(ctx context.Context, namespaceID string) ([]domain.Group, error) {
+func (s *GroupService) GetByNamespaceID(ctx context.Context, namespaceID string) ([]action.GroupResult, error) {
 	// Validate namespace exists
 	_, err := s.namespaceRepo.GetByID(ctx, namespaceID)
 	if err != nil {
@@ -209,25 +214,37 @@ func (s *GroupService) GetByNamespaceID(ctx context.Context, namespaceID string)
 		}
 		return nil, err
 	}
-	return s.groupRepo.GetByNamespaceID(ctx, namespaceID)
+	groups, err := s.groupRepo.GetByNamespaceID(ctx, namespaceID)
+	if err != nil {
+		return nil, err
+	}
+	return action.NewGroupResultList(groups), nil
 }
 
 // GetChildren retrieves child groups of a parent group
-func (s *GroupService) GetChildren(ctx context.Context, parentID string) ([]domain.Group, error) {
+func (s *GroupService) GetChildren(ctx context.Context, parentID string) ([]action.GroupResult, error) {
 	// Verify parent exists
 	if _, err := s.GetByID(ctx, parentID); err != nil {
 		return nil, err
 	}
-	return s.groupRepo.GetChildren(ctx, parentID)
+	groups, err := s.groupRepo.GetChildren(ctx, parentID)
+	if err != nil {
+		return nil, err
+	}
+	return action.NewGroupResultList(groups), nil
 }
 
 // GetAncestors retrieves all ancestors of a group
-func (s *GroupService) GetAncestors(ctx context.Context, id string) ([]domain.Group, error) {
+func (s *GroupService) GetAncestors(ctx context.Context, id string) ([]action.GroupResult, error) {
 	// Verify group exists
 	if _, err := s.GetByID(ctx, id); err != nil {
 		return nil, err
 	}
-	return s.groupRepo.GetAncestors(ctx, id)
+	groups, err := s.groupRepo.GetAncestors(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return action.NewGroupResultList(groups), nil
 }
 
 // checkCircularReference checks if setting parentID would create a circular reference

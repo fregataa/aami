@@ -25,6 +25,8 @@ type CreateExporter struct {
 // UpdateExporter represents the action to update an exporter
 // nil fields mean "do not update"
 type UpdateExporter struct {
+	Type           *domain.ExporterType
+	Port           *int
 	Enabled        *bool
 	MetricsPath    *string
 	ScrapeInterval *string

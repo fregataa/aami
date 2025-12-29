@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"github.com/fregataa/aami/config-server/internal/action"
 	"github.com/fregataa/aami/config-server/internal/domain"
 )
 
@@ -16,6 +17,20 @@ type CreateExporterRequest struct {
 	Config         domain.ExporterConfig `json:"config,omitempty"`
 }
 
+// ToAction converts CreateExporterRequest to action.CreateExporter
+func (r *CreateExporterRequest) ToAction() action.CreateExporter {
+	return action.CreateExporter{
+		TargetID:       r.TargetID,
+		Type:           r.Type,
+		Port:           r.Port,
+		Enabled:        r.Enabled,
+		MetricsPath:    r.MetricsPath,
+		ScrapeInterval: r.ScrapeInterval,
+		ScrapeTimeout:  r.ScrapeTimeout,
+		Config:         r.Config,
+	}
+}
+
 // UpdateExporterRequest represents a request to update an existing exporter
 type UpdateExporterRequest struct {
 	Type           *domain.ExporterType    `json:"type,omitempty"`
@@ -25,6 +40,19 @@ type UpdateExporterRequest struct {
 	ScrapeInterval *string                 `json:"scrape_interval,omitempty"`
 	ScrapeTimeout  *string                 `json:"scrape_timeout,omitempty"`
 	Config         *domain.ExporterConfig  `json:"config,omitempty"`
+}
+
+// ToAction converts UpdateExporterRequest to action.UpdateExporter
+func (r *UpdateExporterRequest) ToAction() action.UpdateExporter {
+	return action.UpdateExporter{
+		Type:           r.Type,
+		Port:           r.Port,
+		Enabled:        r.Enabled,
+		MetricsPath:    r.MetricsPath,
+		ScrapeInterval: r.ScrapeInterval,
+		ScrapeTimeout:  r.ScrapeTimeout,
+		Config:         r.Config,
+	}
 }
 
 // ExporterResponse represents an exporter in API responses
@@ -41,30 +69,30 @@ type ExporterResponse struct {
 	TimestampResponse
 }
 
-// ToExporterResponse converts a domain.Exporter to ExporterResponse
-func ToExporterResponse(exporter *domain.Exporter) ExporterResponse {
+// ToExporterResponse converts action.ExporterResult to ExporterResponse
+func ToExporterResponse(result action.ExporterResult) ExporterResponse {
 	return ExporterResponse{
-		ID:             exporter.ID,
-		TargetID:       exporter.TargetID,
-		Type:           exporter.Type,
-		Port:           exporter.Port,
-		Enabled:        exporter.Enabled,
-		MetricsPath:    exporter.MetricsPath,
-		ScrapeInterval: exporter.ScrapeInterval,
-		ScrapeTimeout:  exporter.ScrapeTimeout,
-		Config:         exporter.Config,
+		ID:             result.ID,
+		TargetID:       result.TargetID,
+		Type:           result.Type,
+		Port:           result.Port,
+		Enabled:        result.Enabled,
+		MetricsPath:    result.MetricsPath,
+		ScrapeInterval: result.ScrapeInterval,
+		ScrapeTimeout:  result.ScrapeTimeout,
+		Config:         result.Config,
 		TimestampResponse: TimestampResponse{
-			CreatedAt: exporter.CreatedAt,
-			UpdatedAt: exporter.UpdatedAt,
+			CreatedAt: result.CreatedAt,
+			UpdatedAt: result.UpdatedAt,
 		},
 	}
 }
 
-// ToExporterResponseList converts a slice of domain.Exporter to slice of ExporterResponse
-func ToExporterResponseList(exporters []domain.Exporter) []ExporterResponse {
-	responses := make([]ExporterResponse, len(exporters))
-	for i, exporter := range exporters {
-		responses[i] = ToExporterResponse(&exporter)
+// ToExporterResponseList converts a slice of action.ExporterResult to slice of ExporterResponse
+func ToExporterResponseList(results []action.ExporterResult) []ExporterResponse {
+	responses := make([]ExporterResponse, len(results))
+	for i, result := range results {
+		responses[i] = ToExporterResponse(result)
 	}
 	return responses
 }
