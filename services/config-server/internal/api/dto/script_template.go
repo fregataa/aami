@@ -4,8 +4,8 @@ import (
 	"github.com/fregataa/aami/config-server/internal/action"
 )
 
-// CreateMonitoringScriptRequest represents a request to create a new monitoring script
-type CreateMonitoringScriptRequest struct {
+// CreateScriptTemplateRequest represents a request to create a new script template
+type CreateScriptTemplateRequest struct {
 	Name          string                 `json:"name" binding:"required,min=1,max=255"`
 	ScriptType    string                 `json:"script_type" binding:"required,min=1,max=255"`
 	ScriptContent string                 `json:"script_content" binding:"required,min=1"`
@@ -15,17 +15,17 @@ type CreateMonitoringScriptRequest struct {
 	Version       string                 `json:"version" binding:"required,min=1,max=50"`
 }
 
-// Validate validates the CreateMonitoringScriptRequest
-func (req *CreateMonitoringScriptRequest) Validate() error {
+// Validate validates the CreateScriptTemplateRequest
+func (req *CreateScriptTemplateRequest) Validate() error {
 	if req.DefaultConfig == nil {
 		req.DefaultConfig = make(map[string]interface{})
 	}
 	return nil
 }
 
-// ToAction converts CreateMonitoringScriptRequest to action.CreateMonitoringScript
-func (r *CreateMonitoringScriptRequest) ToAction() action.CreateMonitoringScript {
-	return action.CreateMonitoringScript{
+// ToAction converts CreateScriptTemplateRequest to action.CreateScriptTemplate
+func (r *CreateScriptTemplateRequest) ToAction() action.CreateScriptTemplate {
+	return action.CreateScriptTemplate{
 		Name:          r.Name,
 		ScriptType:    r.ScriptType,
 		ScriptContent: r.ScriptContent,
@@ -36,18 +36,18 @@ func (r *CreateMonitoringScriptRequest) ToAction() action.CreateMonitoringScript
 	}
 }
 
-// UpdateMonitoringScriptRequest represents a request to update an existing monitoring script
-type UpdateMonitoringScriptRequest struct {
-	ScriptContent *string                 `json:"script_content,omitempty" binding:"omitempty,min=1"`
-	Language      *string                 `json:"language,omitempty" binding:"omitempty,oneof=bash python shell"`
-	DefaultConfig map[string]interface{}  `json:"default_config,omitempty" binding:"omitempty"`
-	Description   *string                 `json:"description,omitempty" binding:"omitempty,max=1000"`
-	Version       *string                 `json:"version,omitempty" binding:"omitempty,min=1,max=50"`
+// UpdateScriptTemplateRequest represents a request to update an existing script template
+type UpdateScriptTemplateRequest struct {
+	ScriptContent *string                `json:"script_content,omitempty" binding:"omitempty,min=1"`
+	Language      *string                `json:"language,omitempty" binding:"omitempty,oneof=bash python shell"`
+	DefaultConfig map[string]interface{} `json:"default_config,omitempty" binding:"omitempty"`
+	Description   *string                `json:"description,omitempty" binding:"omitempty,max=1000"`
+	Version       *string                `json:"version,omitempty" binding:"omitempty,min=1,max=50"`
 }
 
-// ToAction converts UpdateMonitoringScriptRequest to action.UpdateMonitoringScript
-func (r *UpdateMonitoringScriptRequest) ToAction() action.UpdateMonitoringScript {
-	return action.UpdateMonitoringScript{
+// ToAction converts UpdateScriptTemplateRequest to action.UpdateScriptTemplate
+func (r *UpdateScriptTemplateRequest) ToAction() action.UpdateScriptTemplate {
+	return action.UpdateScriptTemplate{
 		ScriptContent: r.ScriptContent,
 		Language:      r.Language,
 		DefaultConfig: r.DefaultConfig,
@@ -56,8 +56,8 @@ func (r *UpdateMonitoringScriptRequest) ToAction() action.UpdateMonitoringScript
 	}
 }
 
-// MonitoringScriptResponse represents a monitoring script in API responses
-type MonitoringScriptResponse struct {
+// ScriptTemplateResponse represents a script template in API responses
+type ScriptTemplateResponse struct {
 	ID            string                 `json:"id"`
 	Name          string                 `json:"name"`
 	ScriptType    string                 `json:"script_type"`
@@ -70,9 +70,9 @@ type MonitoringScriptResponse struct {
 	TimestampResponse
 }
 
-// MonitoringScriptSummaryResponse represents a minimal monitoring script in API responses
+// ScriptTemplateSummaryResponse represents a minimal script template in API responses
 // Used for list views where script content is not needed
-type MonitoringScriptSummaryResponse struct {
+type ScriptTemplateSummaryResponse struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	ScriptType  string `json:"script_type"`
@@ -83,9 +83,9 @@ type MonitoringScriptSummaryResponse struct {
 	TimestampResponse
 }
 
-// ToMonitoringScriptResponse converts action.MonitoringScriptResult to MonitoringScriptResponse
-func ToMonitoringScriptResponse(result action.MonitoringScriptResult) MonitoringScriptResponse {
-	return MonitoringScriptResponse{
+// ToScriptTemplateResponse converts action.ScriptTemplateResult to ScriptTemplateResponse
+func ToScriptTemplateResponse(result action.ScriptTemplateResult) ScriptTemplateResponse {
+	return ScriptTemplateResponse{
 		ID:            result.ID,
 		Name:          result.Name,
 		ScriptType:    result.ScriptType,
@@ -102,9 +102,9 @@ func ToMonitoringScriptResponse(result action.MonitoringScriptResult) Monitoring
 	}
 }
 
-// ToMonitoringScriptSummaryResponse converts action.MonitoringScriptResult to MonitoringScriptSummaryResponse
-func ToMonitoringScriptSummaryResponse(result action.MonitoringScriptResult) MonitoringScriptSummaryResponse {
-	return MonitoringScriptSummaryResponse{
+// ToScriptTemplateSummaryResponse converts action.ScriptTemplateResult to ScriptTemplateSummaryResponse
+func ToScriptTemplateSummaryResponse(result action.ScriptTemplateResult) ScriptTemplateSummaryResponse {
+	return ScriptTemplateSummaryResponse{
 		ID:          result.ID,
 		Name:        result.Name,
 		ScriptType:  result.ScriptType,
@@ -119,20 +119,20 @@ func ToMonitoringScriptSummaryResponse(result action.MonitoringScriptResult) Mon
 	}
 }
 
-// ToMonitoringScriptResponseList converts a slice of action.MonitoringScriptResult to slice of MonitoringScriptResponse
-func ToMonitoringScriptResponseList(results []action.MonitoringScriptResult) []MonitoringScriptResponse {
-	responses := make([]MonitoringScriptResponse, len(results))
+// ToScriptTemplateResponseList converts a slice of action.ScriptTemplateResult to slice of ScriptTemplateResponse
+func ToScriptTemplateResponseList(results []action.ScriptTemplateResult) []ScriptTemplateResponse {
+	responses := make([]ScriptTemplateResponse, len(results))
 	for i, result := range results {
-		responses[i] = ToMonitoringScriptResponse(result)
+		responses[i] = ToScriptTemplateResponse(result)
 	}
 	return responses
 }
 
-// ToMonitoringScriptSummaryResponseList converts a slice of action.MonitoringScriptResult to slice of MonitoringScriptSummaryResponse
-func ToMonitoringScriptSummaryResponseList(results []action.MonitoringScriptResult) []MonitoringScriptSummaryResponse {
-	responses := make([]MonitoringScriptSummaryResponse, len(results))
+// ToScriptTemplateSummaryResponseList converts a slice of action.ScriptTemplateResult to slice of ScriptTemplateSummaryResponse
+func ToScriptTemplateSummaryResponseList(results []action.ScriptTemplateResult) []ScriptTemplateSummaryResponse {
+	responses := make([]ScriptTemplateSummaryResponse, len(results))
 	for i, result := range results {
-		responses[i] = ToMonitoringScriptSummaryResponse(result)
+		responses[i] = ToScriptTemplateSummaryResponse(result)
 	}
 	return responses
 }

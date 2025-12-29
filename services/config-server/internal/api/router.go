@@ -49,8 +49,8 @@ func (s *Server) SetupRouter() *gin.Engine {
 	alertTemplateService := service.NewAlertTemplateService(s.rm.AlertTemplate)
 	// TODO: Configure PrometheusRuleGenerator and PrometheusClient when Prometheus integration is needed
 	alertRuleService := service.NewAlertRuleService(s.rm.AlertRule, s.rm.AlertTemplate, s.rm.Group, nil, nil)
-	monitoringScriptService := service.NewMonitoringScriptService(s.rm.MonitoringScript, s.rm.ScriptPolicy)
-	scriptPolicyService := service.NewScriptPolicyService(s.rm.ScriptPolicy, s.rm.MonitoringScript, s.rm.Namespace, s.rm.Group, s.rm.Target)
+	scriptTemplateService := service.NewScriptTemplateService(s.rm.ScriptTemplate, s.rm.ScriptPolicy)
+	scriptPolicyService := service.NewScriptPolicyService(s.rm.ScriptPolicy, s.rm.ScriptTemplate, s.rm.Namespace, s.rm.Group, s.rm.Target)
 	bootstrapTokenService := service.NewBootstrapTokenService(s.rm.BootstrapToken, s.rm.Group, targetService)
 	serviceDiscoveryService := service.NewServiceDiscoveryService(s.rm.Target)
 
@@ -61,7 +61,7 @@ func (s *Server) SetupRouter() *gin.Engine {
 	exporterHandler := handler.NewExporterHandler(exporterService)
 	alertTemplateHandler := handler.NewAlertTemplateHandler(alertTemplateService)
 	alertRuleHandler := handler.NewAlertRuleHandler(alertRuleService)
-	monitoringScriptHandler := handler.NewMonitoringScriptHandler(monitoringScriptService)
+	scriptTemplateHandler := handler.NewScriptTemplateHandler(scriptTemplateService)
 	scriptPolicyHandler := handler.NewScriptPolicyHandler(scriptPolicyService)
 	bootstrapTokenHandler := handler.NewBootstrapTokenHandler(bootstrapTokenService)
 	serviceDiscoveryHandler := handler.NewServiceDiscoveryHandler(serviceDiscoveryService)
@@ -172,20 +172,20 @@ func (s *Server) SetupRouter() *gin.Engine {
 			bootstrapTokens.POST("/restore", bootstrapTokenHandler.RestoreResource)
 		}
 
-		// Monitoring script routes
-		monitoringScripts := v1.Group("/monitoring-scripts")
+		// Script template routes
+		scriptTemplates := v1.Group("/script-templates")
 		{
-			monitoringScripts.POST("", monitoringScriptHandler.Create)
-			monitoringScripts.GET("", monitoringScriptHandler.List)
-			monitoringScripts.GET("/active", monitoringScriptHandler.ListActive)
-			monitoringScripts.GET("/:id", monitoringScriptHandler.GetByID)
-			monitoringScripts.GET("/name/:name", monitoringScriptHandler.GetByName)
-			monitoringScripts.GET("/type/:scriptType", monitoringScriptHandler.GetByScriptType)
-			monitoringScripts.PUT("/:id", monitoringScriptHandler.Update)
-			monitoringScripts.POST("/delete", monitoringScriptHandler.DeleteResource)
-			monitoringScripts.POST("/purge", monitoringScriptHandler.PurgeResource)
-			monitoringScripts.POST("/restore", monitoringScriptHandler.RestoreResource)
-			monitoringScripts.GET("/:id/verify-hash", monitoringScriptHandler.VerifyHash)
+			scriptTemplates.POST("", scriptTemplateHandler.Create)
+			scriptTemplates.GET("", scriptTemplateHandler.List)
+			scriptTemplates.GET("/active", scriptTemplateHandler.ListActive)
+			scriptTemplates.GET("/:id", scriptTemplateHandler.GetByID)
+			scriptTemplates.GET("/name/:name", scriptTemplateHandler.GetByName)
+			scriptTemplates.GET("/type/:scriptType", scriptTemplateHandler.GetByScriptType)
+			scriptTemplates.PUT("/:id", scriptTemplateHandler.Update)
+			scriptTemplates.POST("/delete", scriptTemplateHandler.DeleteResource)
+			scriptTemplates.POST("/purge", scriptTemplateHandler.PurgeResource)
+			scriptTemplates.POST("/restore", scriptTemplateHandler.RestoreResource)
+			scriptTemplates.GET("/:id/verify-hash", scriptTemplateHandler.VerifyHash)
 		}
 
 		// Script policy routes

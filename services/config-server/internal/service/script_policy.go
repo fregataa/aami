@@ -11,10 +11,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// ScriptPolicyService handles business logic for script policys
+// ScriptPolicyService handles business logic for script policies
 type ScriptPolicyService struct {
-	policyRepo  repository.ScriptPolicyRepository
-	scriptRepo    repository.MonitoringScriptRepository
+	policyRepo    repository.ScriptPolicyRepository
+	templateRepo  repository.ScriptTemplateRepository
 	namespaceRepo repository.NamespaceRepository
 	groupRepo     repository.GroupRepository
 	targetRepo    repository.TargetRepository
@@ -23,14 +23,14 @@ type ScriptPolicyService struct {
 // NewScriptPolicyService creates a new ScriptPolicyService
 func NewScriptPolicyService(
 	policyRepo repository.ScriptPolicyRepository,
-	scriptRepo repository.MonitoringScriptRepository,
+	templateRepo repository.ScriptTemplateRepository,
 	namespaceRepo repository.NamespaceRepository,
 	groupRepo repository.GroupRepository,
 	targetRepo repository.TargetRepository,
 ) *ScriptPolicyService {
 	return &ScriptPolicyService{
-		policyRepo:  policyRepo,
-		scriptRepo:    scriptRepo,
+		policyRepo:    policyRepo,
+		templateRepo:  templateRepo,
 		namespaceRepo: namespaceRepo,
 		groupRepo:     groupRepo,
 		targetRepo:    targetRepo,
@@ -65,7 +65,7 @@ func (s *ScriptPolicyService) CreateFromTemplate(ctx context.Context, act action
 	}
 
 	// Get template
-	script, err := s.scriptRepo.GetByID(ctx, act.TemplateID)
+	script, err := s.templateRepo.GetByID(ctx, act.TemplateID)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
 			return action.ScriptPolicyResult{}, domainerrors.ErrForeignKeyViolation

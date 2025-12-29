@@ -14,13 +14,13 @@ type Manager struct {
 	db *gorm.DB
 
 	// Repository instances
-	Namespace        NamespaceRepository
-	Group            GroupRepository
-	Target           TargetRepository
-	TargetGroup      TargetGroupRepository
-	Exporter         ExporterRepository
-	MonitoringScript MonitoringScriptRepository
-	ScriptPolicy    ScriptPolicyRepository
+	Namespace      NamespaceRepository
+	Group          GroupRepository
+	Target         TargetRepository
+	TargetGroup    TargetGroupRepository
+	Exporter       ExporterRepository
+	ScriptTemplate ScriptTemplateRepository
+	ScriptPolicy   ScriptPolicyRepository
 	AlertTemplate    AlertTemplateRepository
 	AlertRule        AlertRuleRepository
 	BootstrapToken   BootstrapTokenRepository
@@ -59,17 +59,17 @@ func NewManagerWithDB(db *gorm.DB) *Manager {
 // newManagerWithDB is the internal function that creates a manager with a given DB
 func newManagerWithDB(db *gorm.DB) *Manager {
 	return &Manager{
-		db:               db,
-		Namespace:        NewNamespaceRepository(db),
-		Group:            NewGroupRepository(db),
-		Target:           NewTargetRepository(db),
-		TargetGroup:      NewTargetGroupRepository(db),
-		Exporter:         NewExporterRepository(db),
-		MonitoringScript: NewMonitoringScriptRepository(db),
-		ScriptPolicy:    NewScriptPolicyRepository(db),
-		AlertTemplate:    NewAlertTemplateRepository(db),
-		AlertRule:        NewAlertRuleRepository(db),
-		BootstrapToken:   NewBootstrapTokenRepository(db),
+		db:             db,
+		Namespace:      NewNamespaceRepository(db),
+		Group:          NewGroupRepository(db),
+		Target:         NewTargetRepository(db),
+		TargetGroup:    NewTargetGroupRepository(db),
+		Exporter:       NewExporterRepository(db),
+		ScriptTemplate: NewScriptTemplateRepository(db),
+		ScriptPolicy:   NewScriptPolicyRepository(db),
+		AlertTemplate:  NewAlertTemplateRepository(db),
+		AlertRule:      NewAlertRuleRepository(db),
+		BootstrapToken: NewBootstrapTokenRepository(db),
 	}
 }
 

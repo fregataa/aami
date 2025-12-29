@@ -10,8 +10,8 @@ import (
 // Actions (Input)
 // ============================================================================
 
-// CreateMonitoringScript represents the action to create a monitoring script
-type CreateMonitoringScript struct {
+// CreateScriptTemplate represents the action to create a script template
+type CreateScriptTemplate struct {
 	Name          string
 	ScriptType    string
 	ScriptContent string
@@ -21,9 +21,9 @@ type CreateMonitoringScript struct {
 	Version       string
 }
 
-// UpdateMonitoringScript represents the action to update a monitoring script
+// UpdateScriptTemplate represents the action to update a script template
 // nil fields mean "do not update"
-type UpdateMonitoringScript struct {
+type UpdateScriptTemplate struct {
 	Name          *string
 	ScriptType    *string
 	ScriptContent *string
@@ -37,8 +37,8 @@ type UpdateMonitoringScript struct {
 // Action Results (Output)
 // ============================================================================
 
-// MonitoringScriptResult represents the result of monitoring script operations
-type MonitoringScriptResult struct {
+// ScriptTemplateResult represents the result of script template operations
+type ScriptTemplateResult struct {
 	ID            string
 	Name          string
 	ScriptType    string
@@ -52,8 +52,8 @@ type MonitoringScriptResult struct {
 	UpdatedAt     time.Time
 }
 
-// FromDomain converts domain.MonitoringScript to MonitoringScriptResult
-func (r *MonitoringScriptResult) FromDomain(s *domain.MonitoringScript) {
+// FromDomain converts domain.ScriptTemplate to ScriptTemplateResult
+func (r *ScriptTemplateResult) FromDomain(s *domain.ScriptTemplate) {
 	r.ID = s.ID
 	r.Name = s.Name
 	r.ScriptType = s.ScriptType
@@ -67,18 +67,18 @@ func (r *MonitoringScriptResult) FromDomain(s *domain.MonitoringScript) {
 	r.UpdatedAt = s.UpdatedAt
 }
 
-// NewMonitoringScriptResult creates MonitoringScriptResult from domain.MonitoringScript
-func NewMonitoringScriptResult(s *domain.MonitoringScript) MonitoringScriptResult {
-	var result MonitoringScriptResult
+// NewScriptTemplateResult creates ScriptTemplateResult from domain.ScriptTemplate
+func NewScriptTemplateResult(s *domain.ScriptTemplate) ScriptTemplateResult {
+	var result ScriptTemplateResult
 	result.FromDomain(s)
 	return result
 }
 
-// NewMonitoringScriptResultList creates []MonitoringScriptResult from []domain.MonitoringScript
-func NewMonitoringScriptResultList(scripts []domain.MonitoringScript) []MonitoringScriptResult {
-	results := make([]MonitoringScriptResult, len(scripts))
-	for i, s := range scripts {
-		results[i] = NewMonitoringScriptResult(&s)
+// NewScriptTemplateResultList creates []ScriptTemplateResult from []domain.ScriptTemplate
+func NewScriptTemplateResultList(templates []domain.ScriptTemplate) []ScriptTemplateResult {
+	results := make([]ScriptTemplateResult, len(templates))
+	for i, t := range templates {
+		results[i] = NewScriptTemplateResult(&t)
 	}
 	return results
 }

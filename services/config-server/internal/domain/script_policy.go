@@ -10,7 +10,7 @@ import (
 type ScriptPolicy struct {
 	ID string `json:"id"`
 
-	// Template fields (copied at creation time - deep copy from MonitoringScript)
+	// Template fields (copied at creation time - deep copy from ScriptTemplate)
 	Name          string                 `json:"name"`
 	ScriptType     string                 `json:"script_type"`
 	ScriptContent string                 `json:"script_content"`
@@ -180,10 +180,10 @@ type EffectivePoliciesResult struct {
 	GroupInstances     []ScriptPolicy `json:"group_instances"`
 }
 
-// NewScriptPolicyFromTemplate creates a new ScriptPolicy from a MonitoringScript
+// NewScriptPolicyFromTemplate creates a new ScriptPolicy from a ScriptTemplate
 // This performs a deep copy of the script's fields into the instance
 func NewScriptPolicyFromTemplate(
-	template *MonitoringScript,
+	template *ScriptTemplate,
 	scope PolicyScope,
 	namespaceID *string,
 	groupID *string,
