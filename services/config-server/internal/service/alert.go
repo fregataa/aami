@@ -41,18 +41,13 @@ func (s *AlertTemplateService) Create(ctx context.Context, req dto.CreateAlertTe
 		return nil, err
 	}
 
-	config := req.DefaultConfig
-	if config == nil {
-		config = make(map[string]interface{})
-	}
-
 	template := &domain.AlertTemplate{
 		ID:            req.ID,
 		Name:          req.Name,
 		Description:   req.Description,
 		Severity:      req.Severity,
 		QueryTemplate: req.QueryTemplate,
-		DefaultConfig: config,
+		DefaultConfig: req.DefaultConfig,
 	}
 
 	if err := s.templateRepo.Create(ctx, template); err != nil {
@@ -104,7 +99,7 @@ func (s *AlertTemplateService) Update(ctx context.Context, id string, req dto.Up
 	}
 
 	if req.DefaultConfig != nil {
-		template.DefaultConfig = req.DefaultConfig
+		template.DefaultConfig = *req.DefaultConfig
 	}
 
 	if err := s.templateRepo.Update(ctx, template); err != nil {
@@ -208,13 +203,8 @@ func (s *AlertRuleService) CreateFromTemplate(ctx context.Context, req dto.Creat
 		priority = 100
 	}
 
-	config := req.Config
-	if config == nil {
-		config = make(map[string]interface{})
-	}
-
 	// Use domain constructor to deep copy template fields
-	rule := domain.NewAlertRuleFromTemplate(template, req.GroupID, config)
+	rule := domain.NewAlertRuleFromTemplate(template, req.GroupID, req.Config)
 
 	// Set ID and override merge strategy/priority
 	rule.ID = uuid.New().String()
@@ -266,16 +256,6 @@ func (s *AlertRuleService) CreateDirect(ctx context.Context, req dto.CreateAlert
 		priority = 100
 	}
 
-	config := req.Config
-	if config == nil {
-		config = make(map[string]interface{})
-	}
-
-	defaultConfig := req.DefaultConfig
-	if defaultConfig == nil {
-		defaultConfig = make(map[string]interface{})
-	}
-
 	// Create rule directly
 	rule := &domain.AlertRule{
 		ID:            uuid.New().String(),
@@ -284,9 +264,9 @@ func (s *AlertRuleService) CreateDirect(ctx context.Context, req dto.CreateAlert
 		Description:   req.Description,
 		Severity:      req.Severity,
 		QueryTemplate: req.QueryTemplate,
-		DefaultConfig: defaultConfig,
+		DefaultConfig: req.DefaultConfig,
 		Enabled:       req.Enabled,
-		Config:        config,
+		Config:        req.Config,
 		MergeStrategy: mergeStrategy,
 		Priority:      priority,
 	}
@@ -335,7 +315,7 @@ func (s *AlertRuleService) Update(ctx context.Context, id string, req dto.Update
 	}
 
 	if req.Config != nil {
-		rule.Config = req.Config
+		rule.Config = *req.Config
 	}
 
 	if req.MergeStrategy != nil {

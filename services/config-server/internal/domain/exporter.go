@@ -5,6 +5,20 @@ import (
 	"time"
 )
 
+// ExporterConfig represents structured configuration for exporters
+type ExporterConfig struct {
+	// Node Exporter specific config
+	EnabledCollectors  []string `json:"enabled_collectors,omitempty"`
+	DisabledCollectors []string `json:"disabled_collectors,omitempty"`
+
+	// DCGM Exporter specific config
+	Fields    []string `json:"fields,omitempty"`
+	DeviceIDs []string `json:"device_ids,omitempty"`
+
+	// Custom exporter config (flexible key-value pairs)
+	CustomParams map[string]interface{} `json:"custom_params,omitempty"`
+}
+
 // ExporterType represents the type of metrics exporter
 type ExporterType string
 
@@ -31,18 +45,18 @@ func (t ExporterType) IsValid() bool {
 
 // Exporter represents a metrics exporter configuration for a target
 type Exporter struct {
-	ID             string                 `json:"id"`
-	TargetID       string                 `json:"target_id"`
-	Type           ExporterType           `json:"type"`
-	Port           int                    `json:"port"`
-	Enabled        bool                   `json:"enabled"`
-	MetricsPath    string                 `json:"metrics_path"`
-	ScrapeInterval string                 `json:"scrape_interval"`
-	ScrapeTimeout  string                 `json:"scrape_timeout"`
-	Config         map[string]interface{} `json:"config"`
-	DeletedAt      *time.Time             `json:"deleted_at,omitempty"`
-	CreatedAt      time.Time              `json:"created_at"`
-	UpdatedAt      time.Time              `json:"updated_at"`
+	ID             string         `json:"id"`
+	TargetID       string         `json:"target_id"`
+	Type           ExporterType   `json:"type"`
+	Port           int            `json:"port"`
+	Enabled        bool           `json:"enabled"`
+	MetricsPath    string         `json:"metrics_path"`
+	ScrapeInterval string         `json:"scrape_interval"`
+	ScrapeTimeout  string         `json:"scrape_timeout"`
+	Config         ExporterConfig `json:"config"`
+	DeletedAt      *time.Time     `json:"deleted_at,omitempty"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
 }
 
 // GetEndpoint returns the full metrics endpoint URL for this exporter

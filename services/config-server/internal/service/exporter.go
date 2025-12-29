@@ -66,9 +66,6 @@ func (s *ExporterService) Create(ctx context.Context, req dto.CreateExporterRequ
 	if exporter.ScrapeTimeout == "" {
 		exporter.ScrapeTimeout = "10s"
 	}
-	if exporter.Config == nil {
-		exporter.Config = make(map[string]interface{})
-	}
 
 	if err := s.exporterRepo.Create(ctx, exporter); err != nil {
 		return nil, err
@@ -121,7 +118,7 @@ func (s *ExporterService) Update(ctx context.Context, id string, req dto.UpdateE
 		exporter.ScrapeTimeout = *req.ScrapeTimeout
 	}
 	if req.Config != nil {
-		exporter.Config = req.Config
+		exporter.Config = *req.Config
 	}
 
 	if err := s.exporterRepo.Update(ctx, exporter); err != nil {

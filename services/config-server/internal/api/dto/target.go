@@ -8,21 +8,21 @@ import (
 
 // CreateTargetRequest represents a request to create a new target
 type CreateTargetRequest struct {
-	Hostname  string                 `json:"hostname" binding:"required,min=1,max=255"`
-	IPAddress string                 `json:"ip_address" binding:"required,ip"`
-	GroupIDs  []string               `json:"group_ids,omitempty" binding:"omitempty,dive,uuid"`
-	Status    domain.TargetStatus    `json:"status" binding:"omitempty"`
-	Labels    map[string]string      `json:"labels,omitempty"`
-	Metadata  map[string]interface{} `json:"metadata,omitempty"`
+	Hostname  string              `json:"hostname" binding:"required,min=1,max=255"`
+	IPAddress string              `json:"ip_address" binding:"required,ip"`
+	GroupIDs  []string            `json:"group_ids,omitempty" binding:"omitempty,dive,uuid"`
+	Status    domain.TargetStatus `json:"status" binding:"omitempty"`
+	Labels    map[string]string   `json:"labels,omitempty"`
+	Metadata  map[string]string   `json:"metadata,omitempty"`
 }
 
 // UpdateTargetRequest represents a request to update an existing target
 type UpdateTargetRequest struct {
-	Hostname  *string                 `json:"hostname,omitempty" binding:"omitempty,min=1,max=255"`
-	IPAddress *string                 `json:"ip_address,omitempty" binding:"omitempty,ip"`
-	Status    *domain.TargetStatus    `json:"status,omitempty"`
-	Labels    map[string]string       `json:"labels,omitempty"`
-	Metadata  map[string]interface{}  `json:"metadata,omitempty"`
+	Hostname  *string              `json:"hostname,omitempty" binding:"omitempty,min=1,max=255"`
+	IPAddress *string              `json:"ip_address,omitempty" binding:"omitempty,ip"`
+	Status    *domain.TargetStatus `json:"status,omitempty"`
+	Labels    map[string]string    `json:"labels,omitempty"`
+	Metadata  map[string]string    `json:"metadata,omitempty"`
 }
 
 // UpdateTargetStatusRequest represents a request to update target status
@@ -49,15 +49,15 @@ type RemoveGroupMappingRequest struct {
 
 // TargetResponse represents a target in API responses
 type TargetResponse struct {
-	ID        string                 `json:"id"`
-	Hostname  string                 `json:"hostname"`
-	IPAddress string                 `json:"ip_address"`
-	Groups    []GroupResponse        `json:"groups,omitempty"`
-	Status    domain.TargetStatus    `json:"status"`
-	Exporters []ExporterResponse     `json:"exporters,omitempty"`
-	Labels    map[string]string      `json:"labels"`
-	Metadata  map[string]interface{} `json:"metadata"`
-	LastSeen  *time.Time             `json:"last_seen,omitempty"`
+	ID        string              `json:"id"`
+	Hostname  string              `json:"hostname"`
+	IPAddress string              `json:"ip_address"`
+	Groups    []GroupResponse     `json:"groups,omitempty"`
+	Status    domain.TargetStatus `json:"status"`
+	Exporters []ExporterResponse  `json:"exporters,omitempty"`
+	Labels    map[string]string   `json:"labels"`
+	Metadata  map[string]string   `json:"metadata"`
+	LastSeen  *time.Time          `json:"last_seen,omitempty"`
 	TimestampResponse
 }
 

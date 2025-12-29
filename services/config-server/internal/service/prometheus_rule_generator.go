@@ -210,56 +210,43 @@ func (g *PrometheusRuleGenerator) convertToPrometheusRule(rule *domain.AlertRule
 		return nil, fmt.Errorf("%w: %s", domainerrors.ErrQueryRenderingFailed, err)
 	}
 
-	// Extract for duration from config (default to empty if not present)
-	forDuration := ""
-	if val, ok := rule.Config["for_duration"]; ok {
-		if str, ok := val.(string); ok {
-			forDuration = str
-		}
-	}
+	// Merge default and override config
+	mergedConfig := rule.DefaultConfig.Merge(rule.Config)
 
 	return &domain.PrometheusRule{
 		Alert:       fmt.Sprintf("%s_Group_%s", rule.Name, rule.GroupID),
 		Expr:        query,
-		For:         forDuration,
-		Labels:      g.buildLabels(rule),
-		Annotations: g.buildAnnotations(rule),
+		For:         mergedConfig.ForDuration,
+		Labels:      g.buildLabels(rule, mergedConfig),
+		Annotations: g.buildAnnotations(rule, mergedConfig),
 	}, nil
 }
 
 // buildLabels builds Prometheus labels for an AlertRule
-func (g *PrometheusRuleGenerator) buildLabels(rule *domain.AlertRule) map[string]string {
+func (g *PrometheusRuleGenerator) buildLabels(rule *domain.AlertRule, config domain.AlertRuleConfig) map[string]string {
 	labels := map[string]string{
 		"severity": string(rule.Severity),
 		"group_id": rule.GroupID,
 	}
 
 	// Add custom labels from config
-	if customLabels, ok := rule.Config["labels"].(map[string]interface{}); ok {
-		for k, v := range customLabels {
-			if str, ok := v.(string); ok {
-				labels[k] = str
-			}
-		}
+	for k, v := range config.Labels {
+		labels[k] = v
 	}
 
 	return labels
 }
 
 // buildAnnotations builds Prometheus annotations for an AlertRule
-func (g *PrometheusRuleGenerator) buildAnnotations(rule *domain.AlertRule) map[string]string {
+func (g *PrometheusRuleGenerator) buildAnnotations(rule *domain.AlertRule, config domain.AlertRuleConfig) map[string]string {
 	annotations := map[string]string{
 		"summary":     rule.Name,
 		"description": rule.Description,
 	}
 
 	// Add custom annotations from config
-	if customAnnotations, ok := rule.Config["annotations"].(map[string]interface{}); ok {
-		for k, v := range customAnnotations {
-			if str, ok := v.(string); ok {
-				annotations[k] = str
-			}
-		}
+	for k, v := range config.Annotations {
+		annotations[k] = v
 	}
 
 	return annotations

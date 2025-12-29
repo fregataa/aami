@@ -66,7 +66,7 @@ func (s *GroupService) Create(ctx context.Context, req dto.CreateGroupRequest) (
 	// Initialize metadata if nil
 	metadata := req.Metadata
 	if metadata == nil {
-		metadata = make(map[string]interface{})
+		metadata = make(map[string]string)
 	}
 
 	group := &domain.Group{

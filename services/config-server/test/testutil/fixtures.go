@@ -29,7 +29,7 @@ func NewTestGroup(name string, namespaceID string) *domain.Group {
 		Description:  "Test group: " + name,
 		Priority:     100,
 		IsDefaultOwn: false,
-		Metadata:     make(map[string]interface{}),
+		Metadata:     make(map[string]string),
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -51,7 +51,7 @@ func NewTestTarget(hostname string, ipAddress string, groups []domain.Group) *do
 		Groups:    groups,
 		Status:    domain.TargetStatusActive,
 		Labels:    make(map[string]string),
-		Metadata:  make(map[string]interface{}),
+		Metadata:  make(map[string]string),
 		LastSeen:  nil,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -67,7 +67,7 @@ func NewTestTargetWithDefaultGroup(hostname string, ipAddress string, namespace 
 		Description:  "Default group for " + hostname,
 		Priority:     100,
 		IsDefaultOwn: true,
-		Metadata:     make(map[string]interface{}),
+		Metadata:     make(map[string]string),
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -79,7 +79,7 @@ func NewTestTargetWithDefaultGroup(hostname string, ipAddress string, namespace 
 		Groups:    []domain.Group{*defaultGroup},
 		Status:    domain.TargetStatusActive,
 		Labels:    make(map[string]string),
-		Metadata:  make(map[string]interface{}),
+		Metadata:  make(map[string]string),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -96,7 +96,7 @@ func NewTestExporter(targetID string, exporterType domain.ExporterType, port int
 		MetricsPath:    "/metrics",
 		ScrapeInterval: "15s",
 		ScrapeTimeout:  "10s",
-		Config:         make(map[string]interface{}),
+		Config:         domain.ExporterConfig{},
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
@@ -110,9 +110,11 @@ func NewTestAlertTemplate(id string, severity domain.AlertSeverity) *domain.Aler
 		Description:   "Test alert template",
 		Severity:      severity,
 		QueryTemplate: "test_metric > {{ .threshold }}",
-		DefaultConfig: map[string]interface{}{
-			"threshold": 80,
-			"for":       "5m",
+		DefaultConfig: domain.AlertRuleConfig{
+			ForDuration: "5m",
+			TemplateVars: map[string]interface{}{
+				"threshold": 80,
+			},
 		},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -130,14 +132,18 @@ func NewTestAlertRule(groupID string, templateID string) *domain.AlertRule {
 		Description:   "Test alert rule",
 		Severity:      domain.AlertSeverityCritical,
 		QueryTemplate: "SELECT * FROM metrics WHERE value > {{.threshold}}",
-		DefaultConfig: map[string]interface{}{
-			"threshold": 80,
+		DefaultConfig: domain.AlertRuleConfig{
+			TemplateVars: map[string]interface{}{
+				"threshold": 80,
+			},
 		},
 
 		// Rule-specific fields
 		Enabled: true,
-		Config: map[string]interface{}{
-			"threshold": 90,
+		Config: domain.AlertRuleConfig{
+			TemplateVars: map[string]interface{}{
+				"threshold": 90,
+			},
 		},
 		MergeStrategy: "override",
 		Priority:      100,

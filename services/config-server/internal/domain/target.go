@@ -28,18 +28,18 @@ func (s TargetStatus) IsValid() bool {
 
 // Target represents a monitored server/node
 type Target struct {
-	ID        string                 `json:"id"`
-	Hostname  string                 `json:"hostname"`
-	IPAddress string                 `json:"ip_address"`
-	Groups    []Group                `json:"groups,omitempty"`
-	Status    TargetStatus           `json:"status"`
-	Exporters []Exporter             `json:"exporters,omitempty"`
-	Labels    map[string]string      `json:"labels"`
-	Metadata  map[string]interface{} `json:"metadata"`
-	LastSeen  *time.Time             `json:"last_seen,omitempty"`
-	DeletedAt *time.Time             `json:"deleted_at,omitempty"`
-	CreatedAt time.Time              `json:"created_at"`
-	UpdatedAt time.Time              `json:"updated_at"`
+	ID        string            `json:"id"`
+	Hostname  string            `json:"hostname"`
+	IPAddress string            `json:"ip_address"`
+	Groups    []Group           `json:"groups,omitempty"`
+	Status    TargetStatus      `json:"status"`
+	Exporters []Exporter        `json:"exporters,omitempty"`
+	Labels    map[string]string `json:"labels"`
+	Metadata  map[string]string `json:"metadata"`
+	LastSeen  *time.Time        `json:"last_seen,omitempty"`
+	DeletedAt *time.Time        `json:"deleted_at,omitempty"`
+	CreatedAt time.Time         `json:"created_at"`
+	UpdatedAt time.Time         `json:"updated_at"`
 }
 
 // GetAllGroups returns all groups this target belongs to

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/fregataa/aami/config-server/internal/domain"
@@ -31,6 +32,14 @@ func (ExporterModel) TableName() string {
 
 // ToExporterModel converts domain.Exporter to ExporterModel
 func ToExporterModel(e *domain.Exporter) *ExporterModel {
+	// Marshal ExporterConfig to JSONB
+	// Step 1: Marshal to JSON bytes
+	configBytes, _ := json.Marshal(e.Config)
+
+	// Step 2: Unmarshal to map[string]interface{}
+	var configMap map[string]interface{}
+	json.Unmarshal(configBytes, &configMap)
+
 	model := &ExporterModel{
 		ID:             e.ID,
 		TargetID:       e.TargetID,
@@ -40,7 +49,7 @@ func ToExporterModel(e *domain.Exporter) *ExporterModel {
 		MetricsPath:    e.MetricsPath,
 		ScrapeInterval: e.ScrapeInterval,
 		ScrapeTimeout:  e.ScrapeTimeout,
-		Config:         JSONB(e.Config),
+		Config:         JSONB(configMap),
 		CreatedAt:      e.CreatedAt,
 		UpdatedAt:      e.UpdatedAt,
 	}
@@ -52,6 +61,14 @@ func ToExporterModel(e *domain.Exporter) *ExporterModel {
 
 // ToDomain converts ExporterModel to domain.Exporter
 func (m *ExporterModel) ToDomain() *domain.Exporter {
+	// Unmarshal JSONB to ExporterConfig
+	// Step 1: Marshal JSONB (map) to JSON bytes
+	configBytes, _ := json.Marshal(m.Config)
+
+	// Step 2: Unmarshal JSON bytes to ExporterConfig
+	var config domain.ExporterConfig
+	json.Unmarshal(configBytes, &config)
+
 	e := &domain.Exporter{
 		ID:             m.ID,
 		TargetID:       m.TargetID,
@@ -61,7 +78,7 @@ func (m *ExporterModel) ToDomain() *domain.Exporter {
 		MetricsPath:    m.MetricsPath,
 		ScrapeInterval: m.ScrapeInterval,
 		ScrapeTimeout:  m.ScrapeTimeout,
-		Config:         map[string]interface{}(m.Config),
+		Config:         config,
 		CreatedAt:      m.CreatedAt,
 		UpdatedAt:      m.UpdatedAt,
 	}

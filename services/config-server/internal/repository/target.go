@@ -58,13 +58,19 @@ func (sm *StringMap) Scan(value interface{}) error {
 
 // ToTargetModel converts domain.Target to TargetModel
 func ToTargetModel(t *domain.Target) *TargetModel {
+	// Convert map[string]string to map[string]interface{} for JSONB
+	metadata := make(map[string]interface{})
+	for k, v := range t.Metadata {
+		metadata[k] = v
+	}
+
 	model := &TargetModel{
 		ID:        t.ID,
 		Hostname:  t.Hostname,
 		IPAddress: t.IPAddress,
 		Status:    string(t.Status),
 		Labels:    StringMap(t.Labels),
-		Metadata:  JSONB(t.Metadata),
+		Metadata:  JSONB(metadata),
 		LastSeen:  t.LastSeen,
 		CreatedAt: t.CreatedAt,
 		UpdatedAt: t.UpdatedAt,
@@ -86,13 +92,21 @@ func ToTargetModel(t *domain.Target) *TargetModel {
 
 // ToDomain converts TargetModel to domain.Target
 func (m *TargetModel) ToDomain() *domain.Target {
+	// Convert map[string]interface{} to map[string]string for Metadata
+	metadata := make(map[string]string)
+	for k, v := range m.Metadata {
+		if strVal, ok := v.(string); ok {
+			metadata[k] = strVal
+		}
+	}
+
 	t := &domain.Target{
 		ID:        m.ID,
 		Hostname:  m.Hostname,
 		IPAddress: m.IPAddress,
 		Status:    domain.TargetStatus(m.Status),
 		Labels:    map[string]string(m.Labels),
-		Metadata:  map[string]interface{}(m.Metadata),
+		Metadata:  metadata,
 		LastSeen:  m.LastSeen,
 		CreatedAt: m.CreatedAt,
 		UpdatedAt: m.UpdatedAt,

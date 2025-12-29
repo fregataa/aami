@@ -29,12 +29,12 @@ type ValidateTokenRequest struct {
 
 // BootstrapRegisterRequest represents a request to register a new node using bootstrap token
 type BootstrapRegisterRequest struct {
-	Token     string                 `json:"token" binding:"required"`
-	Hostname  string                 `json:"hostname" binding:"required,min=1,max=255"`
-	IPAddress string                 `json:"ip_address" binding:"required,ip"`
-	GroupID   string                 `json:"group_id,omitempty" binding:"omitempty,uuid"`
-	Labels    map[string]string      `json:"labels,omitempty"`
-	Metadata  map[string]interface{} `json:"metadata,omitempty"`
+	Token     string            `json:"token" binding:"required"`
+	Hostname  string            `json:"hostname" binding:"required,min=1,max=255"`
+	IPAddress string            `json:"ip_address" binding:"required,ip"`
+	GroupID   string            `json:"group_id,omitempty" binding:"omitempty,uuid"`
+	Labels    map[string]string `json:"labels,omitempty"`
+	Metadata  map[string]string `json:"metadata,omitempty"`
 }
 
 // BootstrapTokenResponse represents a bootstrap token in API responses

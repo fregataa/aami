@@ -32,29 +32,114 @@ func (s AlertSeverity) IsValid() bool {
 	}
 }
 
+// AlertRuleConfig represents structured configuration for alert rules
+type AlertRuleConfig struct {
+	// ForDuration specifies how long the condition must be true before firing
+	ForDuration string `json:"for_duration,omitempty"`
+
+	// Labels are custom Prometheus labels attached to the alert
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// Annotations are custom Prometheus annotations attached to the alert
+	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// TemplateVars contains variables used for query template rendering
+	// These are merged with the query template during execution
+	TemplateVars map[string]interface{} `json:"template_vars,omitempty"`
+}
+
+// ToMap converts AlertRuleConfig to a map for template rendering
+func (c *AlertRuleConfig) ToMap() map[string]interface{} {
+	result := make(map[string]interface{})
+
+	if c.ForDuration != "" {
+		result["for_duration"] = c.ForDuration
+	}
+
+	if len(c.Labels) > 0 {
+		// Convert to map[string]interface{} for template compatibility
+		labels := make(map[string]interface{})
+		for k, v := range c.Labels {
+			labels[k] = v
+		}
+		result["labels"] = labels
+	}
+
+	if len(c.Annotations) > 0 {
+		// Convert to map[string]interface{} for template compatibility
+		annotations := make(map[string]interface{})
+		for k, v := range c.Annotations {
+			annotations[k] = v
+		}
+		result["annotations"] = annotations
+	}
+
+	// Add template vars
+	for k, v := range c.TemplateVars {
+		result[k] = v
+	}
+
+	return result
+}
+
+// Merge merges another config into this one, with other taking precedence
+func (c *AlertRuleConfig) Merge(other AlertRuleConfig) AlertRuleConfig {
+	merged := AlertRuleConfig{
+		ForDuration:  c.ForDuration,
+		Labels:       make(map[string]string),
+		Annotations:  make(map[string]string),
+		TemplateVars: make(map[string]interface{}),
+	}
+
+	// Merge labels
+	for k, v := range c.Labels {
+		merged.Labels[k] = v
+	}
+	for k, v := range other.Labels {
+		merged.Labels[k] = v
+	}
+
+	// Merge annotations
+	for k, v := range c.Annotations {
+		merged.Annotations[k] = v
+	}
+	for k, v := range other.Annotations {
+		merged.Annotations[k] = v
+	}
+
+	// Merge template vars
+	for k, v := range c.TemplateVars {
+		merged.TemplateVars[k] = v
+	}
+	for k, v := range other.TemplateVars {
+		merged.TemplateVars[k] = v
+	}
+
+	// Override ForDuration if provided
+	if other.ForDuration != "" {
+		merged.ForDuration = other.ForDuration
+	}
+
+	return merged
+}
+
 // AlertTemplate represents a reusable alert definition
 type AlertTemplate struct {
-	ID            string                 `json:"id"`
-	Name          string                 `json:"name"`
-	Description   string                 `json:"description"`
-	Severity      AlertSeverity          `json:"severity"`
-	QueryTemplate string                 `json:"query_template"`
-	DefaultConfig map[string]interface{} `json:"default_config"`
-	DeletedAt     *time.Time             `json:"deleted_at,omitempty"`
-	CreatedAt     time.Time              `json:"created_at"`
-	UpdatedAt     time.Time              `json:"updated_at"`
+	ID            string          `json:"id"`
+	Name          string          `json:"name"`
+	Description   string          `json:"description"`
+	Severity      AlertSeverity   `json:"severity"`
+	QueryTemplate string          `json:"query_template"`
+	DefaultConfig AlertRuleConfig `json:"default_config"`
+	DeletedAt     *time.Time      `json:"deleted_at,omitempty"`
+	CreatedAt     time.Time       `json:"created_at"`
+	UpdatedAt     time.Time       `json:"updated_at"`
 }
 
 // RenderQuery renders the query template with the given configuration
-func (at *AlertTemplate) RenderQuery(config map[string]interface{}) (string, error) {
+func (at *AlertTemplate) RenderQuery(config AlertRuleConfig) (string, error) {
 	// Merge default config with provided config
-	mergedConfig := make(map[string]interface{})
-	for k, v := range at.DefaultConfig {
-		mergedConfig[k] = v
-	}
-	for k, v := range config {
-		mergedConfig[k] = v
-	}
+	mergedConfig := at.DefaultConfig.Merge(config)
 
 	// Parse and execute template
 	tmpl, err := template.New("query").Parse(at.QueryTemplate)
@@ -63,7 +148,7 @@ func (at *AlertTemplate) RenderQuery(config map[string]interface{}) (string, err
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, mergedConfig); err != nil {
+	if err := tmpl.Execute(&buf, mergedConfig.ToMap()); err != nil {
 		return "", fmt.Errorf("failed to render query template: %w", err)
 	}
 
@@ -78,17 +163,17 @@ type AlertRule struct {
 	Group   Group  `json:"group,omitempty"`
 
 	// Template fields (copied at creation time - deep copy from AlertTemplate)
-	Name          string                 `json:"name"`
-	Description   string                 `json:"description"`
-	Severity      AlertSeverity          `json:"severity"`
-	QueryTemplate string                 `json:"query_template"`
-	DefaultConfig map[string]interface{} `json:"default_config"`
+	Name          string          `json:"name"`
+	Description   string          `json:"description"`
+	Severity      AlertSeverity   `json:"severity"`
+	QueryTemplate string          `json:"query_template"`
+	DefaultConfig AlertRuleConfig `json:"default_config"`
 
 	// Rule-specific fields
-	Enabled       bool                   `json:"enabled"`
-	Config        map[string]interface{} `json:"config"`
-	MergeStrategy string                 `json:"merge_strategy"` // 'override' or 'merge'
-	Priority      int                    `json:"priority"`
+	Enabled       bool            `json:"enabled"`
+	Config        AlertRuleConfig `json:"config"`
+	MergeStrategy string          `json:"merge_strategy"` // 'override' or 'merge'
+	Priority      int             `json:"priority"`
 
 	// Metadata (optional, for tracking origin)
 	CreatedFromTemplateID   *string `json:"created_from_template_id,omitempty"`
@@ -102,13 +187,7 @@ type AlertRule struct {
 // RenderQuery renders the alert query using the rule's query template and merged config
 func (ar *AlertRule) RenderQuery() (string, error) {
 	// Merge default config with rule config
-	mergedConfig := make(map[string]interface{})
-	for k, v := range ar.DefaultConfig {
-		mergedConfig[k] = v
-	}
-	for k, v := range ar.Config {
-		mergedConfig[k] = v
-	}
+	mergedConfig := ar.DefaultConfig.Merge(ar.Config)
 
 	// Parse and execute template
 	tmpl, err := template.New("query").Parse(ar.QueryTemplate)
@@ -117,7 +196,7 @@ func (ar *AlertRule) RenderQuery() (string, error) {
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, mergedConfig); err != nil {
+	if err := tmpl.Execute(&buf, mergedConfig.ToMap()); err != nil {
 		return "", fmt.Errorf("failed to render query template: %w", err)
 	}
 
@@ -143,7 +222,6 @@ func (ar *AlertRule) MergeWith(parent *AlertRule) *AlertRule {
 
 		// Rule fields
 		Enabled:       ar.Enabled,
-		Config:        make(map[string]interface{}),
 		MergeStrategy: ar.MergeStrategy,
 		Priority:      ar.Priority,
 
@@ -160,12 +238,7 @@ func (ar *AlertRule) MergeWith(parent *AlertRule) *AlertRule {
 		merged.Config = ar.Config
 	} else {
 		// Merge: combine parent and child configs (child takes precedence)
-		for k, v := range parent.Config {
-			merged.Config[k] = v
-		}
-		for k, v := range ar.Config {
-			merged.Config[k] = v
-		}
+		merged.Config = parent.Config.Merge(ar.Config)
 	}
 
 	return merged
@@ -185,35 +258,23 @@ func (ar *AlertRule) ToJSON() (string, error) {
 func NewAlertRuleFromTemplate(
 	template *AlertTemplate,
 	groupID string,
-	overrideConfig map[string]interface{},
+	overrideConfig AlertRuleConfig,
 ) *AlertRule {
-	// Deep copy template's default config
-	defaultConfig := make(map[string]interface{})
-	for k, v := range template.DefaultConfig {
-		defaultConfig[k] = deepCopyAlertValue(v)
-	}
-
-	// Deep copy override config
-	config := make(map[string]interface{})
-	for k, v := range overrideConfig {
-		config[k] = deepCopyAlertValue(v)
-	}
-
 	now := time.Now()
 
 	return &AlertRule{
 		GroupID: groupID,
 
-		// Template fields (deep copied)
+		// Template fields (copied from template)
 		Name:          template.Name,
 		Description:   template.Description,
 		Severity:      template.Severity,
 		QueryTemplate: template.QueryTemplate,
-		DefaultConfig: defaultConfig,
+		DefaultConfig: template.DefaultConfig,
 
 		// Rule-specific fields
 		Enabled:       true,
-		Config:        config,
+		Config:        overrideConfig,
 		MergeStrategy: "merge",
 		Priority:      0,
 
@@ -226,34 +287,3 @@ func NewAlertRuleFromTemplate(
 	}
 }
 
-// deepCopyAlertValue performs a deep copy of interface{} values
-// Handles maps and slices recursively
-func deepCopyAlertValue(v interface{}) interface{} {
-	if v == nil {
-		return nil
-	}
-
-	switch val := v.(type) {
-	case map[string]interface{}:
-		newMap := make(map[string]interface{}, len(val))
-		for k, v := range val {
-			newMap[k] = deepCopyAlertValue(v)
-		}
-		return newMap
-	case []interface{}:
-		newSlice := make([]interface{}, len(val))
-		for i, item := range val {
-			newSlice[i] = deepCopyAlertValue(item)
-		}
-		return newSlice
-	case map[interface{}]interface{}:
-		newMap := make(map[interface{}]interface{}, len(val))
-		for k, v := range val {
-			newMap[k] = deepCopyAlertValue(v)
-		}
-		return newMap
-	default:
-		// For basic types (string, int, float, bool), direct assignment is safe
-		return v
-	}
-}

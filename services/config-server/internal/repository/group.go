@@ -59,6 +59,12 @@ func (j *JSONB) Scan(value interface{}) error {
 
 // ToGroupModel converts domain.Group to GroupModel
 func ToGroupModel(g *domain.Group) *GroupModel {
+	// Convert map[string]string to map[string]interface{} for JSONB
+	metadata := make(map[string]interface{})
+	for k, v := range g.Metadata {
+		metadata[k] = v
+	}
+
 	model := &GroupModel{
 		ID:           g.ID,
 		Name:         g.Name,
@@ -67,7 +73,7 @@ func ToGroupModel(g *domain.Group) *GroupModel {
 		Description:  g.Description,
 		Priority:     g.Priority,
 		IsDefaultOwn: g.IsDefaultOwn,
-		Metadata:     JSONB(g.Metadata),
+		Metadata:     JSONB(metadata),
 		CreatedAt:    g.CreatedAt,
 		UpdatedAt:    g.UpdatedAt,
 	}
@@ -79,6 +85,14 @@ func ToGroupModel(g *domain.Group) *GroupModel {
 
 // ToDomain converts GroupModel to domain.Group
 func (m *GroupModel) ToDomain() *domain.Group {
+	// Convert map[string]interface{} to map[string]string for Metadata
+	metadata := make(map[string]string)
+	for k, v := range m.Metadata {
+		if strVal, ok := v.(string); ok {
+			metadata[k] = strVal
+		}
+	}
+
 	g := &domain.Group{
 		ID:           m.ID,
 		Name:         m.Name,
@@ -87,7 +101,7 @@ func (m *GroupModel) ToDomain() *domain.Group {
 		Description:  m.Description,
 		Priority:     m.Priority,
 		IsDefaultOwn: m.IsDefaultOwn,
-		Metadata:     map[string]interface{}(m.Metadata),
+		Metadata:     metadata,
 		CreatedAt:    m.CreatedAt,
 		UpdatedAt:    m.UpdatedAt,
 	}

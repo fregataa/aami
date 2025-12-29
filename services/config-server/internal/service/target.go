@@ -81,7 +81,7 @@ func (s *TargetService) Create(ctx context.Context, req dto.CreateTargetRequest)
 		target.Labels = make(map[string]string)
 	}
 	if target.Metadata == nil {
-		target.Metadata = make(map[string]interface{})
+		target.Metadata = make(map[string]string)
 	}
 
 	if err := s.targetRepo.Create(ctx, target); err != nil {
@@ -104,7 +104,7 @@ func (s *TargetService) Create(ctx context.Context, req dto.CreateTargetRequest)
 			Description:  fmt.Sprintf("Default group for target %s", target.Hostname),
 			Priority:     100,
 			IsDefaultOwn: true,
-			Metadata:     make(map[string]interface{}),
+			Metadata:     make(map[string]string),
 		}
 
 		if err := s.groupRepo.Create(ctx, defaultGroup); err != nil {

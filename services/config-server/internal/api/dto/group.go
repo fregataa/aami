@@ -6,21 +6,21 @@ import (
 
 // CreateGroupRequest represents a request to create a new group
 type CreateGroupRequest struct {
-	Name        string                 `json:"name" binding:"required,min=1,max=100"`
-	NamespaceID string                 `json:"namespace_id" binding:"required,uuid"`
-	ParentID    *string                `json:"parent_id,omitempty" binding:"omitempty,uuid"`
-	Description string                 `json:"description" binding:"omitempty,max=500"`
-	Priority    int                    `json:"priority" binding:"omitempty,min=0,max=1000"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	Name        string            `json:"name" binding:"required,min=1,max=100"`
+	NamespaceID string            `json:"namespace_id" binding:"required,uuid"`
+	ParentID    *string           `json:"parent_id,omitempty" binding:"omitempty,uuid"`
+	Description string            `json:"description" binding:"omitempty,max=500"`
+	Priority    int               `json:"priority" binding:"omitempty,min=0,max=1000"`
+	Metadata    map[string]string `json:"metadata,omitempty"`
 }
 
 // UpdateGroupRequest represents a request to update an existing group
 type UpdateGroupRequest struct {
-	Name        *string                `json:"name,omitempty" binding:"omitempty,min=1,max=100"`
-	ParentID    *string                `json:"parent_id,omitempty" binding:"omitempty,uuid"`
-	Description *string                `json:"description,omitempty" binding:"omitempty,max=500"`
-	Priority    *int                   `json:"priority,omitempty" binding:"omitempty,min=0,max=1000"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	Name        *string           `json:"name,omitempty" binding:"omitempty,min=1,max=100"`
+	ParentID    *string           `json:"parent_id,omitempty" binding:"omitempty,uuid"`
+	Description *string           `json:"description,omitempty" binding:"omitempty,max=500"`
+	Priority    *int              `json:"priority,omitempty" binding:"omitempty,min=0,max=1000"`
+	Metadata    map[string]string `json:"metadata,omitempty"`
 }
 
 // NamespaceInfo represents namespace information in responses
@@ -32,14 +32,14 @@ type NamespaceInfo struct {
 
 // GroupResponse represents a group in API responses
 type GroupResponse struct {
-	ID          string                 `json:"id"`
-	Name        string                 `json:"name"`
-	NamespaceID string                 `json:"namespace_id"`
-	Namespace   *NamespaceInfo         `json:"namespace,omitempty"`
-	ParentID    *string                `json:"parent_id,omitempty"`
-	Description string                 `json:"description"`
-	Priority    int                    `json:"priority"`
-	Metadata    map[string]interface{} `json:"metadata"`
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	NamespaceID string            `json:"namespace_id"`
+	Namespace   *NamespaceInfo    `json:"namespace,omitempty"`
+	ParentID    *string           `json:"parent_id,omitempty"`
+	Description string            `json:"description"`
+	Priority    int               `json:"priority"`
+	Metadata    map[string]string `json:"metadata"`
 	TimestampResponse
 }
 

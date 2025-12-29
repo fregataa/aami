@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/fregataa/aami/config-server/internal/domain"
@@ -28,13 +29,21 @@ func (AlertTemplateModel) TableName() string {
 
 // ToAlertTemplateModel converts domain.AlertTemplate to AlertTemplateModel
 func ToAlertTemplateModel(at *domain.AlertTemplate) *AlertTemplateModel {
+	// Marshal AlertRuleConfig to JSONB
+	// Step 1: Marshal to JSON bytes
+	defaultConfigBytes, _ := json.Marshal(at.DefaultConfig)
+
+	// Step 2: Unmarshal to map[string]interface{}
+	var defaultConfigMap map[string]interface{}
+	json.Unmarshal(defaultConfigBytes, &defaultConfigMap)
+
 	model := &AlertTemplateModel{
 		ID:            at.ID,
 		Name:          at.Name,
 		Description:   at.Description,
 		Severity:      string(at.Severity),
 		QueryTemplate: at.QueryTemplate,
-		DefaultConfig: JSONB(at.DefaultConfig),
+		DefaultConfig: JSONB(defaultConfigMap),
 		CreatedAt:     at.CreatedAt,
 		UpdatedAt:     at.UpdatedAt,
 	}
@@ -46,13 +55,21 @@ func ToAlertTemplateModel(at *domain.AlertTemplate) *AlertTemplateModel {
 
 // ToDomain converts AlertTemplateModel to domain.AlertTemplate
 func (m *AlertTemplateModel) ToDomain() *domain.AlertTemplate {
+	// Unmarshal JSONB to AlertRuleConfig
+	// Step 1: Marshal JSONB (map) to JSON bytes
+	defaultConfigBytes, _ := json.Marshal(m.DefaultConfig)
+
+	// Step 2: Unmarshal JSON bytes to AlertRuleConfig
+	var defaultConfig domain.AlertRuleConfig
+	json.Unmarshal(defaultConfigBytes, &defaultConfig)
+
 	at := &domain.AlertTemplate{
 		ID:            m.ID,
 		Name:          m.Name,
 		Description:   m.Description,
 		Severity:      domain.AlertSeverity(m.Severity),
 		QueryTemplate: m.QueryTemplate,
-		DefaultConfig: map[string]interface{}(m.DefaultConfig),
+		DefaultConfig: defaultConfig,
 		CreatedAt:     m.CreatedAt,
 		UpdatedAt:     m.UpdatedAt,
 	}

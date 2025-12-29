@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/fregataa/aami/config-server/internal/domain"
@@ -43,6 +44,17 @@ func (AlertRuleModel) TableName() string {
 
 // ToAlertRuleModel converts domain.AlertRule to AlertRuleModel
 func ToAlertRuleModel(ar *domain.AlertRule) *AlertRuleModel {
+	// Marshal AlertRuleConfig to JSONB
+	// Step 1: Marshal to JSON bytes
+	defaultConfigBytes, _ := json.Marshal(ar.DefaultConfig)
+	configBytes, _ := json.Marshal(ar.Config)
+
+	// Step 2: Unmarshal to map[string]interface{}
+	var defaultConfigMap map[string]interface{}
+	var configMap map[string]interface{}
+	json.Unmarshal(defaultConfigBytes, &defaultConfigMap)
+	json.Unmarshal(configBytes, &configMap)
+
 	model := &AlertRuleModel{
 		ID:      ar.ID,
 		GroupID: ar.GroupID,
@@ -52,11 +64,11 @@ func ToAlertRuleModel(ar *domain.AlertRule) *AlertRuleModel {
 		Description:   ar.Description,
 		Severity:      ar.Severity,
 		QueryTemplate: ar.QueryTemplate,
-		DefaultConfig: JSONB(ar.DefaultConfig),
+		DefaultConfig: JSONB(defaultConfigMap),
 
 		// Rule-specific fields
 		Enabled:       ar.Enabled,
-		Config:        JSONB(ar.Config),
+		Config:        JSONB(configMap),
 		MergeStrategy: ar.MergeStrategy,
 		Priority:      ar.Priority,
 
@@ -75,6 +87,17 @@ func ToAlertRuleModel(ar *domain.AlertRule) *AlertRuleModel {
 
 // ToDomain converts AlertRuleModel to domain.AlertRule
 func (m *AlertRuleModel) ToDomain() *domain.AlertRule {
+	// Unmarshal JSONB to AlertRuleConfig
+	// Step 1: Marshal JSONB (map) to JSON bytes
+	defaultConfigBytes, _ := json.Marshal(m.DefaultConfig)
+	configBytes, _ := json.Marshal(m.Config)
+
+	// Step 2: Unmarshal JSON bytes to AlertRuleConfig
+	var defaultConfig domain.AlertRuleConfig
+	var config domain.AlertRuleConfig
+	json.Unmarshal(defaultConfigBytes, &defaultConfig)
+	json.Unmarshal(configBytes, &config)
+
 	ar := &domain.AlertRule{
 		ID:      m.ID,
 		GroupID: m.GroupID,
@@ -84,11 +107,11 @@ func (m *AlertRuleModel) ToDomain() *domain.AlertRule {
 		Description:   m.Description,
 		Severity:      m.Severity,
 		QueryTemplate: m.QueryTemplate,
-		DefaultConfig: map[string]interface{}(m.DefaultConfig),
+		DefaultConfig: defaultConfig,
 
 		// Rule-specific fields
 		Enabled:       m.Enabled,
-		Config:        map[string]interface{}(m.Config),
+		Config:        config,
 		MergeStrategy: m.MergeStrategy,
 		Priority:      m.Priority,
 
