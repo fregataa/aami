@@ -324,42 +324,9 @@ database:
   sslmode: disable
 ```
 
-## Current Implementation Status
+## Project Status
 
-### ✅ Completed (Sprint 1-5)
-
-**Core Features**:
-- Project structure and dependencies
-- Domain models with business logic
-- Database migrations and schema management
-- Repository interfaces and GORM implementations
-- Database connection (PostgreSQL)
-- Configuration management
-- Error handling utilities
-- DTOs and validation
-- Service layer implementation
-- API handlers and routing
-- Bootstrap functionality
-- CheckTemplate/CheckInstance system
-- Target-Group relationship with junction table
-- Priority system (higher number = higher priority)
-
-**Sprint 5 - Operations Ready**:
-- ✅ **Service Discovery**: Prometheus HTTP SD & File SD
-- ✅ **Health Check**: Readiness/Liveness probes with detailed component status
-- ✅ **Containerization**: Optimized Dockerfile with security best practices
-- ✅ **Docker Compose**: Development and production environments
-- ✅ **Kubernetes**: Complete manifests (Deployment, Service, Ingress, HPA)
-
-### 📋 Backlog (Sprint 6+)
-
-- Unit tests and integration tests
-- API documentation (OpenAPI/Swagger)
-- Authentication and authorization
-- Performance optimization
-- Backup and recovery
-
-📖 **Sprint Planning**: See [Sprint Tracker](../../.agent/planning/TRACKER.md) for project sprint roadmap.
+For detailed project status and sprint planning, see [Sprint Tracker](../../.agent/planning/TRACKER.md).
 
 ## Development Guidelines
 
