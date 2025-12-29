@@ -40,18 +40,8 @@ func NewScriptPolicyService(
 // CreateFromTemplate creates a new script policy from a template
 func (s *ScriptPolicyService) CreateFromTemplate(ctx context.Context, act action.CreateScriptPolicyFromTemplate) (action.ScriptPolicyResult, error) {
 	// Validate scope consistency
-	if err := validateScopeConsistency(act.Scope, act.NamespaceID, act.GroupID); err != nil {
+	if err := validateScopeConsistency(act.Scope, act.GroupID); err != nil {
 		return action.ScriptPolicyResult{}, err
-	}
-
-	// Verify namespace exists if namespace-level or group-level
-	if act.NamespaceID != nil {
-		if _, err := s.namespaceRepo.GetByID(ctx, *act.NamespaceID); err != nil {
-			if errors.Is(err, domainerrors.ErrNotFound) {
-				return action.ScriptPolicyResult{}, domainerrors.ErrForeignKeyViolation
-			}
-			return action.ScriptPolicyResult{}, err
-		}
 	}
 
 	// Verify group exists if group-level
@@ -85,7 +75,7 @@ func (s *ScriptPolicyService) CreateFromTemplate(ctx context.Context, act action
 	}
 
 	// Use domain constructor
-	instance := domain.NewScriptPolicyFromTemplate(script, act.Scope, act.NamespaceID, act.GroupID, config)
+	instance := domain.NewScriptPolicyFromTemplate(script, act.Scope, act.GroupID, config)
 	instance.ID = uuid.New().String()
 	instance.Priority = priority
 	instance.IsActive = act.IsActive
@@ -104,18 +94,8 @@ func (s *ScriptPolicyService) CreateFromTemplate(ctx context.Context, act action
 // CreateDirect creates a new script policy directly without a template
 func (s *ScriptPolicyService) CreateDirect(ctx context.Context, act action.CreateScriptPolicyDirect) (action.ScriptPolicyResult, error) {
 	// Validate scope consistency
-	if err := validateScopeConsistency(act.Scope, act.NamespaceID, act.GroupID); err != nil {
+	if err := validateScopeConsistency(act.Scope, act.GroupID); err != nil {
 		return action.ScriptPolicyResult{}, err
-	}
-
-	// Verify namespace exists if namespace-level or group-level
-	if act.NamespaceID != nil {
-		if _, err := s.namespaceRepo.GetByID(ctx, *act.NamespaceID); err != nil {
-			if errors.Is(err, domainerrors.ErrNotFound) {
-				return action.ScriptPolicyResult{}, domainerrors.ErrForeignKeyViolation
-			}
-			return action.ScriptPolicyResult{}, err
-		}
 	}
 
 	// Verify group exists if group-level
@@ -155,7 +135,6 @@ func (s *ScriptPolicyService) CreateDirect(ctx context.Context, act action.Creat
 		Description:   act.Description,
 		Version:       act.Version,
 		Scope:         act.Scope,
-		NamespaceID:   act.NamespaceID,
 		GroupID:       act.GroupID,
 		Config:        config,
 		Priority:      priority,
@@ -203,15 +182,6 @@ func (s *ScriptPolicyService) GetGlobalInstances(ctx context.Context) ([]action.
 	return action.NewScriptPolicyResultList(instances), nil
 }
 
-// GetByNamespaceID retrieves all namespace-level instances for a specific namespace
-func (s *ScriptPolicyService) GetByNamespaceID(ctx context.Context, namespaceID string) ([]action.ScriptPolicyResult, error) {
-	instances, err := s.policyRepo.GetByNamespaceID(ctx, namespaceID)
-	if err != nil {
-		return nil, err
-	}
-	return action.NewScriptPolicyResultList(instances), nil
-}
-
 // GetByGroupID retrieves all group-level instances for a specific group
 func (s *ScriptPolicyService) GetByGroupID(ctx context.Context, groupID string) ([]action.ScriptPolicyResult, error) {
 	instances, err := s.policyRepo.GetByGroupID(ctx, groupID)
@@ -222,9 +192,9 @@ func (s *ScriptPolicyService) GetByGroupID(ctx context.Context, groupID string) 
 }
 
 // GetEffectiveInstance finds the most specific active instance for a template
-// Priority: Group > Namespace > Global
-func (s *ScriptPolicyService) GetEffectiveInstance(ctx context.Context, templateID, namespaceID, groupID string) (action.ScriptPolicyResult, error) {
-	instance, err := s.policyRepo.GetEffectiveInstance(ctx, templateID, namespaceID, groupID)
+// Priority: Group > Global
+func (s *ScriptPolicyService) GetEffectiveInstance(ctx context.Context, templateID, groupID string) (action.ScriptPolicyResult, error) {
+	instance, err := s.policyRepo.GetEffectiveInstance(ctx, templateID, groupID)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
 			return action.ScriptPolicyResult{}, domainerrors.ErrNotFound
@@ -237,7 +207,7 @@ func (s *ScriptPolicyService) GetEffectiveInstance(ctx context.Context, template
 // GetEffectiveChecksByTargetID retrieves all effective checks for a specific target
 // This is the main method used by nodes to get their check configurations
 func (s *ScriptPolicyService) GetEffectiveChecksByTargetID(ctx context.Context, targetID string) ([]domain.EffectiveCheck, error) {
-	// Get effective script policys from repository (handles priority resolution)
+	// Get effective script policies from repository (handles priority resolution)
 	result, err := s.targetRepo.GetEffectivePolicies(ctx, targetID)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
@@ -246,8 +216,8 @@ func (s *ScriptPolicyService) GetEffectiveChecksByTargetID(ctx context.Context, 
 		return nil, err
 	}
 
-	// Combine namespace and group instances
-	allInstances := append(result.NamespaceInstances, result.GroupInstances...)
+	// Combine global and group instances
+	allInstances := append(result.GlobalInstances, result.GroupInstances...)
 
 	// Convert to EffectiveCheck with merged configs
 	effectiveChecks := make([]domain.EffectiveCheck, len(allInstances))
@@ -257,7 +227,7 @@ func (s *ScriptPolicyService) GetEffectiveChecksByTargetID(ctx context.Context, 
 
 		effectiveChecks[i] = domain.EffectiveCheck{
 			Name:          instance.Name,
-			ScriptType:     instance.ScriptType,
+			ScriptType:    instance.ScriptType,
 			ScriptContent: instance.ScriptContent,
 			Language:      instance.Language,
 			Config:        mergedConfig,
@@ -270,27 +240,10 @@ func (s *ScriptPolicyService) GetEffectiveChecksByTargetID(ctx context.Context, 
 	return effectiveChecks, nil
 }
 
-// GetEffectiveChecksByNamespace retrieves all effective checks for a namespace
-func (s *ScriptPolicyService) GetEffectiveChecksByNamespace(ctx context.Context, namespaceID string) ([]action.ScriptPolicyResult, error) {
-	// Verify namespace exists
-	if _, err := s.namespaceRepo.GetByID(ctx, namespaceID); err != nil {
-		if errors.Is(err, domainerrors.ErrNotFound) {
-			return nil, domainerrors.ErrNotFound
-		}
-		return nil, err
-	}
-
-	instances, err := s.policyRepo.GetEffectiveInstancesByNamespace(ctx, namespaceID)
-	if err != nil {
-		return nil, err
-	}
-	return action.NewScriptPolicyResultList(instances), nil
-}
-
 // GetEffectiveChecksByGroup retrieves all effective checks for a group
-func (s *ScriptPolicyService) GetEffectiveChecksByGroup(ctx context.Context, namespaceID, groupID string) ([]action.ScriptPolicyResult, error) {
+func (s *ScriptPolicyService) GetEffectiveChecksByGroup(ctx context.Context, groupID string) ([]action.ScriptPolicyResult, error) {
 	// Verify group exists
-	group, err := s.groupRepo.GetByID(ctx, groupID)
+	_, err := s.groupRepo.GetByID(ctx, groupID)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrNotFound) {
 			return nil, domainerrors.ErrNotFound
@@ -298,12 +251,7 @@ func (s *ScriptPolicyService) GetEffectiveChecksByGroup(ctx context.Context, nam
 		return nil, err
 	}
 
-	// Verify group belongs to namespace
-	if group.NamespaceID != namespaceID {
-		return nil, domainerrors.NewValidationError("namespace_id", "group does not belong to the specified namespace")
-	}
-
-	instances, err := s.policyRepo.GetEffectiveInstancesByGroup(ctx, namespaceID, groupID)
+	instances, err := s.policyRepo.GetEffectiveInstancesByGroup(ctx, groupID)
 	if err != nil {
 		return nil, err
 	}
@@ -388,28 +336,18 @@ func (s *ScriptPolicyService) ListActive(ctx context.Context) ([]action.ScriptPo
 }
 
 // validateScopeConsistency validates that scope and IDs are consistent
-func validateScopeConsistency(scope domain.PolicyScope, namespaceID, groupID *string) error {
+func validateScopeConsistency(scope domain.PolicyScope, groupID *string) error {
 	switch scope {
 	case domain.ScopeGlobal:
-		if namespaceID != nil || groupID != nil {
-			return domainerrors.NewValidationError("scope", "global scope must not have namespace_id or group_id")
-		}
-	case domain.ScopeNamespace:
-		if namespaceID == nil {
-			return domainerrors.NewValidationError("namespace_id", "namespace_id is required for namespace scope")
-		}
 		if groupID != nil {
-			return domainerrors.NewValidationError("group_id", "namespace scope must not have group_id")
+			return domainerrors.NewValidationError("scope", "global scope must not have group_id")
 		}
 	case domain.ScopeGroup:
 		if groupID == nil {
 			return domainerrors.NewValidationError("group_id", "group_id is required for group scope")
 		}
-		if namespaceID == nil {
-			return domainerrors.NewValidationError("namespace_id", "namespace_id is required for group scope")
-		}
 	default:
-		return domainerrors.NewValidationError("scope", "invalid scope value")
+		return domainerrors.NewValidationError("scope", "invalid scope value: must be 'global' or 'group'")
 	}
 	return nil
 }

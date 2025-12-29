@@ -8,25 +8,23 @@ import (
 
 // CreateScriptPolicyFromTemplateRequest represents a request to create a script policy from a template
 type CreateScriptPolicyFromTemplateRequest struct {
-	TemplateID  string                 `json:"template_id" binding:"required,uuid"`
-	Scope       domain.PolicyScope     `json:"scope" binding:"required,oneof=global namespace group"`
-	NamespaceID *string                `json:"namespace_id,omitempty" binding:"omitempty,uuid"`
-	GroupID     *string                `json:"group_id,omitempty" binding:"omitempty,uuid"`
-	Config      map[string]interface{} `json:"config,omitempty"`
-	Priority    int                    `json:"priority" binding:"omitempty,min=0,max=1000"`
-	IsActive    bool                   `json:"is_active"`
+	TemplateID string                 `json:"template_id" binding:"required,uuid"`
+	Scope      domain.PolicyScope     `json:"scope" binding:"required,oneof=global group"`
+	GroupID    *string                `json:"group_id,omitempty" binding:"omitempty,uuid"`
+	Config     map[string]interface{} `json:"config,omitempty"`
+	Priority   int                    `json:"priority" binding:"omitempty,min=0,max=1000"`
+	IsActive   bool                   `json:"is_active"`
 }
 
 // ToAction converts CreateScriptPolicyFromTemplateRequest to action.CreateScriptPolicyFromTemplate
 func (r *CreateScriptPolicyFromTemplateRequest) ToAction() action.CreateScriptPolicyFromTemplate {
 	return action.CreateScriptPolicyFromTemplate{
-		TemplateID:  r.TemplateID,
-		Scope:       r.Scope,
-		NamespaceID: r.NamespaceID,
-		GroupID:     r.GroupID,
-		Config:      r.Config,
-		Priority:    r.Priority,
-		IsActive:    r.IsActive,
+		TemplateID: r.TemplateID,
+		Scope:      r.Scope,
+		GroupID:    r.GroupID,
+		Config:     r.Config,
+		Priority:   r.Priority,
+		IsActive:   r.IsActive,
 	}
 }
 
@@ -39,8 +37,7 @@ type CreateScriptPolicyDirectRequest struct {
 	DefaultConfig map[string]interface{} `json:"default_config,omitempty"`
 	Description   string                 `json:"description,omitempty"`
 	Version       string                 `json:"version" binding:"required"`
-	Scope         domain.PolicyScope     `json:"scope" binding:"required,oneof=global namespace group"`
-	NamespaceID   *string                `json:"namespace_id,omitempty" binding:"omitempty,uuid"`
+	Scope         domain.PolicyScope     `json:"scope" binding:"required,oneof=global group"`
 	GroupID       *string                `json:"group_id,omitempty" binding:"omitempty,uuid"`
 	Config        map[string]interface{} `json:"config,omitempty"`
 	Priority      int                    `json:"priority" binding:"omitempty,min=0,max=1000"`
@@ -59,7 +56,6 @@ func (r *CreateScriptPolicyDirectRequest) ToAction() action.CreateScriptPolicyDi
 		Version:       r.Version,
 		Hash:          "", // Hash will be computed by service layer
 		Scope:         r.Scope,
-		NamespaceID:   r.NamespaceID,
 		GroupID:       r.GroupID,
 		Config:        r.Config,
 		Priority:      r.Priority,
@@ -76,7 +72,7 @@ type CreateScriptPolicyRequest struct {
 
 	// Option 2: Direct creation (required if template_id not provided)
 	Name          *string                 `json:"name,omitempty"`
-	ScriptType     *string                 `json:"script_type,omitempty"`
+	ScriptType    *string                 `json:"script_type,omitempty"`
 	ScriptContent *string                 `json:"script_content,omitempty"`
 	Language      *string                 `json:"language,omitempty"`
 	DefaultConfig *map[string]interface{} `json:"default_config,omitempty"`
@@ -84,12 +80,11 @@ type CreateScriptPolicyRequest struct {
 	Version       *string                 `json:"version,omitempty"`
 
 	// Common fields
-	Scope       domain.PolicyScope   `json:"scope" binding:"required,oneof=global namespace group"`
-	NamespaceID *string                `json:"namespace_id,omitempty" binding:"omitempty,uuid"`
-	GroupID     *string                `json:"group_id,omitempty" binding:"omitempty,uuid"`
-	Config      map[string]interface{} `json:"config" binding:"omitempty"`
-	Priority    int                    `json:"priority" binding:"omitempty,min=0,max=1000"`
-	IsActive    bool                   `json:"is_active"`
+	Scope    domain.PolicyScope     `json:"scope" binding:"required,oneof=global group"`
+	GroupID  *string                `json:"group_id,omitempty" binding:"omitempty,uuid"`
+	Config   map[string]interface{} `json:"config" binding:"omitempty"`
+	Priority int                    `json:"priority" binding:"omitempty,min=0,max=1000"`
+	IsActive bool                   `json:"is_active"`
 }
 
 // Validate validates the CreateScriptPolicyRequest
@@ -106,25 +101,15 @@ func (req *CreateScriptPolicyRequest) Validate() error {
 	// Validate scope consistency
 	switch req.Scope {
 	case domain.ScopeGlobal:
-		if req.NamespaceID != nil || req.GroupID != nil {
-			return domainerrors.NewValidationError("scope", "global scope must not have namespace_id or group_id")
-		}
-	case domain.ScopeNamespace:
-		if req.NamespaceID == nil {
-			return domainerrors.NewValidationError("namespace_id", "namespace_id is required for namespace scope")
-		}
 		if req.GroupID != nil {
-			return domainerrors.NewValidationError("group_id", "namespace scope must not have group_id")
+			return domainerrors.NewValidationError("scope", "global scope must not have group_id")
 		}
 	case domain.ScopeGroup:
 		if req.GroupID == nil {
 			return domainerrors.NewValidationError("group_id", "group_id is required for group scope")
 		}
-		if req.NamespaceID == nil {
-			return domainerrors.NewValidationError("namespace_id", "namespace_id is required for group scope")
-		}
 	default:
-		return domainerrors.NewValidationError("scope", "invalid scope value")
+		return domainerrors.NewValidationError("scope", "invalid scope value: must be 'global' or 'group'")
 	}
 
 	return nil
@@ -152,7 +137,7 @@ type ScriptPolicyResponse struct {
 
 	// Template fields (copied from template at creation)
 	Name          string                 `json:"name"`
-	ScriptType     string                 `json:"script_type"`
+	ScriptType    string                 `json:"script_type"`
 	ScriptContent string                 `json:"script_content"`
 	Language      string                 `json:"language"`
 	DefaultConfig map[string]interface{} `json:"default_config"`
@@ -161,12 +146,11 @@ type ScriptPolicyResponse struct {
 	Hash          string                 `json:"hash"`
 
 	// Instance-specific fields
-	Scope       string                 `json:"scope"`
-	NamespaceID *string                `json:"namespace_id,omitempty"`
-	GroupID     *string                `json:"group_id,omitempty"`
-	Config      map[string]interface{} `json:"config"`
-	Priority    int                    `json:"priority"`
-	IsActive    bool                   `json:"is_active"`
+	Scope    string                 `json:"scope"`
+	GroupID  *string                `json:"group_id,omitempty"`
+	Config   map[string]interface{} `json:"config"`
+	Priority int                    `json:"priority"`
+	IsActive bool                   `json:"is_active"`
 
 	// Metadata
 	CreatedFromTemplateID   *string `json:"created_from_template_id,omitempty"`
@@ -205,12 +189,11 @@ func ToScriptPolicyResponse(result action.ScriptPolicyResult) ScriptPolicyRespon
 		Hash:          result.Hash,
 
 		// Instance-specific fields
-		Scope:       string(result.Scope),
-		NamespaceID: result.NamespaceID,
-		GroupID:     result.GroupID,
-		Config:      result.Config,
-		Priority:    result.Priority,
-		IsActive:    result.IsActive,
+		Scope:    string(result.Scope),
+		GroupID:  result.GroupID,
+		Config:   result.Config,
+		Priority: result.Priority,
+		IsActive: result.IsActive,
 
 		// Metadata
 		CreatedFromTemplateID:   result.CreatedFromTemplateID,

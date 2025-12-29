@@ -23,11 +23,9 @@ type ScriptPolicyModel struct {
 	Hash          string `gorm:"type:varchar(64);index"`
 
 	// Instance-specific fields
-	Scope       string          `gorm:"not null;index;type:varchar(20)"`
-	NamespaceID *string         `gorm:"index"`
-	Namespace   *NamespaceModel `gorm:"foreignKey:NamespaceID;references:ID"`
-	GroupID     *string         `gorm:"index"`
-	Group       *GroupModel     `gorm:"foreignKey:GroupID;references:ID"`
+	Scope   string      `gorm:"not null;index;type:varchar(20)"`
+	GroupID *string     `gorm:"index"`
+	Group   *GroupModel `gorm:"foreignKey:GroupID;references:ID"`
 	Config      JSONB           `gorm:"type:jsonb;default:'{}'"`
 	Priority    int             `gorm:"not null;default:100;index"`
 	IsActive    bool            `gorm:"not null;default:true;index"`
@@ -77,9 +75,6 @@ func ToScriptPolicyModel(ci *domain.ScriptPolicy) *ScriptPolicyModel {
 		UpdatedAt: ci.UpdatedAt,
 	}
 
-	if ci.NamespaceID != nil {
-		model.NamespaceID = ci.NamespaceID
-	}
 	if ci.GroupID != nil {
 		model.GroupID = ci.GroupID
 	}
@@ -106,9 +101,8 @@ func (m *ScriptPolicyModel) ToDomain() *domain.ScriptPolicy {
 		Hash:          m.Hash,
 
 		// Instance-specific fields
-		Scope:       domain.PolicyScope(m.Scope),
-		NamespaceID: m.NamespaceID,
-		GroupID:     m.GroupID,
+		Scope:   domain.PolicyScope(m.Scope),
+		GroupID: m.GroupID,
 		Config:      map[string]interface{}(m.Config),
 		Priority:    m.Priority,
 		IsActive:    m.IsActive,
@@ -127,11 +121,6 @@ func (m *ScriptPolicyModel) ToDomain() *domain.ScriptPolicy {
 		ci.DeletedAt = &deletedAt
 	}
 
-	// Convert nested Namespace if present
-	if m.Namespace != nil {
-		ci.Namespace = m.Namespace.ToDomain()
-	}
-
 	// Convert nested Group if present
 	if m.Group != nil {
 		ci.Group = m.Group.ToDomain()
@@ -146,11 +135,9 @@ type ScriptPolicyRepository interface {
 	GetByID(ctx context.Context, id string) (*domain.ScriptPolicy, error)
 	GetByTemplateID(ctx context.Context, templateID string) ([]domain.ScriptPolicy, error)
 	GetGlobalInstances(ctx context.Context) ([]domain.ScriptPolicy, error)
-	GetByNamespaceID(ctx context.Context, namespaceID string) ([]domain.ScriptPolicy, error)
 	GetByGroupID(ctx context.Context, groupID string) ([]domain.ScriptPolicy, error)
-	GetEffectiveInstance(ctx context.Context, templateID, namespaceID, groupID string) (*domain.ScriptPolicy, error)
-	GetEffectiveInstancesByNamespace(ctx context.Context, namespaceID string) ([]domain.ScriptPolicy, error)
-	GetEffectiveInstancesByGroup(ctx context.Context, namespaceID, groupID string) ([]domain.ScriptPolicy, error)
+	GetEffectiveInstance(ctx context.Context, templateID, groupID string) (*domain.ScriptPolicy, error)
+	GetEffectiveInstancesByGroup(ctx context.Context, groupID string) ([]domain.ScriptPolicy, error)
 	ListActive(ctx context.Context) ([]domain.ScriptPolicy, error)
 	Update(ctx context.Context, instance *domain.ScriptPolicy) error
 	Delete(ctx context.Context, id string) error  // Soft delete
@@ -183,8 +170,6 @@ func (r *scriptPolicyRepository) Create(ctx context.Context, instance *domain.Sc
 func (r *scriptPolicyRepository) GetByID(ctx context.Context, id string) (*domain.ScriptPolicy, error) {
 	var model ScriptPolicyModel
 	err := r.db.WithContext(ctx).
-		Preload("Template").
-		Preload("Namespace").
 		Preload("Group").
 		First(&model, "id = ?", id).Error
 	if err != nil {
@@ -197,10 +182,8 @@ func (r *scriptPolicyRepository) GetByID(ctx context.Context, id string) (*domai
 func (r *scriptPolicyRepository) GetByTemplateID(ctx context.Context, templateID string) ([]domain.ScriptPolicy, error) {
 	var models []ScriptPolicyModel
 	err := r.db.WithContext(ctx).
-		Preload("Template").
-		Preload("Namespace").
 		Preload("Group").
-		Where("template_id = ?", templateID).
+		Where("created_from_template_id = ?", templateID).
 		Order("priority DESC, created_at ASC").
 		Find(&models).Error
 	if err != nil {
@@ -218,30 +201,7 @@ func (r *scriptPolicyRepository) GetByTemplateID(ctx context.Context, templateID
 func (r *scriptPolicyRepository) GetGlobalInstances(ctx context.Context) ([]domain.ScriptPolicy, error) {
 	var models []ScriptPolicyModel
 	err := r.db.WithContext(ctx).
-		Preload("Template").
 		Where("scope = ?", domain.ScopeGlobal).
-		Where("is_active = ?", true).
-		Order("priority DESC").
-		Find(&models).Error
-	if err != nil {
-		return nil, fromGormError(err)
-	}
-
-	instances := make([]domain.ScriptPolicy, len(models))
-	for i, model := range models {
-		instances[i] = *model.ToDomain()
-	}
-	return instances, nil
-}
-
-// GetByNamespaceID retrieves all namespace-level instances for a specific namespace
-func (r *scriptPolicyRepository) GetByNamespaceID(ctx context.Context, namespaceID string) ([]domain.ScriptPolicy, error) {
-	var models []ScriptPolicyModel
-	err := r.db.WithContext(ctx).
-		Preload("Template").
-		Preload("Namespace").
-		Where("scope = ?", domain.ScopeNamespace).
-		Where("namespace_id = ?", namespaceID).
 		Where("is_active = ?", true).
 		Order("priority DESC").
 		Find(&models).Error
@@ -260,8 +220,6 @@ func (r *scriptPolicyRepository) GetByNamespaceID(ctx context.Context, namespace
 func (r *scriptPolicyRepository) GetByGroupID(ctx context.Context, groupID string) ([]domain.ScriptPolicy, error) {
 	var models []ScriptPolicyModel
 	err := r.db.WithContext(ctx).
-		Preload("Template").
-		Preload("Namespace").
 		Preload("Group").
 		Where("scope = ?", domain.ScopeGroup).
 		Where("group_id = ?", groupID).
@@ -280,17 +238,15 @@ func (r *scriptPolicyRepository) GetByGroupID(ctx context.Context, groupID strin
 }
 
 // GetEffectiveInstance finds the most specific active instance for a template
-// Priority: Group > Namespace > Global
-func (r *scriptPolicyRepository) GetEffectiveInstance(ctx context.Context, templateID, namespaceID, groupID string) (*domain.ScriptPolicy, error) {
+// Priority: Group > Global
+func (r *scriptPolicyRepository) GetEffectiveInstance(ctx context.Context, templateID, groupID string) (*domain.ScriptPolicy, error) {
 	var model ScriptPolicyModel
 
 	// Try Group level first (highest priority)
 	if groupID != "" {
 		err := r.db.WithContext(ctx).
-			Preload("Template").
-			Preload("Namespace").
 			Preload("Group").
-			Where("template_id = ?", templateID).
+			Where("created_from_template_id = ?", templateID).
 			Where("scope = ?", domain.ScopeGroup).
 			Where("group_id = ?", groupID).
 			Where("is_active = ?", true).
@@ -304,29 +260,9 @@ func (r *scriptPolicyRepository) GetEffectiveInstance(ctx context.Context, templ
 		}
 	}
 
-	// Try Namespace level (medium priority)
-	if namespaceID != "" {
-		err := r.db.WithContext(ctx).
-			Preload("Template").
-			Preload("Namespace").
-			Where("template_id = ?", templateID).
-			Where("scope = ?", domain.ScopeNamespace).
-			Where("namespace_id = ?", namespaceID).
-			Where("is_active = ?", true).
-			Order("priority DESC").
-			First(&model).Error
-		if err == nil {
-			return model.ToDomain(), nil
-		}
-		if err != gorm.ErrRecordNotFound {
-			return nil, fromGormError(err)
-		}
-	}
-
 	// Try Global level (lowest priority)
 	err := r.db.WithContext(ctx).
-		Preload("Template").
-		Where("template_id = ?", templateID).
+		Where("created_from_template_id = ?", templateID).
 		Where("scope = ?", domain.ScopeGlobal).
 		Where("is_active = ?", true).
 		Order("priority DESC").
@@ -338,63 +274,20 @@ func (r *scriptPolicyRepository) GetEffectiveInstance(ctx context.Context, templ
 	return model.ToDomain(), nil
 }
 
-// GetEffectiveInstancesByNamespace retrieves all effective instances for a namespace
-// Combines global and namespace-level instances
-func (r *scriptPolicyRepository) GetEffectiveInstancesByNamespace(ctx context.Context, namespaceID string) ([]domain.ScriptPolicy, error) {
-	var models []ScriptPolicyModel
-
-	// Get both global and namespace-level instances
-	err := r.db.WithContext(ctx).
-		Preload("Namespace").
-		Where("is_active = ?", true).
-		Where(
-			r.db.Where("scope = ?", domain.ScopeGlobal).
-				Or("scope = ? AND namespace_id = ?", domain.ScopeNamespace, namespaceID),
-		).
-		Order("scope DESC, priority DESC").  // Group first, then Namespace, then Global; higher priority first
-		Find(&models).Error
-	if err != nil {
-		return nil, fromGormError(err)
-	}
-
-	// Deduplicate by created_from_template_id, keeping the highest priority (first occurrence)
-	seen := make(map[string]bool)
-	var uniqueInstances []domain.ScriptPolicy
-
-	for _, model := range models {
-		// Use created_from_template_id for deduplication if available, otherwise use name+checktype
-		key := ""
-		if model.CreatedFromTemplateID != nil {
-			key = *model.CreatedFromTemplateID
-		} else {
-			key = model.Name + ":" + model.ScriptType
-		}
-
-		if !seen[key] {
-			seen[key] = true
-			uniqueInstances = append(uniqueInstances, *model.ToDomain())
-		}
-	}
-
-	return uniqueInstances, nil
-}
-
 // GetEffectiveInstancesByGroup retrieves all effective instances for a group
-// Combines global, namespace-level, and group-level instances
-func (r *scriptPolicyRepository) GetEffectiveInstancesByGroup(ctx context.Context, namespaceID, groupID string) ([]domain.ScriptPolicy, error) {
+// Combines global and group-level instances
+func (r *scriptPolicyRepository) GetEffectiveInstancesByGroup(ctx context.Context, groupID string) ([]domain.ScriptPolicy, error) {
 	var models []ScriptPolicyModel
 
-	// Get global, namespace-level, and group-level instances
+	// Get global and group-level instances
 	err := r.db.WithContext(ctx).
-		Preload("Namespace").
 		Preload("Group").
 		Where("is_active = ?", true).
 		Where(
 			r.db.Where("scope = ?", domain.ScopeGlobal).
-				Or("scope = ? AND namespace_id = ?", domain.ScopeNamespace, namespaceID).
 				Or("scope = ? AND group_id = ?", domain.ScopeGroup, groupID),
 		).
-		Order("scope DESC, priority DESC").  // Group first, then Namespace, then Global; higher priority first
+		Order("scope DESC, priority DESC"). // Group first, then Global; higher priority first
 		Find(&models).Error
 	if err != nil {
 		return nil, fromGormError(err)
@@ -405,7 +298,7 @@ func (r *scriptPolicyRepository) GetEffectiveInstancesByGroup(ctx context.Contex
 	var uniqueInstances []domain.ScriptPolicy
 
 	for _, model := range models {
-		// Use created_from_template_id for deduplication if available, otherwise use name+checktype
+		// Use created_from_template_id for deduplication if available, otherwise use name+script_type
 		key := ""
 		if model.CreatedFromTemplateID != nil {
 			key = *model.CreatedFromTemplateID
@@ -426,8 +319,6 @@ func (r *scriptPolicyRepository) GetEffectiveInstancesByGroup(ctx context.Contex
 func (r *scriptPolicyRepository) ListActive(ctx context.Context) ([]domain.ScriptPolicy, error) {
 	var models []ScriptPolicyModel
 	err := r.db.WithContext(ctx).
-		Preload("Template").
-		Preload("Namespace").
 		Preload("Group").
 		Where("is_active = ?", true).
 		Order("priority DESC, created_at ASC").
@@ -473,7 +364,7 @@ func (r *scriptPolicyRepository) Restore(ctx context.Context, id string) error {
 		Update("deleted_at", nil).Error)
 }
 
-// List retrieves script policys with pagination
+// List retrieves script policies with pagination
 func (r *scriptPolicyRepository) List(ctx context.Context, page, limit int) ([]domain.ScriptPolicy, int, error) {
 	var models []ScriptPolicyModel
 	var total int64
@@ -486,8 +377,6 @@ func (r *scriptPolicyRepository) List(ctx context.Context, page, limit int) ([]d
 	// Get paginated results
 	offset := (page - 1) * limit
 	err := r.db.WithContext(ctx).
-		Preload("Template").
-		Preload("Namespace").
 		Preload("Group").
 		Offset(offset).
 		Limit(limit).

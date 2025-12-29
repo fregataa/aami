@@ -98,19 +98,6 @@ func (h *ScriptPolicyHandler) GetGlobalInstances(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.ToScriptPolicyResponseList(results))
 }
 
-// GetByNamespaceID handles GET /check-instances/namespace/:namespaceId
-func (h *ScriptPolicyHandler) GetByNamespaceID(c *gin.Context) {
-	namespaceID := c.Param("namespaceId")
-
-	results, err := h.policyService.GetByNamespaceID(c.Request.Context(), namespaceID)
-	if err != nil {
-		respondError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, dto.ToScriptPolicyResponseList(results))
-}
-
 // GetByGroupID handles GET /check-instances/group/:groupId
 func (h *ScriptPolicyHandler) GetByGroupID(c *gin.Context) {
 	groupID := c.Param("groupId")
@@ -124,25 +111,11 @@ func (h *ScriptPolicyHandler) GetByGroupID(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.ToScriptPolicyResponseList(results))
 }
 
-// GetEffectiveChecksByNamespace handles GET /check-instances/effective/namespace/:namespaceId
-func (h *ScriptPolicyHandler) GetEffectiveChecksByNamespace(c *gin.Context) {
-	namespaceID := c.Param("namespaceId")
-
-	results, err := h.policyService.GetEffectiveChecksByNamespace(c.Request.Context(), namespaceID)
-	if err != nil {
-		respondError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, dto.ToScriptPolicyResponseList(results))
-}
-
-// GetEffectiveChecksByGroup handles GET /check-instances/effective/group/:namespaceId/:groupId
+// GetEffectiveChecksByGroup handles GET /check-instances/effective/group/:groupId
 func (h *ScriptPolicyHandler) GetEffectiveChecksByGroup(c *gin.Context) {
-	namespaceID := c.Param("namespaceId")
 	groupID := c.Param("groupId")
 
-	results, err := h.policyService.GetEffectiveChecksByGroup(c.Request.Context(), namespaceID, groupID)
+	results, err := h.policyService.GetEffectiveChecksByGroup(c.Request.Context(), groupID)
 	if err != nil {
 		respondError(c, err)
 		return

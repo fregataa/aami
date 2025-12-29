@@ -12,13 +12,12 @@ import (
 
 // CreateScriptPolicyFromTemplate represents the action to create a script policy from a template
 type CreateScriptPolicyFromTemplate struct {
-	TemplateID  string
-	Scope       domain.PolicyScope
-	NamespaceID *string
-	GroupID     *string
-	Config      map[string]interface{}
-	Priority    int
-	IsActive    bool
+	TemplateID string
+	Scope      domain.PolicyScope
+	GroupID    *string
+	Config     map[string]interface{}
+	Priority   int
+	IsActive   bool
 }
 
 // CreateScriptPolicyDirect represents the action to create a script policy directly
@@ -32,7 +31,6 @@ type CreateScriptPolicyDirect struct {
 	Version       string
 	Hash          string
 	Scope         domain.PolicyScope
-	NamespaceID   *string
 	GroupID       *string
 	Config        map[string]interface{}
 	Priority      int
@@ -66,14 +64,12 @@ type ScriptPolicyResult struct {
 	Hash          string
 
 	// Instance-specific fields
-	Scope       domain.PolicyScope
-	NamespaceID *string
-	Namespace   *NamespaceResult
-	GroupID     *string
-	Group       *GroupResult
-	Config      map[string]interface{}
-	Priority    int
-	IsActive    bool
+	Scope    domain.PolicyScope
+	GroupID  *string
+	Group    *GroupResult
+	Config   map[string]interface{}
+	Priority int
+	IsActive bool
 
 	// Metadata
 	CreatedFromTemplateID   *string
@@ -96,7 +92,6 @@ func (r *ScriptPolicyResult) FromDomain(p *domain.ScriptPolicy) {
 	r.Version = p.Version
 	r.Hash = p.Hash
 	r.Scope = p.Scope
-	r.NamespaceID = p.NamespaceID
 	r.GroupID = p.GroupID
 	r.Config = p.Config
 	r.Priority = p.Priority
@@ -106,13 +101,6 @@ func (r *ScriptPolicyResult) FromDomain(p *domain.ScriptPolicy) {
 	r.TemplateVersion = p.TemplateVersion
 	r.CreatedAt = p.CreatedAt
 	r.UpdatedAt = p.UpdatedAt
-
-	// Convert nested namespace if loaded
-	if p.Namespace != nil {
-		ns := NamespaceResult{}
-		ns.FromDomain(p.Namespace)
-		r.Namespace = &ns
-	}
 
 	// Convert nested group if loaded
 	if p.Group != nil {

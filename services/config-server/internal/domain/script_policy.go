@@ -21,11 +21,9 @@ type ScriptPolicy struct {
 	Hash          string                 `json:"hash"` // SHA256 hash of script_content
 
 	// Instance-specific fields
-	Scope       PolicyScope          `json:"scope"` // "global", "namespace", "group"
-	NamespaceID *string                `json:"namespace_id,omitempty"`
-	Namespace   *Namespace             `json:"namespace,omitempty"`
-	GroupID     *string                `json:"group_id,omitempty"`
-	Group       *Group                 `json:"group,omitempty"`
+	Scope   PolicyScope `json:"scope"` // "global", "group"
+	GroupID *string     `json:"group_id,omitempty"`
+	Group   *Group      `json:"group,omitempty"`
 	Config      map[string]interface{} `json:"config"`   // Override parameters
 	Priority    int                    `json:"priority"` // Higher number = higher priority
 	IsActive    bool                   `json:"is_active"`
@@ -44,9 +42,8 @@ type ScriptPolicy struct {
 type PolicyScope string
 
 const (
-	ScopeGlobal    PolicyScope = "global"
-	ScopeNamespace PolicyScope = "namespace"
-	ScopeGroup     PolicyScope = "group"
+	ScopeGlobal PolicyScope = "global"
+	ScopeGroup  PolicyScope = "group"
 )
 
 // GetScope returns the scope level of this script policy
@@ -57,11 +54,6 @@ func (sp *ScriptPolicy) GetScope() PolicyScope {
 // IsGlobal returns true if this is a global-scope instance
 func (sp *ScriptPolicy) IsGlobal() bool {
 	return sp.Scope == ScopeGlobal
-}
-
-// IsNamespaceLevel returns true if this is a namespace-level instance
-func (sp *ScriptPolicy) IsNamespaceLevel() bool {
-	return sp.Scope == ScopeNamespace
 }
 
 // IsGroupLevel returns true if this is a group-level instance
@@ -93,11 +85,6 @@ func (sp *ScriptPolicy) GetScopeIdentifier() string {
 	switch sp.Scope {
 	case ScopeGlobal:
 		return "global"
-	case ScopeNamespace:
-		if sp.NamespaceID != nil {
-			return "namespace:" + *sp.NamespaceID
-		}
-		return "namespace:unknown"
 	case ScopeGroup:
 		if sp.GroupID != nil {
 			return "group:" + *sp.GroupID
@@ -137,25 +124,15 @@ func (sp *ScriptPolicy) Validate() error {
 	// Validate scope consistency
 	switch sp.Scope {
 	case ScopeGlobal:
-		if sp.NamespaceID != nil || sp.GroupID != nil {
-			return domainerrors.NewValidationError("scope", "global scope must not have namespace_id or group_id")
-		}
-	case ScopeNamespace:
-		if sp.NamespaceID == nil {
-			return domainerrors.NewValidationError("namespace_id", "namespace_id is required for namespace scope")
-		}
 		if sp.GroupID != nil {
-			return domainerrors.NewValidationError("group_id", "namespace scope must not have group_id")
+			return domainerrors.NewValidationError("scope", "global scope must not have group_id")
 		}
 	case ScopeGroup:
 		if sp.GroupID == nil {
 			return domainerrors.NewValidationError("group_id", "group_id is required for group scope")
 		}
-		if sp.NamespaceID == nil {
-			return domainerrors.NewValidationError("namespace_id", "namespace_id is required for group scope")
-		}
 	default:
-		return domainerrors.NewValidationError("scope", "invalid scope value")
+		return domainerrors.NewValidationError("scope", "invalid scope value: must be 'global' or 'group'")
 	}
 
 	return nil
@@ -173,11 +150,11 @@ type EffectiveCheck struct {
 	InstanceID    string                 `json:"instance_id"`
 }
 
-// EffectivePoliciesResult contains effective script policys grouped by scope
+// EffectivePoliciesResult contains effective script policies grouped by scope
 // Used by repository to return structured data for target's effective checks
 type EffectivePoliciesResult struct {
-	NamespaceInstances []ScriptPolicy `json:"namespace_instances"`
-	GroupInstances     []ScriptPolicy `json:"group_instances"`
+	GlobalInstances []ScriptPolicy `json:"global_instances"`
+	GroupInstances  []ScriptPolicy `json:"group_instances"`
 }
 
 // NewScriptPolicyFromTemplate creates a new ScriptPolicy from a ScriptTemplate
@@ -185,7 +162,6 @@ type EffectivePoliciesResult struct {
 func NewScriptPolicyFromTemplate(
 	template *ScriptTemplate,
 	scope PolicyScope,
-	namespaceID *string,
 	groupID *string,
 	overrideConfig map[string]interface{},
 ) *ScriptPolicy {
@@ -206,7 +182,7 @@ func NewScriptPolicyFromTemplate(
 	return &ScriptPolicy{
 		// Template fields (deep copied)
 		Name:          template.Name,
-		ScriptType:     template.ScriptType,
+		ScriptType:    template.ScriptType,
 		ScriptContent: template.ScriptContent,
 		Language:      template.Language,
 		DefaultConfig: defaultConfig,
@@ -215,12 +191,11 @@ func NewScriptPolicyFromTemplate(
 		Hash:          template.Hash,
 
 		// Instance-specific fields
-		Scope:       scope,
-		NamespaceID: namespaceID,
-		GroupID:     groupID,
-		Config:      config,
-		Priority:    0,
-		IsActive:    true,
+		Scope:    scope,
+		GroupID:  groupID,
+		Config:   config,
+		Priority: 0,
+		IsActive: true,
 
 		// Metadata (track origin)
 		CreatedFromTemplateID:   &template.ID,

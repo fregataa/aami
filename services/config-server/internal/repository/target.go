@@ -321,7 +321,7 @@ func (r *targetRepository) CountByNamespaceID(ctx context.Context, namespaceID s
 }
 
 // GetEffectivePolicies retrieves all effective check instances for a target
-// Returns namespace-level and group-level instances separately, properly sorted by priority
+// Returns global and group-level instances separately, properly sorted by priority
 func (r *targetRepository) GetEffectivePolicies(ctx context.Context, targetID string) (*domain.EffectivePoliciesResult, error) {
 	// First, get target with all groups sorted by priority
 	var target TargetModel
@@ -338,15 +338,9 @@ func (r *targetRepository) GetEffectivePolicies(ctx context.Context, targetID st
 		return nil, errors.ErrNotFound
 	}
 
-	// Collect unique namespace IDs from all groups
-	namespaceIDs := make(map[string]bool)
-	for _, group := range target.Groups {
-		namespaceIDs[group.NamespaceID] = true
-	}
-
-	// Get namespace-level instances
+	// Get global instances
 	seenKeys := make(map[string]bool)
-	namespaceInstances, err := r.getNamespaceInstances(ctx, namespaceIDs, seenKeys)
+	globalInstances, err := r.getGlobalInstances(ctx, seenKeys)
 	if err != nil {
 		return nil, err
 	}
@@ -358,42 +352,33 @@ func (r *targetRepository) GetEffectivePolicies(ctx context.Context, targetID st
 	}
 
 	return &domain.EffectivePoliciesResult{
-		NamespaceInstances: namespaceInstances,
-		GroupInstances:     groupInstances,
+		GlobalInstances: globalInstances,
+		GroupInstances:  groupInstances,
 	}, nil
 }
 
-// getNamespaceInstances retrieves and deduplicates namespace-level instances (global + namespace scope)
-func (r *targetRepository) getNamespaceInstances(ctx context.Context, namespaceIDs map[string]bool, seenKeys map[string]bool) ([]domain.ScriptPolicy, error) {
-	var namespaceInstanceModels []ScriptPolicyModel
+// getGlobalInstances retrieves all global-scope instances
+func (r *targetRepository) getGlobalInstances(ctx context.Context, seenKeys map[string]bool) ([]domain.ScriptPolicy, error) {
+	var globalInstanceModels []ScriptPolicyModel
 
-	// Collect instances from all namespaces
-	for nsID := range namespaceIDs {
-		var instances []ScriptPolicyModel
-		err := r.db.WithContext(ctx).
-			Where("(scope = ? OR (scope = ? AND namespace_id = ?)) AND is_active = ? AND deleted_at IS NULL",
-				"global", "namespace", nsID, true).
-			Order("scope DESC, priority DESC"). // Group > Namespace > Global, then by priority (higher = higher priority)
-			Find(&instances).Error
-		if err != nil {
-			return nil, fromGormError(err)
-		}
-		namespaceInstanceModels = append(namespaceInstanceModels, instances...)
+	// Get all global-scope instances
+	err := r.db.WithContext(ctx).
+		Where("scope = ? AND is_active = ? AND deleted_at IS NULL", "global", true).
+		Order("priority DESC"). // Higher priority number = higher priority
+		Find(&globalInstanceModels).Error
+	if err != nil {
+		return nil, fromGormError(err)
 	}
 
-	// Deduplicate by template_id or name:checktype (keep first = highest priority)
-	var uniqueInstances []ScriptPolicyModel
-	for _, inst := range namespaceInstanceModels {
+	// Track seen keys for deduplication with group instances
+	for _, inst := range globalInstanceModels {
 		key := r.getInstanceKey(inst)
-		if !seenKeys[key] {
-			uniqueInstances = append(uniqueInstances, inst)
-			seenKeys[key] = true
-		}
+		seenKeys[key] = true
 	}
 
 	// Convert to domain objects
-	result := make([]domain.ScriptPolicy, len(uniqueInstances))
-	for i, model := range uniqueInstances {
+	result := make([]domain.ScriptPolicy, len(globalInstanceModels))
+	for i, model := range globalInstanceModels {
 		result[i] = *model.ToDomain()
 	}
 
@@ -409,9 +394,9 @@ func (r *targetRepository) getGroupInstances(ctx context.Context, groups []Group
 	for _, group := range groups {
 		var instances []ScriptPolicyModel
 		err := r.db.WithContext(ctx).
-			Where("(scope = ? OR (scope = ? AND namespace_id = ?) OR (scope = ? AND group_id = ?)) AND is_active = ? AND deleted_at IS NULL",
-				"global", "namespace", group.NamespaceID, "group", group.ID, true).
-			Order("scope DESC, priority DESC"). // Group > Namespace > Global, then by priority (higher = higher priority)
+			Where("scope = ? AND group_id = ? AND is_active = ? AND deleted_at IS NULL",
+				"group", group.ID, true).
+			Order("priority DESC"). // Higher priority number = higher priority
 			Find(&instances).Error
 		if err != nil {
 			return nil, fromGormError(err)
