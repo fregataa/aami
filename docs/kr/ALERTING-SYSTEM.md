@@ -22,10 +22,10 @@ AAMI의 알림 시스템은 AI 가속기 인프라를 위한 포괄적인 모니
 ### 주요 기능
 
 - **통합 알림 경로**: 모든 알림이 Prometheus → Alertmanager 경로를 따름
-- **그룹 기반 커스터마이징**: 그룹/네임스페이스별로 다른 알림 임계값 설정
+- **그룹 기반 커스터마이징**: 그룹별로 다른 알림 임계값 설정
 - **Label 기반 필터링**: 특정 인프라에 대한 정밀한 알림 타겟팅
 - **동적 체크 시스템**: 커스텀 요구사항을 위한 스크립트 기반 모니터링
-- **템플릿 기반 관리**: 재사용 가능한 alert 및 check 템플릿
+- **템플릿 기반 관리**: 재사용 가능한 AlertTemplate 및 ScriptTemplate
 - **정책 상속**: 그룹 계층 구조를 통한 스마트 설정 병합
 
 ### 설계 철학
@@ -193,15 +193,13 @@ Exporter → Prometheus → Alert Rules → Alertmanager
 
 **데이터 흐름**:
 ```
-Config Server (CheckTemplate/Instance)
+Config Server (ScriptTemplate/ScriptPolicy)
   ↓
 노드가 유효한 체크 조회
   ↓
 dynamic-check.sh가 스크립트 실행
   ↓
-JSON 출력
-  ↓
-Prometheus 형식으로 변환
+Prometheus 텍스트 형식으로 출력
   ↓
 /var/lib/node_exporter/textfile/*.prom에 저장
   ↓
@@ -222,26 +220,26 @@ Alertmanager
 - 파일시스템 특정 모니터링
 
 **핵심 구성 요소**:
-- **CheckTemplate**: 재사용 가능한 스크립트 정의 (services/config-server/internal/domain/check_template.go)
-- **CheckInstance**: 그룹별 적용 (services/config-server/internal/domain/check_instance.go)
-- **Scope 기반 관리**: Global → Namespace → Group 계층
+- **ScriptTemplate**: 재사용 가능한 스크립트 정의 (services/config-server/internal/domain/script_template.go)
+- **ScriptPolicy**: 그룹별 적용 (services/config-server/internal/domain/script_policy.go)
+- **Scope 기반 관리**: Global → Group 계층
 
 **예시**: 마운트 포인트 체크
 
 ```bash
-# CheckTemplate 스크립트
+# ScriptTemplate 스크립트 (Prometheus 텍스트 형식 직접 출력)
 #!/bin/bash
 PATHS="$1"
 for path in ${PATHS//,/ }; do
   if mountpoint -q "$path"; then
-    echo '{"name":"mount_status","value":1,"labels":{"path":"'$path'"}}'
+    echo "mount_status{path=\"$path\"} 1"
   else
-    echo '{"name":"mount_status","value":0,"labels":{"path":"'$path'"}}'
+    echo "mount_status{path=\"$path\"} 0"
   fi
 done
 ```
 
-Textfile 출력:
+Textfile 출력 (동일):
 ```
 mount_status{path="/data"} 1
 mount_status{path="/mnt/models"} 0
@@ -303,25 +301,25 @@ Alert rule:
 ```
 ┌─────────────────────────────────┐
 │ Config Server                   │
-│ - CheckTemplate 저장            │
-│ - CheckInstance 관리            │
-│ - Scope 해석                    │
+│ - ScriptTemplate 저장           │
+│ - ScriptPolicy 관리             │
+│ - Scope 해석 (Global, Group)    │
 └────────┬────────────────────────┘
-         │ GET /api/v1/checks/node?hostname=gpu-node-01
+         │ GET /api/v1/checks/target/{targetId}
          ↓
 ┌─────────────────────────────────┐
 │ 노드: dynamic-check.sh          │
 │ 1. 유효한 체크 조회             │
 │ 2. 스크립트 실행                │
-│ 3. JSON 출력 수집               │
+│ 3. Prometheus 텍스트 출력       │
 └────────┬────────────────────────┘
-         │ JSON 메트릭
+         │ Prometheus 메트릭
          ↓
 ┌─────────────────────────────────┐
-│ Prometheus 형식으로 변환        │
+│ 파일에 직접 저장                │
 │ mount_status{path="/data"} 1    │
 └────────┬────────────────────────┘
-         │ 파일에 쓰기
+         │
          ↓
 ┌─────────────────────────────────┐
 │ /var/lib/node_exporter/         │
@@ -602,24 +600,27 @@ routes:
     continue: true
 ```
 
-### 4. CheckInstance → 노드 실행
+### 4. ScriptPolicy → 노드 실행
 
-**API 엔드포인트**: `GET /api/v1/checks/node?hostname={hostname}`
+**API 엔드포인트**: `GET /api/v1/checks/target/{targetId}`
 
 노드는 Config Server를 조회하여 다음을 얻습니다:
-- 유효한 CheckInstance (scope 해석 후)
+- 유효한 ScriptPolicy (scope 해석 후)
 - 스크립트 내용 및 hash
-- 병합된 설정
+- 병합된 설정 (default_config + config)
 
 응답:
 ```json
 [
   {
-    "check_type": "mount",
+    "name": "mount-check",
+    "script_type": "mount",
     "script_content": "#!/bin/bash\n...",
+    "language": "bash",
     "config": {
       "paths": "/data,/mnt/models"
     },
+    "version": "1.0.0",
     "hash": "abc123..."
   }
 ]
@@ -712,30 +713,32 @@ Development:
 
 ### 예시 3: 커스텀 체크 (마운트 포인트)
 
-**CheckTemplate**:
+**ScriptTemplate 생성**:
 ```bash
-POST /api/v1/check-templates
+POST /api/v1/script-templates
 {
   "name": "mount-check",
-  "check_type": "mount",
-  "script_content": "#!/bin/bash\nPATHS=\"$1\"\nfor path in ${PATHS//,/ }; do\n  if mountpoint -q \"$path\"; then\n    echo '{\"name\":\"mount_status\",\"value\":1,\"labels\":{\"path\":\"'$path'\"}}'\n  else\n    echo '{\"name\":\"mount_status\",\"value\":0,\"labels\":{\"path\":\"'$path'\"}}'\n  fi\ndone",
+  "script_type": "mount",
+  "script_content": "#!/bin/bash\nPATHS=\"$1\"\nfor path in ${PATHS//,/ }; do\n  if mountpoint -q \"$path\"; then\n    echo \"mount_status{path=\\\"$path\\\"} 1\"\n  else\n    echo \"mount_status{path=\\\"$path\\\"} 0\"\n  fi\ndone",
   "language": "bash",
   "default_config": {
     "paths": "/data"
-  }
+  },
+  "version": "1.0.0"
 }
 ```
 
-**CheckInstance (ML Training 그룹)**:
+**ScriptPolicy (ML Training 그룹)**:
 ```bash
-POST /api/v1/check-instances
+POST /api/v1/script-policies
 {
   "template_id": "mount-check-template-id",
   "scope": "group",
   "group_id": "ml-training-group",
   "config": {
     "paths": "/data,/mnt/models,/mnt/datasets"
-  }
+  },
+  "is_active": true
 }
 ```
 
@@ -807,9 +810,9 @@ Prometheus → Rules 평가 → Alert 발생 → [알림 없음]
 
 **AAMI 체크 시스템** (동적 접근):
 - Shell/Python 스크립트
-- JSON 출력 → Prometheus 형식 변환
+- Prometheus 텍스트 형식으로 직접 출력
 - Node Exporter textfile collector
-- CheckInstance를 통한 쉬운 그룹별 커스터마이징
+- ScriptPolicy를 통한 쉬운 그룹별 커스터마이징
 - Config Server API를 통한 동적 배포
 
 두 경로 모두 결국 Prometheus → Alertmanager를 거칩니다.
