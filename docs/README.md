@@ -8,6 +8,7 @@ This directory contains comprehensive documentation for the AAMI project.
 docs/
 ├── en/                            # English documentation
 │   ├── API.md                     # API documentation
+│   ├── ALERTING-SYSTEM.md         # Alerting system architecture
 │   ├── CHECK-MANAGEMENT.md        # Check management guide
 │   ├── CLOUD-INIT.md              # Cloud-init integration guide
 │   ├── DEVELOPMENT.md             # Development guide
@@ -24,6 +25,7 @@ docs/
 - **QUICKSTART.md** - Quick start guide
 - **DEVELOPMENT.md** - Development environment setup and guidelines
 - **API.md** - API documentation and examples
+- **ALERTING-SYSTEM.md** - Alerting system architecture and design
 - **CHECK-MANAGEMENT.md** - Check system management
 - **NODE-REGISTRATION.md** - Node registration process
 - **CLOUD-INIT.md** - Cloud-init integration guide
