@@ -2,13 +2,10 @@ package domain
 
 import "time"
 
-// Group represents a hierarchical organizational unit
+// Group represents an organizational unit for targets
 type Group struct {
 	ID           string            `json:"id"`
 	Name         string            `json:"name"`
-	ParentID     *string           `json:"parent_id,omitempty"`
-	Parent       *Group            `json:"-"`
-	Children     []Group           `json:"-"`
 	Description  string            `json:"description"`
 	Priority     int               `json:"priority"`
 	IsDefaultOwn bool              `json:"is_default_own"`
@@ -16,11 +13,6 @@ type Group struct {
 	DeletedAt    *time.Time        `json:"deleted_at,omitempty"`
 	CreatedAt    time.Time         `json:"created_at"`
 	UpdatedAt    time.Time         `json:"updated_at"`
-}
-
-// IsRoot returns true if this group has no parent
-func (g *Group) IsRoot() bool {
-	return g.ParentID == nil
 }
 
 // GetPriority returns the priority for this group

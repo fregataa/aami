@@ -25,22 +25,6 @@ func NewGroupService(groupRepo repository.GroupRepository) *GroupService {
 
 // Create creates a new group
 func (s *GroupService) Create(ctx context.Context, act action.CreateGroup) (action.GroupResult, error) {
-	// Validate parent exists if specified
-	if act.ParentID != nil {
-		_, err := s.groupRepo.GetByID(ctx, *act.ParentID)
-		if err != nil {
-			if errors.Is(err, domainerrors.ErrNotFound) {
-				return action.GroupResult{}, domainerrors.ErrForeignKeyViolation
-			}
-			return action.GroupResult{}, err
-		}
-
-		// Check for circular references
-		if err := s.checkCircularReference(ctx, *act.ParentID, ""); err != nil {
-			return action.GroupResult{}, err
-		}
-	}
-
 	// Set default priority if not specified
 	priority := act.Priority
 	if priority == 0 {
@@ -56,7 +40,6 @@ func (s *GroupService) Create(ctx context.Context, act action.CreateGroup) (acti
 	group := &domain.Group{
 		ID:          uuid.New().String(),
 		Name:        act.Name,
-		ParentID:    act.ParentID,
 		Description: act.Description,
 		Priority:    priority,
 		Metadata:    metadata,
@@ -97,24 +80,6 @@ func (s *GroupService) Update(ctx context.Context, id string, act action.UpdateG
 		group.Name = *act.Name
 	}
 
-	if act.ParentID != nil {
-		// Validate parent exists
-		_, err := s.groupRepo.GetByID(ctx, *act.ParentID)
-		if err != nil {
-			if errors.Is(err, domainerrors.ErrNotFound) {
-				return action.GroupResult{}, domainerrors.ErrForeignKeyViolation
-			}
-			return action.GroupResult{}, err
-		}
-
-		// Check for circular references
-		if err := s.checkCircularReference(ctx, *act.ParentID, id); err != nil {
-			return action.GroupResult{}, err
-		}
-
-		group.ParentID = act.ParentID
-	}
-
 	if act.Description != nil {
 		group.Description = *act.Description
 	}
@@ -146,15 +111,6 @@ func (s *GroupService) Delete(ctx context.Context, id string) error {
 		return err
 	}
 
-	// Check if group has children
-	children, err := s.groupRepo.GetChildren(ctx, id)
-	if err != nil {
-		return err
-	}
-	if len(children) > 0 {
-		return domainerrors.ErrInUse
-	}
-
 	return s.groupRepo.Delete(ctx, id)
 }
 
@@ -177,53 +133,4 @@ func (s *GroupService) List(ctx context.Context, pagination action.Pagination) (
 
 	results := action.NewGroupResultList(groups)
 	return action.NewListResult(results, pagination, total), nil
-}
-
-// GetChildren retrieves child groups of a parent group
-func (s *GroupService) GetChildren(ctx context.Context, parentID string) ([]action.GroupResult, error) {
-	// Verify parent exists
-	if _, err := s.GetByID(ctx, parentID); err != nil {
-		return nil, err
-	}
-	groups, err := s.groupRepo.GetChildren(ctx, parentID)
-	if err != nil {
-		return nil, err
-	}
-	return action.NewGroupResultList(groups), nil
-}
-
-// GetAncestors retrieves all ancestors of a group
-func (s *GroupService) GetAncestors(ctx context.Context, id string) ([]action.GroupResult, error) {
-	// Verify group exists
-	if _, err := s.GetByID(ctx, id); err != nil {
-		return nil, err
-	}
-	groups, err := s.groupRepo.GetAncestors(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	return action.NewGroupResultList(groups), nil
-}
-
-// checkCircularReference checks if setting parentID would create a circular reference
-func (s *GroupService) checkCircularReference(ctx context.Context, parentID, currentID string) error {
-	// If we're setting the parent to be the current group itself
-	if parentID == currentID {
-		return domainerrors.ErrCircularReference
-	}
-
-	// Get all ancestors of the proposed parent
-	ancestors, err := s.groupRepo.GetAncestors(ctx, parentID)
-	if err != nil {
-		return err
-	}
-
-	// Check if any ancestor is the current group (would create a cycle)
-	for _, ancestor := range ancestors {
-		if ancestor.ID == currentID {
-			return domainerrors.ErrCircularReference
-		}
-	}
-
-	return nil
 }

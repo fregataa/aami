@@ -13,7 +13,6 @@ import (
 // CreateGroup represents the action to create a group
 type CreateGroup struct {
 	Name        string
-	ParentID    *string
 	Description string
 	Priority    int
 	Metadata    map[string]string
@@ -23,7 +22,6 @@ type CreateGroup struct {
 // nil fields mean "do not update"
 type UpdateGroup struct {
 	Name        *string
-	ParentID    *string
 	Description *string
 	Priority    *int
 	Metadata    map[string]string
@@ -37,7 +35,6 @@ type UpdateGroup struct {
 type GroupResult struct {
 	ID           string
 	Name         string
-	ParentID     *string
 	Description  string
 	Priority     int
 	IsDefaultOwn bool
@@ -50,7 +47,6 @@ type GroupResult struct {
 func (r *GroupResult) FromDomain(g *domain.Group) {
 	r.ID = g.ID
 	r.Name = g.Name
-	r.ParentID = g.ParentID
 	r.Description = g.Description
 	r.Priority = g.Priority
 	r.IsDefaultOwn = g.IsDefaultOwn

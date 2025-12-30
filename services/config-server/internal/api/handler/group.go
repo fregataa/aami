@@ -130,29 +130,3 @@ func (h *GroupHandler) List(c *gin.Context) {
 
 	respondList(c, dto.ToGroupResponseList(listResult.Items), listResult.Total, pagination)
 }
-
-// GetChildren handles GET /groups/:id/children
-func (h *GroupHandler) GetChildren(c *gin.Context) {
-	id := c.Param("id")
-
-	results, err := h.groupService.GetChildren(c.Request.Context(), id)
-	if err != nil {
-		respondError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, dto.ToGroupResponseList(results))
-}
-
-// GetAncestors handles GET /groups/:id/ancestors
-func (h *GroupHandler) GetAncestors(c *gin.Context) {
-	id := c.Param("id")
-
-	ancestors, err := h.groupService.GetAncestors(c.Request.Context(), id)
-	if err != nil {
-		respondError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, dto.ToGroupResponseList(ancestors))
-}

@@ -487,7 +487,7 @@ func (s *AlertRuleService) regenerateAndReload(ctx context.Context, groupID stri
 }
 
 // GetEffectiveRulesByTargetID retrieves all effective alert rules for a target
-// considering group hierarchy and rule priority
+// considering group membership and rule priority
 func (s *AlertRuleService) GetEffectiveRulesByTargetID(ctx context.Context, targetID string) (*domain.EffectiveAlertRulesResult, error) {
 	if s.targetRepo == nil {
 		return nil, domainerrors.NewValidationError("service", "target repository not configured")
@@ -512,64 +512,48 @@ func (s *AlertRuleService) GetEffectiveRulesByTargetID(ctx context.Context, targ
 	// Map to track effective rules by name (for deduplication)
 	effectiveRulesMap := make(map[string]domain.EffectiveAlertRule)
 
-	// Process each group the target belongs to
+	// Process each group the target belongs to (sorted by priority)
+	// Higher priority groups override lower priority rules with the same name
 	for _, group := range target.Groups {
-		// Get ancestors for this group (from root to leaf)
-		ancestors, err := s.groupRepo.GetAncestors(ctx, group.ID)
-		if err != nil && !errors.Is(err, domainerrors.ErrNotFound) {
+		rules, err := s.ruleRepo.GetByGroupID(ctx, group.ID)
+		if err != nil {
 			return nil, err
 		}
 
-		// Build hierarchy: ancestors first (root to parent), then current group
-		// Ancestors are returned in priority DESC order, so we need to reverse
-		hierarchy := make([]domain.Group, 0, len(ancestors)+1)
-		for i := len(ancestors) - 1; i >= 0; i-- {
-			hierarchy = append(hierarchy, ancestors[i])
-		}
-		hierarchy = append(hierarchy, group)
+		for _, rule := range rules {
+			if !rule.Enabled || rule.DeletedAt != nil {
+				continue
+			}
 
-		// Process rules from root to leaf (child overrides parent)
-		for _, g := range hierarchy {
-			rules, err := s.ruleRepo.GetByGroupID(ctx, g.ID)
+			// Render the query
+			renderedQuery, err := rule.RenderQuery()
 			if err != nil {
-				return nil, err
+				slog.Warn("Failed to render query for rule",
+					"rule_id", rule.ID, "rule_name", rule.Name, "error", err)
+				renderedQuery = rule.QueryTemplate // Fallback to template
 			}
 
-			for _, rule := range rules {
-				if !rule.Enabled || rule.DeletedAt != nil {
-					continue
-				}
+			// Create a copy of the group for source tracking
+			sourceGroup := group
 
-				// Render the query
-				renderedQuery, err := rule.RenderQuery()
-				if err != nil {
-					slog.Warn("Failed to render query for rule",
-						"rule_id", rule.ID, "rule_name", rule.Name, "error", err)
-					renderedQuery = rule.QueryTemplate // Fallback to template
-				}
-
-				// Create a copy of the group for source tracking
-				sourceGroup := g
-
-				effectiveRule := domain.EffectiveAlertRule{
-					AlertRule:     rule,
-					RenderedQuery: renderedQuery,
-					SourceGroup:   &sourceGroup,
-				}
-
-				// Check if we already have a rule with the same name
-				if existing, exists := effectiveRulesMap[rule.Name]; exists {
-					// Child group overrides parent group based on merge strategy
-					if rule.MergeStrategy == "merge" {
-						// Merge configs: existing (parent) + new (child)
-						mergedConfig := existing.Config.Merge(rule.Config)
-						effectiveRule.Config = mergedConfig
-					}
-					// For "override" strategy, just replace entirely
-				}
-
-				effectiveRulesMap[rule.Name] = effectiveRule
+			effectiveRule := domain.EffectiveAlertRule{
+				AlertRule:     rule,
+				RenderedQuery: renderedQuery,
+				SourceGroup:   &sourceGroup,
 			}
+
+			// Check if we already have a rule with the same name
+			if existing, exists := effectiveRulesMap[rule.Name]; exists {
+				// Higher priority rule wins, or merge based on strategy
+				if rule.MergeStrategy == "merge" {
+					// Merge configs: existing + new
+					mergedConfig := existing.Config.Merge(rule.Config)
+					effectiveRule.Config = mergedConfig
+				}
+				// For "override" strategy, just replace entirely
+			}
+
+			effectiveRulesMap[rule.Name] = effectiveRule
 		}
 	}
 

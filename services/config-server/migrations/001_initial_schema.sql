@@ -10,11 +10,10 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- TABLES
 -- ============================================================================
 
--- Groups table: Hierarchical organization (without namespace)
+-- Groups table: Flat organization (no hierarchy)
 CREATE TABLE IF NOT EXISTS groups (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
-    parent_id UUID REFERENCES groups(id) ON DELETE CASCADE,
     description TEXT,
     priority INTEGER NOT NULL DEFAULT 100,
     is_default_own BOOLEAN NOT NULL DEFAULT false,
@@ -151,7 +150,6 @@ CREATE TABLE IF NOT EXISTS bootstrap_tokens (
 -- ============================================================================
 
 -- Groups indexes
-CREATE INDEX IF NOT EXISTS idx_groups_parent ON groups(parent_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_groups_name ON groups(name) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_groups_is_default_own ON groups(is_default_own) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_groups_deleted_at ON groups(deleted_at);

@@ -105,18 +105,6 @@ func (m *mockGroupRepo) List(ctx context.Context, page, pageSize int) ([]domain.
 	return nil, 0, nil
 }
 
-func (m *mockGroupRepo) GetChildren(ctx context.Context, parentID string) ([]domain.Group, error) {
-	return nil, nil
-}
-
-func (m *mockGroupRepo) GetAncestors(ctx context.Context, groupID string) ([]domain.Group, error) {
-	return nil, nil
-}
-
-func (m *mockGroupRepo) CountByNamespaceID(ctx context.Context, namespaceID string) (int64, error) {
-	return 0, nil
-}
-
 // Helper function to create test alert rules
 func createTestAlertRule(groupID string, name string, enabled bool) domain.AlertRule {
 	return domain.AlertRule{

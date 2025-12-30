@@ -31,11 +31,11 @@ The Config Server follows a Clean Architecture pattern with clear separation of 
 
 ## Features
 
-- **Hierarchical Group Management**: Three independent namespaces (infrastructure, logical, environment) with unlimited depth
+- **Flat Group Management**: Organize targets with flat groups (no hierarchy)
 - **Target Registration**: Register and manage monitored servers/nodes with multiple group memberships
 - **Exporter Configuration**: Configure metric exporters (Node Exporter, DCGM Exporter, custom)
-- **Alert Management**: Template-based alert rules with policy inheritance
-- **Check Settings**: Hierarchical configuration settings with merge strategies
+- **Alert Management**: Template-based alert rules with group-level policies
+- **Script Policies**: Configurable script policies with merge strategies
 - **Bootstrap Tokens**: Secure auto-registration tokens for new nodes
 - **Service Discovery**: Generate Prometheus SD configuration
 
@@ -143,22 +143,22 @@ make run
 
 ### Core Tables
 
-- **groups**: Hierarchical organization with three namespaces
+- **groups**: Flat organizational units for targets
 - **targets**: Monitored servers with status tracking
 - **exporters**: Metric collector configurations
 - **alert_templates**: Reusable alert definitions
 - **alert_rules**: Group-specific alert configurations
-- **check_templates**: Reusable check script definitions
-- **check_instances**: Scope-specific check template applications (Global/Namespace/Group)
+- **script_templates**: Reusable script definitions
+- **script_policies**: Group-level script configurations
 - **bootstrap_tokens**: Auto-registration tokens
 
 ### Relationships
 
-- Targets belong to one primary group and multiple secondary groups
+- Targets can belong to multiple groups (M:N via target_groups)
 - Exporters belong to targets
 - Alert rules reference templates and belong to groups
-- Check instances reference templates and can be scoped to Global/Namespace/Group
-- Bootstrap tokens reference a default group
+- Script policies reference templates and can be scoped to global or group level
+- Bootstrap tokens are used for auto-registration
 
 ## API Endpoints
 
@@ -170,8 +170,6 @@ POST   /api/v1/groups                  # Create a group
 GET    /api/v1/groups/:id              # Get group by ID
 PUT    /api/v1/groups/:id              # Update group
 DELETE /api/v1/groups/:id              # Delete group
-GET    /api/v1/groups/:id/children     # Get child groups
-GET    /api/v1/groups/:id/ancestors    # Get ancestor groups
 ```
 
 ### Targets

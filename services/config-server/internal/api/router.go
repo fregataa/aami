@@ -103,8 +103,6 @@ func (s *Server) SetupRouter() *gin.Engine {
 			groups.POST("/delete", groupHandler.DeleteResource)
 			groups.POST("/purge", groupHandler.PurgeResource)
 			groups.POST("/restore", groupHandler.RestoreResource)
-			groups.GET("/:id/children", groupHandler.GetChildren)
-			groups.GET("/:id/ancestors", groupHandler.GetAncestors)
 		}
 
 		// Target routes

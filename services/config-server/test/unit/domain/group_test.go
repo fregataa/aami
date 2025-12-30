@@ -8,35 +8,6 @@ import (
 	"github.com/fregataa/aami/config-server/test/testutil"
 )
 
-func TestGroup_IsRoot(t *testing.T) {
-	tests := []struct {
-		name     string
-		parentID *string
-		want     bool
-	}{
-		{
-			name:     "root group has no parent",
-			parentID: nil,
-			want:     true,
-		},
-		{
-			name:     "child group has parent",
-			parentID: testutil.StringPtr("parent-id"),
-			want:     false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			group := &domain.Group{
-				ParentID: tt.parentID,
-			}
-			got := group.IsRoot()
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
 func TestGroup_GetPriority(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -77,17 +48,4 @@ func TestGroup_Creation(t *testing.T) {
 	assert.NotNil(t, group.Metadata)
 	assert.NotZero(t, group.CreatedAt)
 	assert.NotZero(t, group.UpdatedAt)
-	assert.Nil(t, group.ParentID) // Root group
-}
-
-func TestGroup_CreationWithParent(t *testing.T) {
-	// Test creating a child group
-	parentID := "parent-group-id"
-	group := testutil.NewTestGroupWithParent("us-west", parentID)
-
-	assert.NotEmpty(t, group.ID)
-	assert.Equal(t, "us-west", group.Name)
-	assert.NotNil(t, group.ParentID)
-	assert.Equal(t, parentID, *group.ParentID)
-	assert.False(t, group.IsRoot())
 }

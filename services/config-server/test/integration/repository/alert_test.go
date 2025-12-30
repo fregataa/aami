@@ -394,33 +394,33 @@ func TestAlertRuleRepository_MergeStrategy(t *testing.T) {
 	ruleRepo := repoManager.AlertRule
 	ctx := context.Background()
 
-	// Create parent and child groups
-	parent := testutil.NewTestGroup("parent")
-	require.NoError(t, groupRepo.Create(ctx, parent))
+	// Create two groups
+	group1 := testutil.NewTestGroup("group1")
+	require.NoError(t, groupRepo.Create(ctx, group1))
 
-	child := testutil.NewTestGroupWithParent("child", parent.ID)
-	require.NoError(t, groupRepo.Create(ctx, child))
+	group2 := testutil.NewTestGroup("group2")
+	require.NoError(t, groupRepo.Create(ctx, group2))
 
 	template := testutil.NewTestAlertTemplate("cpu-alert", domain.AlertSeverityWarning)
 	require.NoError(t, templateRepo.Create(ctx, template))
 
-	// Create parent rule
-	parentRule := testutil.NewTestAlertRule(parent.ID, template.ID)
-	parentRule.Config.TemplateVars["threshold"] = 80
-	parentRule.Config.TemplateVars["duration"] = "5m"
-	parentRule.MergeStrategy = "merge"
-	require.NoError(t, ruleRepo.Create(ctx, parentRule))
+	// Create base rule with merge strategy
+	baseRule := testutil.NewTestAlertRule(group1.ID, template.ID)
+	baseRule.Config.TemplateVars["threshold"] = 80
+	baseRule.Config.TemplateVars["duration"] = "5m"
+	baseRule.MergeStrategy = "merge"
+	require.NoError(t, ruleRepo.Create(ctx, baseRule))
 
-	// Create child rule with merge strategy
-	childRule := testutil.NewTestAlertRule(child.ID, template.ID)
-	childRule.Config.TemplateVars["threshold"] = 90
-	childRule.MergeStrategy = "merge"
-	require.NoError(t, ruleRepo.Create(ctx, childRule))
+	// Create override rule with merge strategy
+	overrideRule := testutil.NewTestAlertRule(group2.ID, template.ID)
+	overrideRule.Config.TemplateVars["threshold"] = 90
+	overrideRule.MergeStrategy = "merge"
+	require.NoError(t, ruleRepo.Create(ctx, overrideRule))
 
-	// Test MergeWith method
-	merged := childRule.MergeWith(parentRule)
-	assert.Equal(t, "5m", merged.Config.TemplateVars["duration"])       // From parent
-	assert.Equal(t, float64(90), merged.Config.TemplateVars["threshold"]) // From child (overrides)
+	// Test MergeWith method - overrideRule merges with baseRule
+	merged := overrideRule.MergeWith(baseRule)
+	assert.Equal(t, "5m", merged.Config.TemplateVars["duration"])       // From base
+	assert.Equal(t, float64(90), merged.Config.TemplateVars["threshold"]) // From override
 }
 
 func TestAlertRuleRepository_List(t *testing.T) {

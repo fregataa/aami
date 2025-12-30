@@ -14,9 +14,6 @@ import (
 type GroupModel struct {
 	ID           string         `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 	Name         string         `gorm:"not null;index"`
-	ParentID     *string        `gorm:"type:uuid;index"`
-	Parent       *GroupModel    `gorm:"foreignKey:ParentID"`
-	Children     []GroupModel   `gorm:"foreignKey:ParentID"`
 	Description  string         `gorm:"type:text"`
 	Priority     int            `gorm:"not null;default:100"`
 	IsDefaultOwn bool           `gorm:"not null;default:false;index"`
@@ -66,7 +63,6 @@ func ToGroupModel(g *domain.Group) *GroupModel {
 	model := &GroupModel{
 		ID:           g.ID,
 		Name:         g.Name,
-		ParentID:     g.ParentID,
 		Description:  g.Description,
 		Priority:     g.Priority,
 		IsDefaultOwn: g.IsDefaultOwn,
@@ -93,7 +89,6 @@ func (m *GroupModel) ToDomain() *domain.Group {
 	g := &domain.Group{
 		ID:           m.ID,
 		Name:         m.Name,
-		ParentID:     m.ParentID,
 		Description:  m.Description,
 		Priority:     m.Priority,
 		IsDefaultOwn: m.IsDefaultOwn,
@@ -104,20 +99,6 @@ func (m *GroupModel) ToDomain() *domain.Group {
 	if m.DeletedAt.Valid {
 		deletedAt := m.DeletedAt.Time
 		g.DeletedAt = &deletedAt
-	}
-
-	// Convert Parent if loaded
-	if m.Parent != nil {
-		parent := m.Parent.ToDomain()
-		g.Parent = parent
-	}
-
-	// Convert Children if loaded
-	if len(m.Children) > 0 {
-		g.Children = make([]domain.Group, len(m.Children))
-		for i, child := range m.Children {
-			g.Children[i] = *child.ToDomain()
-		}
 	}
 
 	return g
@@ -132,8 +113,6 @@ type GroupRepository interface {
 	Purge(ctx context.Context, id string) error   // Hard delete (permanent removal)
 	Restore(ctx context.Context, id string) error // Restore soft-deleted record
 	List(ctx context.Context, page, limit int) ([]domain.Group, int, error)
-	GetChildren(ctx context.Context, parentID string) ([]domain.Group, error)
-	GetAncestors(ctx context.Context, groupID string) ([]domain.Group, error)
 }
 
 // groupRepository implements GroupRepository interface using GORM
@@ -160,8 +139,6 @@ func (r *groupRepository) Create(ctx context.Context, group *domain.Group) error
 func (r *groupRepository) GetByID(ctx context.Context, id string) (*domain.Group, error) {
 	var model GroupModel
 	err := r.db.WithContext(ctx).
-		Preload("Parent").
-		Preload("Children").
 		First(&model, "id = ?", id).Error
 	if err != nil {
 		return nil, fromGormError(err)
@@ -226,53 +203,4 @@ func (r *groupRepository) List(ctx context.Context, page, limit int) ([]domain.G
 	}
 
 	return groups, int(total), nil
-}
-
-// GetChildren retrieves all direct children of a group
-func (r *groupRepository) GetChildren(ctx context.Context, parentID string) ([]domain.Group, error) {
-	var models []GroupModel
-	err := r.db.WithContext(ctx).
-		Where("parent_id = ?", parentID).
-		Order("name ASC").
-		Find(&models).Error
-	if err != nil {
-		return nil, fromGormError(err)
-	}
-
-	children := make([]domain.Group, len(models))
-	for i, model := range models {
-		children[i] = *model.ToDomain()
-	}
-	return children, nil
-}
-
-// GetAncestors retrieves all ancestors of a group (parent, grandparent, etc.)
-func (r *groupRepository) GetAncestors(ctx context.Context, groupID string) ([]domain.Group, error) {
-	var models []GroupModel
-
-	// Recursive CTE to get all ancestors
-	query := `
-		WITH RECURSIVE ancestors AS (
-			SELECT id, name, parent_id, description, priority, metadata, created_at, updated_at
-			FROM groups
-			WHERE id = ?
-			UNION ALL
-			SELECT g.id, g.name, g.parent_id, g.description, g.priority, g.metadata, g.created_at, g.updated_at
-			FROM groups g
-			INNER JOIN ancestors a ON g.id = a.parent_id
-		)
-		SELECT * FROM ancestors WHERE id != ?
-		ORDER BY priority DESC
-	`
-
-	err := r.db.WithContext(ctx).Raw(query, groupID, groupID).Scan(&models).Error
-	if err != nil {
-		return nil, fromGormError(err)
-	}
-
-	ancestors := make([]domain.Group, len(models))
-	for i, model := range models {
-		ancestors[i] = *model.ToDomain()
-	}
-	return ancestors, nil
 }

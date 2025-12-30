@@ -21,13 +21,6 @@ func NewTestGroup(name string) *domain.Group {
 	}
 }
 
-// NewTestGroupWithParent creates a test group with a parent
-func NewTestGroupWithParent(name string, parentID string) *domain.Group {
-	group := NewTestGroup(name)
-	group.ParentID = &parentID
-	return group
-}
-
 // NewTestTarget creates a test target with default values
 func NewTestTarget(hostname string, ipAddress string, groups []domain.Group) *domain.Target {
 	return &domain.Target{
