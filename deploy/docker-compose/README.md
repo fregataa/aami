@@ -12,7 +12,8 @@ The stack includes the following services:
 | **Grafana** | 3000 | Visualization and dashboarding |
 | **Alertmanager** | 9093 | Alert management and routing |
 | **PostgreSQL** | 5432 | Metadata storage for Config Server |
-| **Redis** | 6379 | Caching layer for Config Server |
+| **Config Server** | 8080 | Configuration management REST API |
+| **Config Server UI** | 3001 | Web-based management interface |
 
 ## Prerequisites
 
@@ -55,6 +56,8 @@ Once started, access the services at:
   - Default credentials: `admin` / `admin`
   - You'll be prompted to change the password on first login
 - **Alertmanager**: http://localhost:9093
+- **Config Server API**: http://localhost:8080
+- **Config Server UI**: http://localhost:3001
 
 ### 4. Verify Installation
 
@@ -67,6 +70,12 @@ curl http://localhost:3000/api/health
 
 # Check Alertmanager health
 curl http://localhost:9093/-/healthy
+
+# Check Config Server health
+curl http://localhost:8080/health/live
+
+# Check Config Server UI health
+curl http://localhost:3001/
 ```
 
 ## Configuration
@@ -81,7 +90,8 @@ PROMETHEUS_PORT=9090
 GRAFANA_PORT=3000
 ALERTMANAGER_PORT=9093
 POSTGRES_PORT=5432
-REDIS_PORT=6379
+CONFIG_SERVER_PORT=8080
+CONFIG_UI_PORT=3001
 
 # Grafana credentials
 GRAFANA_ADMIN_USER=admin
@@ -196,7 +206,6 @@ Data is persisted in Docker volumes:
 - `grafana-data` - Grafana dashboards and settings
 - `alertmanager-data` - Alertmanager state and silences
 - `postgres-data` - PostgreSQL database files
-- `redis-data` - Redis persistence files
 
 ### Backup Volumes
 
@@ -403,7 +412,7 @@ command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
 - [Configure targets](../../docs/en/QUICKSTART.md#registering-targets)
 - [Create custom dashboards](../../docs/en/QUICKSTART.md#viewing-metrics)
 - [Set up alert rules](../../docs/en/QUICKSTART.md#setting-up-alerts)
-- [Deploy Config Server](../../services/config-server/README.md)
+- Access Config Server UI at http://localhost:3001 to manage monitoring configuration
 
 ## Additional Resources
 
