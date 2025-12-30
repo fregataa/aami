@@ -544,6 +544,15 @@ grep aami /var/log/syslog
 
 ## 대량 배포 가이드
 
+### 환경별 배포 방식
+
+| 환경 | 도구 | 관리자 직접 SSH |
+|------|------|----------------|
+| 소규모 (1-10대) | 직접 SSH | 필요 |
+| 중규모 (10-100대) | Ansible | 불필요 |
+| 대규모 (100대 이상) | Ansible/Puppet/PXE | 불필요 |
+| 클라우드 | Cloud-init/Terraform | 불필요 |
+
 ### 시나리오: 100대의 GPU 노드 배포
 
 #### 1. 준비 단계
@@ -551,19 +560,18 @@ grep aami /var/log/syslog
 ```bash
 # 1. 그룹 생성
 curl -X POST http://config-server:8080/api/v1/groups \
-  -d '{"name": "ml-cluster-batch-01", "namespace": "logical"}'
+  -d '{"name": "ml-cluster-batch-01"}'
 
 # 2. Bootstrap token 생성 (max_uses=100)
 curl -X POST http://config-server:8080/api/v1/bootstrap-tokens \
   -d '{
     "name": "batch-01-token",
-    "default_group_id": "GROUP_ID",
     "max_uses": 100,
     "expires_at": "2024-12-31T23:59:59Z"
   }'
 ```
 
-#### 2. Terraform 배포
+#### 2a. 클라우드 배포 (Terraform)
 
 ```bash
 # Terraform 변수 설정
@@ -574,6 +582,51 @@ export TF_VAR_node_count=100
 terraform init
 terraform plan
 terraform apply
+```
+
+#### 2b. 온프레미스 배포 (Ansible)
+
+대규모 온프레미스 환경에서는 직접 SSH 접속 대신 구성 관리 도구를 사용합니다.
+
+**인벤토리 파일 (inventory.ini)**:
+```ini
+[gpu_nodes]
+gpu-node-[001:100].example.com
+```
+
+**플레이북 (aami-bootstrap.yml)**:
+```yaml
+- hosts: gpu_nodes
+  become: yes
+  vars:
+    bootstrap_token: "aami_bootstrap_xxxxx..."
+    config_server: "http://config-server:8080"
+  tasks:
+    - name: Run AAMI bootstrap
+      shell: |
+        curl -fsSL {{ config_server }}/bootstrap.sh | \
+          bash -s -- --token {{ bootstrap_token }} --server {{ config_server }}
+      args:
+        creates: /etc/systemd/system/node_exporter.service
+```
+
+**실행**:
+```bash
+# 100대 노드에 병렬 배포
+ansible-playbook -i inventory.ini aami-bootstrap.yml -f 50
+```
+
+#### 2c. 온프레미스 배포 (PXE/Kickstart)
+
+신규 서버 프로비저닝 시, 설치 후 스크립트에 bootstrap을 포함합니다:
+
+**Kickstart 스니펫**:
+```bash
+%post
+# AAMI Bootstrap
+curl -fsSL http://config-server:8080/bootstrap.sh | \
+  bash -s -- --token aami_bootstrap_xxxxx --server http://config-server:8080
+%end
 ```
 
 #### 3. 배포 진행 모니터링

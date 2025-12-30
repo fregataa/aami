@@ -544,6 +544,15 @@ grep aami /var/log/syslog
 
 ## Bulk Deployment Guide
 
+### Deployment Methods by Environment
+
+| Environment | Tool | Admin Direct SSH |
+|-------------|------|------------------|
+| Small (1-10 nodes) | Direct SSH | Yes |
+| Medium (10-100 nodes) | Ansible | No |
+| Large (100+ nodes) | Ansible/Puppet/PXE | No |
+| Cloud | Cloud-init/Terraform | No |
+
 ### Scenario: Deploy 100 GPU Nodes
 
 #### 1. Preparation
@@ -551,19 +560,18 @@ grep aami /var/log/syslog
 ```bash
 # 1. Create group
 curl -X POST http://config-server:8080/api/v1/groups \
-  -d '{"name": "ml-cluster-batch-01", "namespace": "logical"}'
+  -d '{"name": "ml-cluster-batch-01"}'
 
 # 2. Create bootstrap token (max_uses=100)
 curl -X POST http://config-server:8080/api/v1/bootstrap-tokens \
   -d '{
     "name": "batch-01-token",
-    "default_group_id": "GROUP_ID",
     "max_uses": 100,
     "expires_at": "2024-12-31T23:59:59Z"
   }'
 ```
 
-#### 2. Terraform Deployment
+#### 2a. Cloud Deployment (Terraform)
 
 ```bash
 # Set Terraform variables
@@ -574,6 +582,51 @@ export TF_VAR_node_count=100
 terraform init
 terraform plan
 terraform apply
+```
+
+#### 2b. On-premises Deployment (Ansible)
+
+For large on-premises environments, use configuration management tools instead of direct SSH access.
+
+**Inventory file (inventory.ini)**:
+```ini
+[gpu_nodes]
+gpu-node-[001:100].example.com
+```
+
+**Playbook (aami-bootstrap.yml)**:
+```yaml
+- hosts: gpu_nodes
+  become: yes
+  vars:
+    bootstrap_token: "aami_bootstrap_xxxxx..."
+    config_server: "http://config-server:8080"
+  tasks:
+    - name: Run AAMI bootstrap
+      shell: |
+        curl -fsSL {{ config_server }}/bootstrap.sh | \
+          bash -s -- --token {{ bootstrap_token }} --server {{ config_server }}
+      args:
+        creates: /etc/systemd/system/node_exporter.service
+```
+
+**Execute**:
+```bash
+# Deploy to all 100 nodes in parallel
+ansible-playbook -i inventory.ini aami-bootstrap.yml -f 50
+```
+
+#### 2c. On-premises Deployment (PXE/Kickstart)
+
+For new server provisioning, include bootstrap in the post-installation script:
+
+**Kickstart snippet**:
+```bash
+%post
+# AAMI Bootstrap
+curl -fsSL http://config-server:8080/bootstrap.sh | \
+  bash -s -- --token aami_bootstrap_xxxxx --server http://config-server:8080
+%end
 ```
 
 #### 3. Monitor Deployment
