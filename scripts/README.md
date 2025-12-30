@@ -6,11 +6,48 @@ This directory contains utility scripts for deployment, maintenance, and automat
 
 ```
 scripts/
+├── preflight-check.sh  # Pre-installation system validation
 ├── node/               # Node agent installation scripts
 └── db/                 # Database management scripts
 ```
 
 ## Script Categories
+
+### Preflight Check Script
+
+- **Location**: `preflight-check.sh`
+- **Purpose**: Validate system requirements before AAMI installation
+
+The preflight check script verifies:
+- System requirements (CPU, RAM, disk space, OS version)
+- Software dependencies (Docker, curl, etc.)
+- Network connectivity (registries, Config Server)
+- Port availability (8080, 9090, 3000, etc.)
+- Permissions (root/sudo access)
+- Hardware detection (GPU for node mode)
+
+Example usage:
+```bash
+# Server mode check
+./preflight-check.sh --mode server
+
+# Node mode check with Config Server connectivity test
+./preflight-check.sh --mode node --server https://config.example.com
+
+# Auto-fix common issues
+./preflight-check.sh --mode server --fix
+
+# JSON output for CI/CD pipelines
+./preflight-check.sh --mode server --json
+```
+
+Options:
+- `--mode [server|node]` - Check mode (default: auto-detect)
+- `--server URL` - Config Server URL for connectivity test
+- `--fix` - Attempt to automatically fix issues
+- `--json` - Output results in JSON format
+- `--quiet` - Only show errors
+- `--verbose` - Show detailed information
 
 ### Node Scripts
 - **Location**: `node/`
@@ -18,10 +55,11 @@ scripts/
 
 Available scripts:
 - `install-node-exporter.sh` - Install Prometheus Node Exporter
-- `install-dcgm-exporter.sh` - Install NVIDIA DCGM Exporter
-- `install-all-smi.sh` - Install all-smi for multi-vendor GPU support
-- `bootstrap.sh` - One-line bootstrap script for auto-registration
-- `uninstall.sh` - Remove all monitoring agents
+- `dynamic-check.sh` - Execute dynamic checks from Config Server
+- `install-dcgm-exporter.sh` - Install NVIDIA DCGM Exporter (planned)
+- `install-all-smi.sh` - Install all-smi for multi-vendor GPU support (planned)
+- `bootstrap.sh` - One-line bootstrap script for auto-registration (planned)
+- `uninstall.sh` - Remove all monitoring agents (planned)
 
 Example usage:
 ```bash

@@ -22,6 +22,28 @@ Before you begin, ensure you have:
 - Network access to target nodes (for monitoring)
 - Basic understanding of Prometheus and Grafana
 
+### Pre-flight Validation (Recommended)
+
+You can validate system requirements before installation:
+
+```bash
+# After cloning the repository
+git clone https://github.com/fregataa/aami.git
+cd aami
+
+# Run the preflight check script
+./scripts/preflight-check.sh --mode server
+```
+
+This script checks:
+- System requirements (CPU, RAM, disk space)
+- Software dependencies (Docker, Docker Compose)
+- Network connectivity (Docker registries)
+- Port availability (8080, 9090, 3000, etc.)
+- Permissions (root/sudo)
+
+If issues are found, it provides guidance on how to resolve them.
+
 ## Installation
 
 ### Step 1: Clone the Repository

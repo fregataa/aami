@@ -22,6 +22,28 @@
 - 대상 노드에 대한 네트워크 액세스 (모니터링용)
 - Prometheus 및 Grafana에 대한 기본 이해
 
+### 사전 검증 (권장)
+
+설치 전에 시스템 요구사항을 검증할 수 있습니다:
+
+```bash
+# 저장소 클론 후
+git clone https://github.com/fregataa/aami.git
+cd aami
+
+# 사전 검증 스크립트 실행
+./scripts/preflight-check.sh --mode server
+```
+
+이 스크립트는 다음을 검사합니다:
+- 시스템 요구사항 (CPU, RAM, 디스크 공간)
+- 소프트웨어 의존성 (Docker, Docker Compose)
+- 네트워크 연결 (Docker 레지스트리)
+- 포트 가용성 (8080, 9090, 3000 등)
+- 권한 (root/sudo)
+
+문제가 발견되면 해결 방법을 안내합니다.
+
 ## 설치
 
 ### 1단계: 저장소 클론

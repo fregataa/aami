@@ -114,6 +114,26 @@ curl -X POST http://config-server:8080/api/v1/bootstrap-tokens \
 - Port 9400 (DCGM Exporter, if GPU present)
 - Prometheus → Node communication required
 
+### Pre-flight Validation (Recommended)
+
+You can validate system requirements before node registration:
+
+```bash
+# Download and run the script from AAMI repository
+curl -fsSL https://raw.githubusercontent.com/fregataa/aami/main/scripts/preflight-check.sh -o preflight-check.sh
+chmod +x preflight-check.sh
+
+# Run in node mode with Config Server connectivity test
+./preflight-check.sh --mode node --server http://config-server:8080
+```
+
+This script checks:
+- System requirements (CPU, RAM, disk space)
+- Software dependencies (curl, systemctl, tar)
+- Config Server connectivity
+- Port availability (9100, 9400)
+- GPU detection (NVIDIA, AMD)
+
 ## On-site Server Registration
 
 ### Scenario 1: Bootstrap Script (Semi-automated)
