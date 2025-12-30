@@ -40,9 +40,13 @@ func (h *BootstrapTokenHandler) Create(c *gin.Context) {
 
 // GetByID handles GET /bootstrap-tokens/:id
 func (h *BootstrapTokenHandler) GetByID(c *gin.Context) {
-	id := c.Param("id")
+	var uri dto.IDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("id", err.Error()))
+		return
+	}
 
-	result, err := h.tokenService.GetByID(c.Request.Context(), id)
+	result, err := h.tokenService.GetByID(c.Request.Context(), uri.ID)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -53,9 +57,13 @@ func (h *BootstrapTokenHandler) GetByID(c *gin.Context) {
 
 // GetByToken handles GET /bootstrap-tokens/token/:token
 func (h *BootstrapTokenHandler) GetByToken(c *gin.Context) {
-	tokenStr := c.Param("token")
+	var uri dto.TokenUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("token", err.Error()))
+		return
+	}
 
-	result, err := h.tokenService.GetByToken(c.Request.Context(), tokenStr)
+	result, err := h.tokenService.GetByToken(c.Request.Context(), uri.Token)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -106,7 +114,11 @@ func (h *BootstrapTokenHandler) RegisterNode(c *gin.Context) {
 
 // Update handles PUT /bootstrap-tokens/:id
 func (h *BootstrapTokenHandler) Update(c *gin.Context) {
-	id := c.Param("id")
+	var uri dto.IDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("id", err.Error()))
+		return
+	}
 
 	var req dto.UpdateBootstrapTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -114,7 +126,7 @@ func (h *BootstrapTokenHandler) Update(c *gin.Context) {
 		return
 	}
 
-	result, err := h.tokenService.Update(c.Request.Context(), id, req.ToAction())
+	result, err := h.tokenService.Update(c.Request.Context(), uri.ID, req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return

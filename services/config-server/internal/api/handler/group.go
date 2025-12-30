@@ -40,9 +40,13 @@ func (h *GroupHandler) Create(c *gin.Context) {
 
 // GetByID handles GET /groups/:id
 func (h *GroupHandler) GetByID(c *gin.Context) {
-	id := c.Param("id")
+	var uri dto.IDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("id", err.Error()))
+		return
+	}
 
-	result, err := h.groupService.GetByID(c.Request.Context(), id)
+	result, err := h.groupService.GetByID(c.Request.Context(), uri.ID)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -53,7 +57,11 @@ func (h *GroupHandler) GetByID(c *gin.Context) {
 
 // Update handles PUT /groups/:id
 func (h *GroupHandler) Update(c *gin.Context) {
-	id := c.Param("id")
+	var uri dto.IDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("id", err.Error()))
+		return
+	}
 
 	var req dto.UpdateGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -61,7 +69,7 @@ func (h *GroupHandler) Update(c *gin.Context) {
 		return
 	}
 
-	result, err := h.groupService.Update(c.Request.Context(), id, req.ToAction())
+	result, err := h.groupService.Update(c.Request.Context(), uri.ID, req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return

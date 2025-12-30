@@ -43,9 +43,13 @@ func (h *AlertTemplateHandler) Create(c *gin.Context) {
 
 // GetByID handles GET /alert-templates/:id
 func (h *AlertTemplateHandler) GetByID(c *gin.Context) {
-	id := c.Param("id")
+	var uri dto.IDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("id", err.Error()))
+		return
+	}
 
-	result, err := h.templateService.GetByID(c.Request.Context(), id)
+	result, err := h.templateService.GetByID(c.Request.Context(), uri.ID)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -56,7 +60,11 @@ func (h *AlertTemplateHandler) GetByID(c *gin.Context) {
 
 // Update handles PUT /alert-templates/:id
 func (h *AlertTemplateHandler) Update(c *gin.Context) {
-	id := c.Param("id")
+	var uri dto.IDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("id", err.Error()))
+		return
+	}
 
 	var req dto.UpdateAlertTemplateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -64,7 +72,7 @@ func (h *AlertTemplateHandler) Update(c *gin.Context) {
 		return
 	}
 
-	result, err := h.templateService.Update(c.Request.Context(), id, req.ToAction())
+	result, err := h.templateService.Update(c.Request.Context(), uri.ID, req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
@@ -136,8 +144,13 @@ func (h *AlertTemplateHandler) List(c *gin.Context) {
 
 // GetBySeverity handles GET /alert-templates/severity/:severity
 func (h *AlertTemplateHandler) GetBySeverity(c *gin.Context) {
-	severity := domain.AlertSeverity(c.Param("severity"))
+	var uri dto.SeverityUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("severity", err.Error()))
+		return
+	}
 
+	severity := domain.AlertSeverity(uri.Severity)
 	results, err := h.templateService.GetBySeverity(c.Request.Context(), severity)
 	if err != nil {
 		respondError(c, err)
@@ -200,9 +213,13 @@ func (h *AlertRuleHandler) Create(c *gin.Context) {
 
 // GetByID handles GET /alert-rules/:id
 func (h *AlertRuleHandler) GetByID(c *gin.Context) {
-	id := c.Param("id")
+	var uri dto.IDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("id", err.Error()))
+		return
+	}
 
-	result, err := h.ruleService.GetByID(c.Request.Context(), id)
+	result, err := h.ruleService.GetByID(c.Request.Context(), uri.ID)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -213,7 +230,11 @@ func (h *AlertRuleHandler) GetByID(c *gin.Context) {
 
 // Update handles PUT /alert-rules/:id
 func (h *AlertRuleHandler) Update(c *gin.Context) {
-	id := c.Param("id")
+	var uri dto.IDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("id", err.Error()))
+		return
+	}
 
 	var req dto.UpdateAlertRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -221,7 +242,7 @@ func (h *AlertRuleHandler) Update(c *gin.Context) {
 		return
 	}
 
-	result, err := h.ruleService.Update(c.Request.Context(), id, req.ToAction())
+	result, err := h.ruleService.Update(c.Request.Context(), uri.ID, req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
@@ -293,9 +314,13 @@ func (h *AlertRuleHandler) List(c *gin.Context) {
 
 // GetByGroupID handles GET /alert-rules/group/:group_id
 func (h *AlertRuleHandler) GetByGroupID(c *gin.Context) {
-	groupID := c.Param("group_id")
+	var uri dto.GroupIDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("group_id", err.Error()))
+		return
+	}
 
-	results, err := h.ruleService.GetByGroupID(c.Request.Context(), groupID)
+	results, err := h.ruleService.GetByGroupID(c.Request.Context(), uri.GroupID)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -306,9 +331,13 @@ func (h *AlertRuleHandler) GetByGroupID(c *gin.Context) {
 
 // GetByTemplateID handles GET /alert-rules/template/:template_id
 func (h *AlertRuleHandler) GetByTemplateID(c *gin.Context) {
-	templateID := c.Param("template_id")
+	var uri dto.TemplateIDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("template_id", err.Error()))
+		return
+	}
 
-	results, err := h.ruleService.GetByTemplateID(c.Request.Context(), templateID)
+	results, err := h.ruleService.GetByTemplateID(c.Request.Context(), uri.TemplateID)
 	if err != nil {
 		respondError(c, err)
 		return

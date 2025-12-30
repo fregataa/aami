@@ -23,15 +23,15 @@ func NewJobHandler(manager *jobmanager.Manager) *JobHandler {
 
 // GetByID handles GET /api/v1/jobs/:id
 func (h *JobHandler) GetByID(c *gin.Context) {
-	id := c.Param("id")
-	if id == "" {
+	var uri dto.IDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "job id is required",
+			"error": err.Error(),
 		})
 		return
 	}
 
-	job, err := h.manager.Get(c.Request.Context(), id)
+	job, err := h.manager.Get(c.Request.Context(), uri.ID)
 	if err != nil {
 		if errors.Is(err, jobmanager.ErrJobNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{
@@ -82,15 +82,15 @@ func (h *JobHandler) List(c *gin.Context) {
 
 // Cancel handles DELETE /api/v1/jobs/:id
 func (h *JobHandler) Cancel(c *gin.Context) {
-	id := c.Param("id")
-	if id == "" {
+	var uri dto.IDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "job id is required",
+			"error": err.Error(),
 		})
 		return
 	}
 
-	err := h.manager.Cancel(c.Request.Context(), id)
+	err := h.manager.Cancel(c.Request.Context(), uri.ID)
 	if err != nil {
 		if errors.Is(err, jobmanager.ErrJobNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{
@@ -112,7 +112,7 @@ func (h *JobHandler) Cancel(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "job cancellation requested",
-		"job_id":  id,
+		"job_id":  uri.ID,
 	})
 }
 

@@ -43,7 +43,11 @@ func (h *ServiceDiscoveryHandler) GetPrometheusTargets(c *gin.Context) {
 // GetPrometheusTargetsByGroup handles GET /api/v1/sd/prometheus/group/:groupId
 // Returns targets for a specific group
 func (h *ServiceDiscoveryHandler) GetPrometheusTargetsByGroup(c *gin.Context) {
-	groupID := c.Param("groupId")
+	var uri dto.GroupIdUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("groupId", err.Error()))
+		return
+	}
 
 	var req dto.GroupTargetsRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
@@ -51,7 +55,7 @@ func (h *ServiceDiscoveryHandler) GetPrometheusTargetsByGroup(c *gin.Context) {
 		return
 	}
 
-	targets, err := h.sdService.GetPrometheusTargetsForGroup(c.Request.Context(), groupID, req.EnabledOnly)
+	targets, err := h.sdService.GetPrometheusTargetsForGroup(c.Request.Context(), uri.GroupID, req.EnabledOnly)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -123,7 +127,12 @@ func (h *ServiceDiscoveryHandler) GenerateActiveFileSD(c *gin.Context) {
 // GenerateGroupFileSD handles POST /api/v1/sd/prometheus/file/group/:groupId
 // Generates a file SD JSON for a specific group
 func (h *ServiceDiscoveryHandler) GenerateGroupFileSD(c *gin.Context) {
-	groupID := c.Param("groupId")
+	var uri dto.GroupIdUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("groupId", err.Error()))
+		return
+	}
+
 	var req struct {
 		OutputPath  string `json:"output_path" binding:"required"`
 		EnabledOnly bool   `json:"enabled_only"`
@@ -134,7 +143,7 @@ func (h *ServiceDiscoveryHandler) GenerateGroupFileSD(c *gin.Context) {
 		return
 	}
 
-	if err := h.sdService.GenerateGroupFileSD(c.Request.Context(), groupID, req.OutputPath, req.EnabledOnly); err != nil {
+	if err := h.sdService.GenerateGroupFileSD(c.Request.Context(), uri.GroupID, req.OutputPath, req.EnabledOnly); err != nil {
 		respondError(c, err)
 		return
 	}
@@ -142,6 +151,6 @@ func (h *ServiceDiscoveryHandler) GenerateGroupFileSD(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message":  "Group file SD generated successfully",
 		"path":     req.OutputPath,
-		"group_id": groupID,
+		"group_id": uri.GroupID,
 	})
 }

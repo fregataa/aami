@@ -93,3 +93,72 @@ type PurgeRequest struct {
 type RestoreRequest struct {
 	ID string `json:"id" binding:"required,uuid"`
 }
+
+// =============================================================================
+// URI Parameter DTOs (for ShouldBindUri)
+// =============================================================================
+
+// IDUri represents a URI parameter for resource ID
+type IDUri struct {
+	ID string `uri:"id" binding:"required"`
+}
+
+// GroupIDUri represents a URI parameter for group ID
+type GroupIDUri struct {
+	GroupID string `uri:"group_id" binding:"required"`
+}
+
+// GroupIdUri represents a URI parameter for group ID (camelCase variant)
+type GroupIdUri struct {
+	GroupID string `uri:"groupId" binding:"required"`
+}
+
+// TargetIDUri represents a URI parameter for target ID
+type TargetIDUri struct {
+	TargetID string `uri:"target_id" binding:"required"`
+}
+
+// TargetIdUri represents a URI parameter for target ID (camelCase variant)
+type TargetIdUri struct {
+	TargetID string `uri:"targetId" binding:"required"`
+}
+
+// TemplateIDUri represents a URI parameter for template ID
+type TemplateIDUri struct {
+	TemplateID string `uri:"template_id" binding:"required"`
+}
+
+// TemplateIdUri represents a URI parameter for template ID (camelCase variant)
+type TemplateIdUri struct {
+	TemplateID string `uri:"templateId" binding:"required"`
+}
+
+// HostnameUri represents a URI parameter for hostname
+type HostnameUri struct {
+	Hostname string `uri:"hostname" binding:"required"`
+}
+
+// NameUri represents a URI parameter for name
+type NameUri struct {
+	Name string `uri:"name" binding:"required"`
+}
+
+// TokenUri represents a URI parameter for token
+type TokenUri struct {
+	Token string `uri:"token" binding:"required"`
+}
+
+// SeverityUri represents a URI parameter for severity
+type SeverityUri struct {
+	Severity string `uri:"severity" binding:"required"`
+}
+
+// TypeUri represents a URI parameter for type
+type TypeUri struct {
+	Type string `uri:"type" binding:"required"`
+}
+
+// ScriptTypeUri represents a URI parameter for script type
+type ScriptTypeUri struct {
+	ScriptType string `uri:"scriptType" binding:"required"`
+}

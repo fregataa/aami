@@ -40,9 +40,13 @@ func (h *TargetHandler) Create(c *gin.Context) {
 
 // GetByID handles GET /targets/:id
 func (h *TargetHandler) GetByID(c *gin.Context) {
-	id := c.Param("id")
+	var uri dto.IDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("id", err.Error()))
+		return
+	}
 
-	result, err := h.targetService.GetByID(c.Request.Context(), id)
+	result, err := h.targetService.GetByID(c.Request.Context(), uri.ID)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -53,9 +57,13 @@ func (h *TargetHandler) GetByID(c *gin.Context) {
 
 // GetByHostname handles GET /targets/hostname/:hostname
 func (h *TargetHandler) GetByHostname(c *gin.Context) {
-	hostname := c.Param("hostname")
+	var uri dto.HostnameUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("hostname", err.Error()))
+		return
+	}
 
-	result, err := h.targetService.GetByHostname(c.Request.Context(), hostname)
+	result, err := h.targetService.GetByHostname(c.Request.Context(), uri.Hostname)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -66,7 +74,11 @@ func (h *TargetHandler) GetByHostname(c *gin.Context) {
 
 // Update handles PUT /targets/:id
 func (h *TargetHandler) Update(c *gin.Context) {
-	id := c.Param("id")
+	var uri dto.IDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("id", err.Error()))
+		return
+	}
 
 	var req dto.UpdateTargetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -74,7 +86,7 @@ func (h *TargetHandler) Update(c *gin.Context) {
 		return
 	}
 
-	result, err := h.targetService.Update(c.Request.Context(), id, req.ToAction())
+	result, err := h.targetService.Update(c.Request.Context(), uri.ID, req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
@@ -146,9 +158,13 @@ func (h *TargetHandler) List(c *gin.Context) {
 
 // GetByGroupID handles GET /targets/group/:group_id
 func (h *TargetHandler) GetByGroupID(c *gin.Context) {
-	groupID := c.Param("group_id")
+	var uri dto.GroupIDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("group_id", err.Error()))
+		return
+	}
 
-	results, err := h.targetService.GetByGroupID(c.Request.Context(), groupID)
+	results, err := h.targetService.GetByGroupID(c.Request.Context(), uri.GroupID)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -159,7 +175,11 @@ func (h *TargetHandler) GetByGroupID(c *gin.Context) {
 
 // UpdateStatus handles POST /targets/:id/status
 func (h *TargetHandler) UpdateStatus(c *gin.Context) {
-	id := c.Param("id")
+	var uri dto.IDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("id", err.Error()))
+		return
+	}
 
 	var req dto.UpdateTargetStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -167,7 +187,7 @@ func (h *TargetHandler) UpdateStatus(c *gin.Context) {
 		return
 	}
 
-	if err := h.targetService.UpdateStatus(c.Request.Context(), id, req.ToAction()); err != nil {
+	if err := h.targetService.UpdateStatus(c.Request.Context(), uri.ID, req.ToAction()); err != nil {
 		respondError(c, err)
 		return
 	}
@@ -177,9 +197,13 @@ func (h *TargetHandler) UpdateStatus(c *gin.Context) {
 
 // Heartbeat handles POST /targets/:id/heartbeat
 func (h *TargetHandler) Heartbeat(c *gin.Context) {
-	id := c.Param("id")
+	var uri dto.IDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("id", err.Error()))
+		return
+	}
 
-	if err := h.targetService.Heartbeat(c.Request.Context(), id); err != nil {
+	if err := h.targetService.Heartbeat(c.Request.Context(), uri.ID); err != nil {
 		respondError(c, err)
 		return
 	}

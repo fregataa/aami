@@ -63,9 +63,13 @@ func (h *ScriptPolicyHandler) Create(c *gin.Context) {
 
 // GetByID handles GET /check-instances/:id
 func (h *ScriptPolicyHandler) GetByID(c *gin.Context) {
-	id := c.Param("id")
+	var uri dto.IDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("id", err.Error()))
+		return
+	}
 
-	result, err := h.policyService.GetByID(c.Request.Context(), id)
+	result, err := h.policyService.GetByID(c.Request.Context(), uri.ID)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -76,9 +80,13 @@ func (h *ScriptPolicyHandler) GetByID(c *gin.Context) {
 
 // GetByTemplateID handles GET /check-instances/template/:templateId
 func (h *ScriptPolicyHandler) GetByTemplateID(c *gin.Context) {
-	templateID := c.Param("templateId")
+	var uri dto.TemplateIdUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("templateId", err.Error()))
+		return
+	}
 
-	results, err := h.policyService.GetByTemplateID(c.Request.Context(), templateID)
+	results, err := h.policyService.GetByTemplateID(c.Request.Context(), uri.TemplateID)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -100,9 +108,13 @@ func (h *ScriptPolicyHandler) GetGlobalInstances(c *gin.Context) {
 
 // GetByGroupID handles GET /check-instances/group/:groupId
 func (h *ScriptPolicyHandler) GetByGroupID(c *gin.Context) {
-	groupID := c.Param("groupId")
+	var uri dto.GroupIdUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("groupId", err.Error()))
+		return
+	}
 
-	results, err := h.policyService.GetByGroupID(c.Request.Context(), groupID)
+	results, err := h.policyService.GetByGroupID(c.Request.Context(), uri.GroupID)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -113,9 +125,13 @@ func (h *ScriptPolicyHandler) GetByGroupID(c *gin.Context) {
 
 // GetEffectiveChecksByGroup handles GET /check-instances/effective/group/:groupId
 func (h *ScriptPolicyHandler) GetEffectiveChecksByGroup(c *gin.Context) {
-	groupID := c.Param("groupId")
+	var uri dto.GroupIdUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("groupId", err.Error()))
+		return
+	}
 
-	results, err := h.policyService.GetEffectiveChecksByGroup(c.Request.Context(), groupID)
+	results, err := h.policyService.GetEffectiveChecksByGroup(c.Request.Context(), uri.GroupID)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -127,9 +143,13 @@ func (h *ScriptPolicyHandler) GetEffectiveChecksByGroup(c *gin.Context) {
 // GetEffectiveChecksByTargetID handles GET /checks/target/:targetId
 // This endpoint is used by nodes to get their check configurations
 func (h *ScriptPolicyHandler) GetEffectiveChecksByTargetID(c *gin.Context) {
-	targetID := c.Param("targetId")
+	var uri dto.TargetIdUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("targetId", err.Error()))
+		return
+	}
 
-	checks, err := h.policyService.GetEffectiveChecksByTargetID(c.Request.Context(), targetID)
+	checks, err := h.policyService.GetEffectiveChecksByTargetID(c.Request.Context(), uri.TargetID)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -141,9 +161,13 @@ func (h *ScriptPolicyHandler) GetEffectiveChecksByTargetID(c *gin.Context) {
 // GetEffectiveChecksByHostname handles GET /checks/target/hostname/:hostname
 // This endpoint is used by node scripts that only know their hostname
 func (h *ScriptPolicyHandler) GetEffectiveChecksByHostname(c *gin.Context) {
-	hostname := c.Param("hostname")
+	var uri dto.HostnameUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("hostname", err.Error()))
+		return
+	}
 
-	checks, err := h.policyService.GetEffectiveChecksByHostname(c.Request.Context(), hostname)
+	checks, err := h.policyService.GetEffectiveChecksByHostname(c.Request.Context(), uri.Hostname)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -154,7 +178,11 @@ func (h *ScriptPolicyHandler) GetEffectiveChecksByHostname(c *gin.Context) {
 
 // Update handles PUT /check-instances/:id
 func (h *ScriptPolicyHandler) Update(c *gin.Context) {
-	id := c.Param("id")
+	var uri dto.IDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("id", err.Error()))
+		return
+	}
 
 	var req dto.UpdateScriptPolicyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -162,7 +190,7 @@ func (h *ScriptPolicyHandler) Update(c *gin.Context) {
 		return
 	}
 
-	result, err := h.policyService.Update(c.Request.Context(), id, req.ToAction())
+	result, err := h.policyService.Update(c.Request.Context(), uri.ID, req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return

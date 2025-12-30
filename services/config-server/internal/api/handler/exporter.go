@@ -41,9 +41,13 @@ func (h *ExporterHandler) Create(c *gin.Context) {
 
 // GetByID handles GET /exporters/:id
 func (h *ExporterHandler) GetByID(c *gin.Context) {
-	id := c.Param("id")
+	var uri dto.IDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("id", err.Error()))
+		return
+	}
 
-	result, err := h.exporterService.GetByID(c.Request.Context(), id)
+	result, err := h.exporterService.GetByID(c.Request.Context(), uri.ID)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -54,7 +58,11 @@ func (h *ExporterHandler) GetByID(c *gin.Context) {
 
 // Update handles PUT /exporters/:id
 func (h *ExporterHandler) Update(c *gin.Context) {
-	id := c.Param("id")
+	var uri dto.IDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("id", err.Error()))
+		return
+	}
 
 	var req dto.UpdateExporterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -62,7 +70,7 @@ func (h *ExporterHandler) Update(c *gin.Context) {
 		return
 	}
 
-	result, err := h.exporterService.Update(c.Request.Context(), id, req.ToAction())
+	result, err := h.exporterService.Update(c.Request.Context(), uri.ID, req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
@@ -134,9 +142,13 @@ func (h *ExporterHandler) List(c *gin.Context) {
 
 // GetByTargetID handles GET /exporters/target/:target_id
 func (h *ExporterHandler) GetByTargetID(c *gin.Context) {
-	targetID := c.Param("target_id")
+	var uri dto.TargetIDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("target_id", err.Error()))
+		return
+	}
 
-	results, err := h.exporterService.GetByTargetID(c.Request.Context(), targetID)
+	results, err := h.exporterService.GetByTargetID(c.Request.Context(), uri.TargetID)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -147,8 +159,13 @@ func (h *ExporterHandler) GetByTargetID(c *gin.Context) {
 
 // GetByType handles GET /exporters/type/:type
 func (h *ExporterHandler) GetByType(c *gin.Context) {
-	exporterType := domain.ExporterType(c.Param("type"))
+	var uri dto.TypeUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("type", err.Error()))
+		return
+	}
 
+	exporterType := domain.ExporterType(uri.Type)
 	exporters, err := h.exporterService.GetByType(c.Request.Context(), exporterType)
 	if err != nil {
 		respondError(c, err)

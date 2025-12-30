@@ -40,9 +40,13 @@ func (h *ScriptTemplateHandler) Create(c *gin.Context) {
 
 // GetByID handles GET /script-templates/:id
 func (h *ScriptTemplateHandler) GetByID(c *gin.Context) {
-	id := c.Param("id")
+	var uri dto.IDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("id", err.Error()))
+		return
+	}
 
-	result, err := h.templateService.GetByID(c.Request.Context(), id)
+	result, err := h.templateService.GetByID(c.Request.Context(), uri.ID)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -53,9 +57,13 @@ func (h *ScriptTemplateHandler) GetByID(c *gin.Context) {
 
 // GetByName handles GET /script-templates/name/:name
 func (h *ScriptTemplateHandler) GetByName(c *gin.Context) {
-	name := c.Param("name")
+	var uri dto.NameUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("name", err.Error()))
+		return
+	}
 
-	result, err := h.templateService.GetByName(c.Request.Context(), name)
+	result, err := h.templateService.GetByName(c.Request.Context(), uri.Name)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -66,9 +74,13 @@ func (h *ScriptTemplateHandler) GetByName(c *gin.Context) {
 
 // GetByScriptType handles GET /script-templates/type/:scriptType
 func (h *ScriptTemplateHandler) GetByScriptType(c *gin.Context) {
-	scriptType := c.Param("scriptType")
+	var uri dto.ScriptTypeUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("scriptType", err.Error()))
+		return
+	}
 
-	results, err := h.templateService.GetByScriptType(c.Request.Context(), scriptType)
+	results, err := h.templateService.GetByScriptType(c.Request.Context(), uri.ScriptType)
 	if err != nil {
 		respondError(c, err)
 		return
@@ -79,7 +91,11 @@ func (h *ScriptTemplateHandler) GetByScriptType(c *gin.Context) {
 
 // Update handles PUT /script-templates/:id
 func (h *ScriptTemplateHandler) Update(c *gin.Context) {
-	id := c.Param("id")
+	var uri dto.IDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("id", err.Error()))
+		return
+	}
 
 	var req dto.UpdateScriptTemplateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -87,7 +103,7 @@ func (h *ScriptTemplateHandler) Update(c *gin.Context) {
 		return
 	}
 
-	result, err := h.templateService.Update(c.Request.Context(), id, req.ToAction())
+	result, err := h.templateService.Update(c.Request.Context(), uri.ID, req.ToAction())
 	if err != nil {
 		respondError(c, err)
 		return
@@ -170,16 +186,20 @@ func (h *ScriptTemplateHandler) ListActive(c *gin.Context) {
 
 // VerifyHash handles GET /script-templates/:id/verify-hash
 func (h *ScriptTemplateHandler) VerifyHash(c *gin.Context) {
-	id := c.Param("id")
+	var uri dto.IDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("id", err.Error()))
+		return
+	}
 
-	valid, err := h.templateService.VerifyHash(c.Request.Context(), id)
+	valid, err := h.templateService.VerifyHash(c.Request.Context(), uri.ID)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"template_id": id,
+		"template_id": uri.ID,
 		"hash_valid":  valid,
 	})
 }

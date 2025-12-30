@@ -132,13 +132,13 @@ func (h *PrometheusRuleHandler) RegenerateGroupRules(c *gin.Context) {
 		return
 	}
 
-	groupID := c.Param("group_id")
-	if groupID == "" {
-		respondError(c, domainerrors.NewValidationError("group_id", "group_id is required"))
+	var uri dto.GroupIDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("group_id", err.Error()))
 		return
 	}
 
-	if err := h.ruleGenerator.GenerateRulesForGroup(c.Request.Context(), groupID); err != nil {
+	if err := h.ruleGenerator.GenerateRulesForGroup(c.Request.Context(), uri.GroupID); err != nil {
 		respondError(c, err)
 		return
 	}
@@ -282,13 +282,13 @@ func (h *PrometheusRuleHandler) GetEffectiveRulesByTarget(c *gin.Context) {
 		return
 	}
 
-	targetID := c.Param("target_id")
-	if targetID == "" {
-		respondError(c, domainerrors.NewValidationError("target_id", "target_id is required"))
+	var uri dto.TargetIDUri
+	if err := c.ShouldBindUri(&uri); err != nil {
+		respondError(c, domainerrors.NewValidationError("target_id", err.Error()))
 		return
 	}
 
-	result, err := h.alertRuleService.GetEffectiveRulesByTargetID(c.Request.Context(), targetID)
+	result, err := h.alertRuleService.GetEffectiveRulesByTargetID(c.Request.Context(), uri.TargetID)
 	if err != nil {
 		respondError(c, err)
 		return
