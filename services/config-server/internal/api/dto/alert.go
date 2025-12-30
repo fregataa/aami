@@ -7,18 +7,16 @@ import (
 
 // CreateAlertTemplateRequest represents a request to create a new alert template
 type CreateAlertTemplateRequest struct {
-	ID            string                `json:"id" binding:"required,min=1,max=100"`
-	Name          string                `json:"name" binding:"required,min=1,max=255"`
-	Description   string                `json:"description" binding:"omitempty,max=500"`
-	Severity      domain.AlertSeverity  `json:"severity" binding:"required"`
-	QueryTemplate string                `json:"query_template" binding:"required"`
+	Name          string                 `json:"name" binding:"required,min=1,max=255"`
+	Description   string                 `json:"description" binding:"omitempty,max=500"`
+	Severity      domain.AlertSeverity   `json:"severity" binding:"required"`
+	QueryTemplate string                 `json:"query_template" binding:"required"`
 	DefaultConfig domain.AlertRuleConfig `json:"default_config,omitempty"`
 }
 
 // ToAction converts CreateAlertTemplateRequest to action.CreateAlertTemplate
 func (r *CreateAlertTemplateRequest) ToAction() action.CreateAlertTemplate {
 	return action.CreateAlertTemplate{
-		ID:            r.ID,
 		Name:          r.Name,
 		Description:   r.Description,
 		Severity:      r.Severity,
