@@ -11,9 +11,9 @@ AAMI is an integrated monitoring solution designed to efficiently monitor and ma
 ## Key Features
 
 ### Flexible Infrastructure Management
-- **3 Independent Namespaces**: Infrastructure, Logical, Environment
-- **Hierarchical Group Structure**: Unlimited depth group tree with multiple membership support
-- **Namespace Priority System**: Intelligent policy inheritance and override
+- **Flat Group Structure**: Simple, efficient group-based organization
+- **Multi-Group Membership**: Targets can belong to multiple groups (M:N relationship)
+- **Priority-Based Policies**: Intelligent policy resolution with group priority
 
 ### Dynamic Target Management
 - **Automatic Service Discovery**: Prometheus file-based SD integration
