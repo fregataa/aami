@@ -495,29 +495,43 @@ install_all_smi() {
     local script_dir
     script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-    # Try to use local install script first
-    if [[ -f "${script_dir}/install-all-smi.sh" ]]; then
-        print_substep "info" "Using local install script..."
+    # Try Python script first (recommended), fall back to bash script
+    if command -v python3 &>/dev/null && [[ -f "${script_dir}/install_all_smi.py" ]]; then
+        print_substep "info" "Using Python install script (recommended)..."
+        python3 "${script_dir}/install_all_smi.py" --port "$ALL_SMI_PORT"
+    elif [[ -f "${script_dir}/install-all-smi.sh" ]]; then
+        print_substep "info" "Using bash install script (legacy)..."
         bash "${script_dir}/install-all-smi.sh" --port "$ALL_SMI_PORT"
     else
         # Download and run install script
         print_substep "info" "Downloading install script..."
         local temp_script
         temp_script=$(mktemp)
-        if curl -fsSL "${CONFIG_SERVER}/scripts/node/install-all-smi.sh" -o "$temp_script" 2>/dev/null; then
+
+        # Try Python script from Config Server
+        if command -v python3 &>/dev/null && curl -fsSL "${CONFIG_SERVER}/scripts/node/install_all_smi.py" -o "$temp_script" 2>/dev/null; then
+            chmod +x "$temp_script"
+            python3 "$temp_script" --port "$ALL_SMI_PORT"
+            rm -f "$temp_script"
+        # Try bash script from Config Server
+        elif curl -fsSL "${CONFIG_SERVER}/scripts/node/install-all-smi.sh" -o "$temp_script" 2>/dev/null; then
+            chmod +x "$temp_script"
+            bash "$temp_script" --port "$ALL_SMI_PORT"
+            rm -f "$temp_script"
+        # Try GitHub directly (Python)
+        elif command -v python3 &>/dev/null && curl -fsSL "https://raw.githubusercontent.com/fregataa/aami/main/scripts/node/install_all_smi.py" -o "$temp_script" 2>/dev/null; then
+            chmod +x "$temp_script"
+            python3 "$temp_script" --port "$ALL_SMI_PORT"
+            rm -f "$temp_script"
+        # Try GitHub directly (bash)
+        elif curl -fsSL "https://raw.githubusercontent.com/fregataa/aami/main/scripts/node/install-all-smi.sh" -o "$temp_script" 2>/dev/null; then
             chmod +x "$temp_script"
             bash "$temp_script" --port "$ALL_SMI_PORT"
             rm -f "$temp_script"
         else
-            # Try GitHub directly
-            if curl -fsSL "https://raw.githubusercontent.com/fregataa/aami/main/scripts/node/install-all-smi.sh" -o "$temp_script" 2>/dev/null; then
-                chmod +x "$temp_script"
-                bash "$temp_script" --port "$ALL_SMI_PORT"
-                rm -f "$temp_script"
-            else
-                print_substep "fail" "Failed to download install script"
-                return 1
-            fi
+            print_substep "fail" "Failed to download install script"
+            rm -f "$temp_script"
+            return 1
         fi
     fi
 

@@ -18,3 +18,8 @@ tmp/
 # Go binaries
 cli/aami
 *.exe
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo

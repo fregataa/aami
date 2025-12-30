@@ -117,7 +117,8 @@ After successful installation:
 Available scripts:
 - `bootstrap.sh` - One-line bootstrap script for auto-registration
 - `install-node-exporter.sh` - Install Prometheus Node Exporter
-- `install-all-smi.sh` - Install all-smi multi-vendor AI accelerator exporter
+- `install_all_smi.py` - Install all-smi multi-vendor AI accelerator exporter (Python, recommended)
+- `install-all-smi.sh` - Install all-smi multi-vendor AI accelerator exporter (Bash, legacy)
 - `dynamic_check.py` - Execute dynamic checks from Config Server (Python, recommended)
 - `dynamic-check.sh` - Execute dynamic checks from Config Server (Bash, legacy)
 - `install-dcgm-exporter.sh` - Install NVIDIA DCGM Exporter (planned)
@@ -174,14 +175,20 @@ sudo ./install-node-exporter.sh
 sudo ./install-node-exporter.sh --version 1.7.0 --port 9100
 ```
 
-#### Install all-smi (`install-all-smi.sh`)
+#### Install all-smi (`install_all_smi.py`)
 
-Standalone script to install all-smi multi-vendor AI accelerator exporter:
+Standalone script to install all-smi multi-vendor AI accelerator exporter. Two versions available:
+- **Python version** (`install_all_smi.py`): Recommended. Better error handling, cleaner code structure.
+- **Bash version** (`install-all-smi.sh`): Legacy. Use when Python 3 is not available.
+
 ```bash
-# Install with defaults (port 9401)
-sudo ./install-all-smi.sh
+# Python version (recommended)
+sudo python3 ./install_all_smi.py
 
 # Custom port and version
+sudo python3 ./install_all_smi.py --version 0.5.0 --port 9401
+
+# Bash version (legacy)
 sudo ./install-all-smi.sh --version 0.5.0 --port 9401
 ```
 
