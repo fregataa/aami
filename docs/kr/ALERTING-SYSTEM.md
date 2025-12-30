@@ -26,7 +26,7 @@ AAMI의 알림 시스템은 AI 가속기 인프라를 위한 포괄적인 모니
 - **Label 기반 필터링**: 특정 인프라에 대한 정밀한 알림 타겟팅
 - **동적 체크 시스템**: 커스텀 요구사항을 위한 스크립트 기반 모니터링
 - **템플릿 기반 관리**: 재사용 가능한 AlertTemplate 및 ScriptTemplate
-- **정책 상속**: 그룹 계층 구조를 통한 스마트 설정 병합
+- **정책 상속**: 그룹 기반 스마트 설정 병합
 
 ### 설계 철학
 
@@ -153,7 +153,7 @@ AAMI는 여러 개의 독립적인 알림 시스템 대신 **단일하고 일관
 
 **현재 상태**:
 - ✅ 정적 rule 파일 (수동 생성)
-- 📋 동적 생성 (Phase 3에 계획됨)
+- ✅ 동적 생성 (AlertRule API → Prometheus YAML 자동 변환)
 
 ---
 
@@ -355,13 +355,12 @@ Alert rule:
 
 #### 단계 1: Service Discovery에서 그룹 Label 추가
 
-**코드**: `services/config-server/internal/domain/service_discovery.go:38-54`
+**코드**: `services/config-server/internal/domain/service_discovery.go`
 
 ```go
 // 타겟 등록 시, 그룹 정보를 label로 추가
 labels["group"] = target.Groups[0].Name           // "gpu-cluster-a"
 labels["group_id"] = target.Groups[0].ID          // "grp-123"
-labels["namespace"] = target.Groups[0].Namespace.Name  // "production"
 ```
 
 **결과**: 이 타겟의 모든 메트릭에 그룹 label 포함
@@ -370,8 +369,7 @@ labels["namespace"] = target.Groups[0].Namespace.Name  // "production"
 node_cpu_seconds_total{
   instance="gpu-node-01",
   group="gpu-cluster-a",
-  group_id="grp-123",
-  namespace="production"
+  group_id="grp-123"
 }
 ```
 
@@ -543,12 +541,11 @@ PROMETHEUS_BACKUP_ENABLED=true
 ```go
 labels["group"] = target.Groups[0].Name
 labels["group_id"] = target.Groups[0].ID
-labels["namespace"] = target.Groups[0].Namespace.Name
 ```
 
 이 label들은 다음에서 사용됩니다:
 - Alert rule 필터링 (`group_id="grp-123"`)
-- Alertmanager 라우팅 (`namespace: production`)
+- Alertmanager 라우팅 (`group: production`)
 - Grafana 대시보드 변수
 
 ### 2. Alert Rules → Alertmanager
@@ -571,7 +568,7 @@ Prometheus는 모든 label이 보존된 상태로 firing된 alert를 Alertmanage
 
 다음을 기반으로 alert 라우팅:
 - **심각도**: critical, warning, info
-- **네임스페이스**: infrastructure, logical, environment
+- **그룹**: production, development, staging
 - **커스텀 label**: team, service 등
 
 라우팅 예시:
@@ -584,8 +581,8 @@ routes:
     repeat_interval: 4h
 
   - match:
-      namespace: infrastructure
-    receiver: 'infrastructure-team'
+      group: production
+    receiver: 'production-team'
     continue: true
 ```
 
@@ -629,13 +626,12 @@ routes:
   for: 2m
   labels:
     severity: critical
-    namespace: infrastructure
   annotations:
     summary: "노드 {{ $labels.instance }} 다운"
     description: |
       노드가 2분 이상 응답하지 않습니다.
       인스턴스: {{ $labels.instance }}
-      주 그룹: {{ $labels.group }}
+      그룹: {{ $labels.group }}
 ```
 
 **흐름**:
@@ -856,7 +852,7 @@ http://localhost:9090/alerts
 **그룹별 Rule** (production에 대해 더 엄격):
 ```yaml
 - alert: NodeDown_Production
-  expr: up{job="node-exporter",namespace="production"} == 0
+  expr: up{job="node-exporter",group="production"} == 0
   for: 1m  # production에 대해 더 빠른 alert
 ```
 

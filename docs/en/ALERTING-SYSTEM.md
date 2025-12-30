@@ -22,11 +22,11 @@ AAMI's alerting system provides comprehensive monitoring and notification capabi
 ### Key Features
 
 - **Unified Alert Path**: All alerts flow through Prometheus → Alertmanager
-- **Group-based Customization**: Different alert thresholds per group/namespace
+- **Group-based Customization**: Different alert thresholds per group
 - **Label-based Filtering**: Precise targeting of alerts to specific infrastructure
 - **Dynamic Check System**: Script-based monitoring for custom requirements
-- **Template-based Management**: Reusable alert and check templates
-- **Policy Inheritance**: Smart configuration merging across group hierarchy
+- **Template-based Management**: Reusable AlertTemplate and ScriptTemplate
+- **Policy Inheritance**: Smart configuration merging via groups
 
 ### Design Philosophy
 
@@ -129,7 +129,7 @@ This means:
 
 **Key Features**:
 - Severity-based routing (critical, warning, info)
-- Namespace-based routing (infrastructure, logical, environment)
+- Group-based routing (production, development, staging)
 - Time-based grouping (group_wait, group_interval, repeat_interval)
 
 ### Alert Rules
@@ -153,7 +153,7 @@ This means:
 
 **Current State**:
 - ✅ Static rule files (manually created)
-- 📋 Dynamic generation (planned for Phase 3)
+- ✅ Dynamic generation (AlertRule API → Prometheus YAML auto-conversion)
 
 ---
 
@@ -193,15 +193,13 @@ Exporter → Prometheus → Alert Rules → Alertmanager
 
 **Data Flow**:
 ```
-Config Server (CheckTemplate/Instance)
+Config Server (ScriptTemplate/ScriptPolicy)
   ↓
 Node queries effective checks
   ↓
 dynamic-check.sh executes scripts
   ↓
-JSON output
-  ↓
-Convert to Prometheus format
+Prometheus text format output
   ↓
 Save to /var/lib/node_exporter/textfile/*.prom
   ↓
@@ -222,21 +220,21 @@ Alertmanager
 - Filesystem-specific monitoring
 
 **Key Components**:
-- **CheckTemplate**: Reusable script definition (services/config-server/internal/domain/check_template.go)
-- **CheckInstance**: Group-specific application (services/config-server/internal/domain/check_instance.go)
-- **Scope-based Management**: Global → Namespace → Group hierarchy
+- **ScriptTemplate**: Reusable script definition (services/config-server/internal/domain/script_template.go)
+- **ScriptPolicy**: Group-specific application (services/config-server/internal/domain/script_policy.go)
+- **Scope-based Management**: Global → Group
 
 **Example**: Mount Point Check
 
 ```bash
-# CheckTemplate script
+# ScriptTemplate script (outputs Prometheus text format directly)
 #!/bin/bash
 PATHS="$1"
 for path in ${PATHS//,/ }; do
   if mountpoint -q "$path"; then
-    echo '{"name":"mount_status","value":1,"labels":{"path":"'$path'"}}'
+    echo "mount_status{path=\"$path\"} 1"
   else
-    echo '{"name":"mount_status","value":0,"labels":{"path":"'$path'"}}'
+    echo "mount_status{path=\"$path\"} 0"
   fi
 done
 ```
@@ -357,13 +355,12 @@ Alert rule:
 
 #### Step 1: Add Group Labels in Service Discovery
 
-**Code**: `services/config-server/internal/domain/service_discovery.go:38-54`
+**Code**: `services/config-server/internal/domain/service_discovery.go`
 
 ```go
 // When registering targets, add group information as labels
 labels["group"] = target.Groups[0].Name           // "gpu-cluster-a"
 labels["group_id"] = target.Groups[0].ID          // "grp-123"
-labels["namespace"] = target.Groups[0].Namespace.Name  // "production"
 ```
 
 **Result**: All metrics from this target include group labels
@@ -372,8 +369,7 @@ labels["namespace"] = target.Groups[0].Namespace.Name  // "production"
 node_cpu_seconds_total{
   instance="gpu-node-01",
   group="gpu-cluster-a",
-  group_id="grp-123",
-  namespace="production"
+  group_id="grp-123"
 }
 ```
 
@@ -386,7 +382,7 @@ Each group gets its own alert rule with:
 
 **Production Group** (threshold: 80%):
 ```yaml
-# /etc/prometheus/rules/generated/production-group-grp-123.yml
+# /etc/prometheus/rules/generated/group-grp-123.yml
 groups:
   - name: production_cpu_alerts
     rules:
@@ -402,12 +398,12 @@ groups:
         labels:
           severity: warning
           group_id: grp-123
-          namespace: production
+          group: production
 ```
 
 **Development Group** (threshold: 95%):
 ```yaml
-# /etc/prometheus/rules/generated/development-group-grp-456.yml
+# /etc/prometheus/rules/generated/group-grp-456.yml
 groups:
   - name: development_cpu_alerts
     rules:
@@ -423,7 +419,7 @@ groups:
         labels:
           severity: info
           group_id: grp-456
-          namespace: development
+          group: development
 ```
 
 #### Step 3: AlertRule.RenderQuery() for Dynamic Generation
@@ -545,12 +541,11 @@ When targets are registered, group information is added as labels:
 ```go
 labels["group"] = target.Groups[0].Name
 labels["group_id"] = target.Groups[0].ID
-labels["namespace"] = target.Groups[0].Namespace.Name
 ```
 
 These labels are used in:
 - Alert rule filtering (`group_id="grp-123"`)
-- Alertmanager routing (`namespace: production`)
+- Alertmanager routing (`group: production`)
 - Grafana dashboard variables
 
 ### 2. Alert Rules → Alertmanager
@@ -573,7 +568,7 @@ Prometheus sends firing alerts to Alertmanager with all labels preserved.
 
 Routes alerts based on:
 - **Severity**: critical, warning, info
-- **Namespace**: infrastructure, logical, environment
+- **Group**: production, development, staging
 - **Custom labels**: team, service, etc.
 
 Example routing:
@@ -586,29 +581,32 @@ routes:
     repeat_interval: 4h
 
   - match:
-      namespace: infrastructure
-    receiver: 'infrastructure-team'
+      group: production
+    receiver: 'production-team'
     continue: true
 ```
 
-### 4. CheckInstance → Node Execution
+### 4. ScriptPolicy → Node Execution
 
-**API Endpoint**: `GET /api/v1/checks/node?hostname={hostname}`
+**API Endpoint**: `GET /api/v1/checks/target/{targetId}`
 
 Nodes query Config Server to get:
-- Effective CheckInstances (after scope resolution)
+- Effective ScriptPolicies (after scope resolution)
 - Script content and hash
-- Merged configuration
+- Merged configuration (default_config + config)
 
 Response:
 ```json
 [
   {
-    "check_type": "mount",
+    "name": "mount-check",
+    "script_type": "mount",
     "script_content": "#!/bin/bash\n...",
+    "language": "bash",
     "config": {
       "paths": "/data,/mnt/models"
     },
+    "version": "1.0.0",
     "hash": "abc123..."
   }
 ]
@@ -628,13 +626,12 @@ Response:
   for: 2m
   labels:
     severity: critical
-    namespace: infrastructure
   annotations:
     summary: "Node {{ $labels.instance }} is down"
     description: |
       Node has not responded for more than 2 minutes.
       Instance: {{ $labels.instance }}
-      Primary Group: {{ $labels.group }}
+      Group: {{ $labels.group }}
 ```
 
 **Flow**:
@@ -701,30 +698,32 @@ Development:
 
 ### Example 3: Custom Check (Mount Point)
 
-**CheckTemplate**:
+**ScriptTemplate**:
 ```bash
-POST /api/v1/check-templates
+POST /api/v1/script-templates
 {
   "name": "mount-check",
-  "check_type": "mount",
-  "script_content": "#!/bin/bash\nPATHS=\"$1\"\nfor path in ${PATHS//,/ }; do\n  if mountpoint -q \"$path\"; then\n    echo '{\"name\":\"mount_status\",\"value\":1,\"labels\":{\"path\":\"'$path'\"}}'\n  else\n    echo '{\"name\":\"mount_status\",\"value\":0,\"labels\":{\"path\":\"'$path'\"}}'\n  fi\ndone",
+  "script_type": "mount",
+  "script_content": "#!/bin/bash\nPATHS=\"$1\"\nfor path in ${PATHS//,/ }; do\n  if mountpoint -q \"$path\"; then\n    echo \"mount_status{path=\\\"$path\\\"} 1\"\n  else\n    echo \"mount_status{path=\\\"$path\\\"} 0\"\n  fi\ndone",
   "language": "bash",
   "default_config": {
     "paths": "/data"
-  }
+  },
+  "version": "1.0.0"
 }
 ```
 
-**CheckInstance (ML Training Group)**:
+**ScriptPolicy (ML Training Group)**:
 ```bash
-POST /api/v1/check-instances
+POST /api/v1/script-policies
 {
   "template_id": "mount-check-template-id",
   "scope": "group",
   "group_id": "ml-training-group",
   "config": {
     "paths": "/data,/mnt/models,/mnt/datasets"
-  }
+  },
+  "is_active": true
 }
 ```
 
@@ -853,7 +852,7 @@ http://localhost:9090/alerts
 **Group-specific Rule** (stricter for production):
 ```yaml
 - alert: NodeDown_Production
-  expr: up{job="node-exporter",namespace="production"} == 0
+  expr: up{job="node-exporter",group="production"} == 0
   for: 1m  # Faster alert for production
 ```
 
