@@ -7,6 +7,7 @@ This directory contains utility scripts for deployment, maintenance, and automat
 ```
 scripts/
 ├── preflight-check.sh  # Pre-installation system validation
+├── install-server.sh   # One-command Config Server installation
 ├── node/               # Node agent installation scripts
 └── db/                 # Database management scripts
 ```
@@ -48,6 +49,57 @@ Options:
 - `--json` - Output results in JSON format
 - `--quiet` - Only show errors
 - `--verbose` - Show detailed information
+
+### Server Installation Script
+
+- **Location**: `install-server.sh`
+- **Purpose**: One-command installation of the complete AAMI monitoring stack
+
+The install script provides fully automated deployment of:
+- PostgreSQL database
+- Redis cache
+- Config Server API
+- Prometheus
+- Grafana
+- Alertmanager
+
+Example usage:
+```bash
+# Interactive installation
+./install-server.sh
+
+# Unattended installation with custom settings
+./install-server.sh --unattended --domain config.example.com
+
+# One-line installation from GitHub
+curl -fsSL https://raw.githubusercontent.com/fregataa/aami/main/scripts/install-server.sh | bash
+```
+
+Options:
+- `--version VERSION` - AAMI version to install (default: latest)
+- `--install-dir PATH` - Installation directory (default: /opt/aami)
+- `--data-dir PATH` - Data directory (default: /var/lib/aami)
+- `--domain DOMAIN` - Config Server domain (default: localhost)
+- `--port PORT` - Config Server port (default: 8080)
+- `--postgres-password PW` - PostgreSQL password (auto-generated if not set)
+- `--grafana-password PW` - Grafana admin password (auto-generated if not set)
+- `--skip-preflight` - Skip preflight checks (not recommended)
+- `--unattended` - Non-interactive mode
+- `--verbose` - Show detailed output
+
+Installation steps performed:
+1. Run preflight checks (system requirements, dependencies, ports)
+2. Download AAMI from GitHub (clone or tarball)
+3. Generate secure credentials
+4. Configure environment (.env file)
+5. Start Docker Compose stack
+6. Wait for all services to become healthy
+7. Create initial bootstrap token for node registration
+
+After successful installation:
+- Credentials are saved to `/opt/aami/credentials.txt`
+- Services are accessible at localhost (configurable ports)
+- A bootstrap token is created for registering monitoring nodes
 
 ### Node Scripts
 - **Location**: `node/`
