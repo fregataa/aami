@@ -3,8 +3,9 @@ package domain
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"fmt"
 	"time"
+
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 )
 
 // BootstrapToken represents a token used for auto-registration of new nodes
@@ -44,8 +45,11 @@ func (bt *BootstrapToken) IsExpired() bool {
 
 // IncrementUses increments the usage counter
 func (bt *BootstrapToken) IncrementUses() error {
-	if !bt.CanUse() {
-		return fmt.Errorf("token cannot be used: expired or max uses reached")
+	if bt.IsExpired() {
+		return domainerrors.ErrTokenExpired
+	}
+	if bt.Uses >= bt.MaxUses {
+		return domainerrors.ErrTokenExhausted
 	}
 	bt.Uses++
 	bt.UpdatedAt = time.Now()
@@ -71,7 +75,7 @@ func GenerateToken() (string, error) {
 	b := make([]byte, 32)
 	_, err := rand.Read(b)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate random token: %w", err)
+		return "", domainerrors.Wrap(err, "failed to generate random token")
 	}
 	return base64.URLEncoding.EncodeToString(b), nil
 }

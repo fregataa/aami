@@ -1,8 +1,9 @@
 package domain
 
 import (
-	"errors"
 	"time"
+
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 )
 
 // TargetGroup represents the many-to-many relationship between targets and groups
@@ -16,10 +17,10 @@ type TargetGroup struct {
 // Validate validates the TargetGroup fields
 func (tg *TargetGroup) Validate() error {
 	if tg.TargetID == "" {
-		return errors.New("target_id is required")
+		return domainerrors.NewValidationError("target_id", "target_id is required")
 	}
 	if tg.GroupID == "" {
-		return errors.New("group_id is required")
+		return domainerrors.NewValidationError("group_id", "group_id is required")
 	}
 	return nil
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 )
 
+
 // TargetService handles business logic for targets
 type TargetService struct {
 	targetRepo      repository.TargetRepository
@@ -103,7 +104,7 @@ func (s *TargetService) Create(ctx context.Context, act action.CreateTarget) (ac
 		}
 
 		if err := s.groupRepo.Create(ctx, defaultGroup); err != nil {
-			return action.TargetResult{}, fmt.Errorf("failed to create default group: %w", err)
+			return action.TargetResult{}, domainerrors.Wrap(err, "failed to create default group")
 		}
 
 		groupIDs = []string{defaultGroup.ID}
@@ -120,7 +121,7 @@ func (s *TargetService) Create(ctx context.Context, act action.CreateTarget) (ac
 	}
 
 	if err := s.targetGroupRepo.CreateBatch(ctx, mappings); err != nil {
-		return action.TargetResult{}, fmt.Errorf("failed to create group mappings: %w", err)
+		return action.TargetResult{}, domainerrors.Wrap(err, "failed to create group mappings")
 	}
 
 	// Load target with groups and convert to result
@@ -333,7 +334,7 @@ func (s *TargetService) GetTargetGroups(ctx context.Context, targetID string) ([
 // ReplaceGroupMappings replaces all group mappings for a target
 func (s *TargetService) ReplaceGroupMappings(ctx context.Context, targetID string, groupIDs []string) error {
 	if len(groupIDs) == 0 {
-		return errors.New("at least one group is required")
+		return domainerrors.NewValidationError("group_ids", "at least one group is required")
 	}
 
 	// Validate target exists

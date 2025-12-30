@@ -3,6 +3,8 @@ package domain
 import (
 	"fmt"
 	"time"
+
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 )
 
 // ExporterConfig represents structured configuration for exporters
@@ -67,10 +69,10 @@ func (e *Exporter) GetEndpoint(target Target) string {
 // Validate performs validation on exporter fields
 func (e *Exporter) Validate() error {
 	if !e.Type.IsValid() {
-		return fmt.Errorf("invalid exporter type: %s", e.Type)
+		return domainerrors.NewValidationError("type", fmt.Sprintf("invalid exporter type: %s", e.Type))
 	}
 	if e.Port <= 0 || e.Port > 65535 {
-		return fmt.Errorf("invalid port: %d", e.Port)
+		return domainerrors.NewValidationError("port", fmt.Sprintf("invalid port: %d", e.Port))
 	}
 	if e.MetricsPath == "" {
 		e.MetricsPath = "/metrics"

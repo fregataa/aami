@@ -1,7 +1,6 @@
 package prometheus
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -9,15 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-)
-
-// Custom errors for better debugging
-var (
-	ErrDirectoryNotFound = errors.New("rules directory not found")
-	ErrPermissionDenied  = errors.New("insufficient permissions")
-	ErrValidationFailed  = errors.New("rule validation failed")
-	ErrAtomicWriteFailed = errors.New("atomic write failed")
-	ErrBackupFailed      = errors.New("backup operation failed")
 )
 
 // RuleFileManager manages Prometheus rule files with atomic operations
@@ -58,7 +48,7 @@ func NewRuleFileManager(config RuleFileManagerConfig, logger *slog.Logger) (*Rul
 	// Create backup directory if backup is enabled
 	if config.EnableBackup {
 		if err := os.MkdirAll(backupPath, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create backup directory: %w", err)
+			return nil, fmt.Errorf("%w: failed to create backup directory: %v", ErrBackupFailed, err)
 		}
 	}
 
@@ -155,7 +145,7 @@ func (m *RuleFileManager) DeleteRuleFile(groupID string) error {
 
 	// Delete the file
 	if err := os.Remove(filename); err != nil {
-		return fmt.Errorf("failed to delete rule file: %w", err)
+		return fmt.Errorf("%w: %v", ErrDeleteFailed, err)
 	}
 
 	m.logger.Info("Successfully deleted rule file", "group_id", groupID, "file", filename)
@@ -167,7 +157,7 @@ func (m *RuleFileManager) ListRuleFiles() ([]string, error) {
 	pattern := filepath.Join(m.basePath, "group-*.yml")
 	files, err := filepath.Glob(pattern)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list rule files: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrListFailed, err)
 	}
 
 	// Extract group IDs from filenames
@@ -231,7 +221,7 @@ func (m *RuleFileManager) CleanupOldBackups(maxAge time.Duration) error {
 	pattern := filepath.Join(m.backupPath, "group-*.yml")
 	files, err := filepath.Glob(pattern)
 	if err != nil {
-		return fmt.Errorf("failed to list backup files: %w", err)
+		return fmt.Errorf("%w: %v", ErrListFailed, err)
 	}
 
 	cutoff := time.Now().Add(-maxAge)
@@ -278,7 +268,7 @@ func (m *RuleFileManager) validateRuleFileContent(filePath string) error {
 	cmd := exec.Command(m.promtoolPath, "check", "rules", filePath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("promtool validation failed: %s, output: %s", err, string(output))
+		return fmt.Errorf("%w: promtool error: %v, output: %s", ErrValidationFailed, err, string(output))
 	}
 
 	return nil
@@ -294,7 +284,7 @@ func (m *RuleFileManager) restoreFromBackup(groupID string) error {
 	pattern := filepath.Join(m.backupPath, fmt.Sprintf("group-%s.*.yml", groupID))
 	backups, err := filepath.Glob(pattern)
 	if err != nil || len(backups) == 0 {
-		return fmt.Errorf("no backup found for group %s", groupID)
+		return fmt.Errorf("%w: no backup found for group %s", ErrRestoreFailed, groupID)
 	}
 
 	// Get the most recent backup (last in alphabetical order due to timestamp format)
@@ -313,18 +303,18 @@ func (m *RuleFileManager) restoreFromBackup(groupID string) error {
 	}
 
 	if mostRecent == "" {
-		return fmt.Errorf("no valid backup found for group %s", groupID)
+		return fmt.Errorf("%w: no valid backup found for group %s", ErrRestoreFailed, groupID)
 	}
 
 	// Restore the backup
 	content, err := os.ReadFile(mostRecent)
 	if err != nil {
-		return fmt.Errorf("failed to read backup: %w", err)
+		return fmt.Errorf("%w: failed to read backup: %v", ErrRestoreFailed, err)
 	}
 
 	targetFile := m.getFilePath(groupID)
 	if err := os.WriteFile(targetFile, content, 0644); err != nil {
-		return fmt.Errorf("failed to restore backup: %w", err)
+		return fmt.Errorf("%w: failed to write restored file: %v", ErrRestoreFailed, err)
 	}
 
 	m.logger.Info("Restored from backup", "group_id", groupID, "backup_file", mostRecent)
