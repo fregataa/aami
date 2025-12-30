@@ -2,20 +2,11 @@ package prometheus
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"time"
-)
-
-// Custom errors for Prometheus client operations
-var (
-	ErrReloadFailed       = errors.New("failed to reload Prometheus")
-	ErrHealthCheckFailed  = errors.New("Prometheus health check failed")
-	ErrConfigInvalid      = errors.New("Prometheus configuration is invalid")
-	ErrConnectionFailed   = errors.New("failed to connect to Prometheus")
 )
 
 // PrometheusClient manages interactions with Prometheus server
@@ -80,12 +71,12 @@ func (c *PrometheusClient) Reload(ctx context.Context) error {
 	err := c.executeWithRetry(ctx, func(ctx context.Context) error {
 		req, err := http.NewRequestWithContext(ctx, "POST", reloadURL, nil)
 		if err != nil {
-			return fmt.Errorf("failed to create reload request: %w", err)
+			return fmt.Errorf("%w: %v", ErrRequestFailed, err)
 		}
 
 		resp, err := c.client.Do(req)
 		if err != nil {
-			return fmt.Errorf("%w: %s", ErrConnectionFailed, err)
+			return fmt.Errorf("%w: %v", ErrConnectionFailed, err)
 		}
 		defer resp.Body.Close()
 
@@ -107,7 +98,7 @@ func (c *PrometheusClient) Reload(ctx context.Context) error {
 	// Verify Prometheus is healthy after reload
 	if err := c.HealthCheck(ctx); err != nil {
 		c.logger.Warn("Health check failed after reload", "error", err)
-		return fmt.Errorf("reload succeeded but health check failed: %w", err)
+		return fmt.Errorf("%w: reload succeeded but health check failed: %v", ErrHealthCheckFailed, err)
 	}
 
 	return nil
@@ -120,12 +111,12 @@ func (c *PrometheusClient) HealthCheck(ctx context.Context) error {
 
 	req, err := http.NewRequestWithContext(ctx, "GET", readyURL, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create health check request: %w", err)
+		return fmt.Errorf("%w: %v", ErrRequestFailed, err)
 	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrConnectionFailed, err)
+		return fmt.Errorf("%w: %v", ErrConnectionFailed, err)
 	}
 	defer resp.Body.Close()
 
@@ -152,18 +143,18 @@ func (c *PrometheusClient) GetStatus(ctx context.Context) (map[string]interface{
 
 	req, err := http.NewRequestWithContext(ctx, "GET", statusURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create status request: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrRequestFailed, err)
 	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrConnectionFailed, err)
+		return nil, fmt.Errorf("%w: %v", ErrConnectionFailed, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("failed to get status: status=%d, body=%s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("%w: status=%d, body=%s", ErrStatusFailed, resp.StatusCode, string(body))
 	}
 
 	// In a real implementation, we would parse the JSON response
@@ -210,7 +201,7 @@ func (c *PrometheusClient) executeWithRetry(ctx context.Context, fn func(context
 		}
 	}
 
-	return fmt.Errorf("operation failed after %d attempts: %w", c.maxRetries, lastErr)
+	return fmt.Errorf("%w: after %d attempts: %v", ErrRetryExhausted, c.maxRetries, lastErr)
 }
 
 // Ping checks basic connectivity to Prometheus
@@ -218,17 +209,17 @@ func (c *PrometheusClient) Ping(ctx context.Context) error {
 	// Use the health check endpoint for ping
 	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/-/healthy", nil)
 	if err != nil {
-		return fmt.Errorf("failed to create ping request: %w", err)
+		return fmt.Errorf("%w: %v", ErrRequestFailed, err)
 	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrConnectionFailed, err)
+		return fmt.Errorf("%w: %v", ErrConnectionFailed, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("ping failed: status=%d", resp.StatusCode)
+		return fmt.Errorf("%w: status=%d", ErrPingFailed, resp.StatusCode)
 	}
 
 	return nil

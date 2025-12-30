@@ -3,11 +3,11 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/fregataa/aami/config-server/internal/domain"
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 	"github.com/fregataa/aami/config-server/internal/repository"
 )
 
@@ -103,31 +103,31 @@ func (s *ServiceDiscoveryService) GenerateFileSD(ctx context.Context, outputPath
 	// Get targets
 	targets, err := s.GetPrometheusTargets(ctx, filter)
 	if err != nil {
-		return fmt.Errorf("failed to get targets: %w", err)
+		return domainerrors.Wrap(err, "failed to get targets")
 	}
 
 	// Ensure output directory exists
 	dir := filepath.Dir(outputPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create output directory: %w", err)
+		return domainerrors.Wrap(err, "failed to create output directory")
 	}
 
 	// Convert to JSON
 	data, err := json.MarshalIndent(targets, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal targets: %w", err)
+		return domainerrors.Wrap(err, "failed to marshal targets")
 	}
 
 	// Write to temporary file first (atomic write)
 	tempPath := outputPath + ".tmp"
 	if err := os.WriteFile(tempPath, data, 0644); err != nil {
-		return fmt.Errorf("failed to write temp file: %w", err)
+		return domainerrors.Wrap(err, "failed to write temp file")
 	}
 
 	// Rename to final file (atomic operation)
 	if err := os.Rename(tempPath, outputPath); err != nil {
 		os.Remove(tempPath) // Clean up temp file on error
-		return fmt.Errorf("failed to rename file: %w", err)
+		return domainerrors.Wrap(err, "failed to rename file")
 	}
 
 	return nil

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/fregataa/aami/config-server/internal/domain"
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -30,17 +31,17 @@ func NewPostgresDB(config Config) (*gorm.DB, error) {
 		Logger: logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to database: %w", err)
+		return nil, domainerrors.Wrap(err, "failed to connect to database")
 	}
 
 	// Test connection
 	sqlDB, err := db.DB()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get database instance: %w", err)
+		return nil, domainerrors.Wrap(err, "failed to get database instance")
 	}
 
 	if err := sqlDB.Ping(); err != nil {
-		return nil, fmt.Errorf("failed to ping database: %w", err)
+		return nil, domainerrors.Wrap(err, "failed to ping database")
 	}
 
 	return db, nil

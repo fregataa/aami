@@ -3,19 +3,11 @@ package alertmanager
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"time"
-)
-
-// Custom errors for Alertmanager client operations
-var (
-	ErrConnectionFailed  = errors.New("failed to connect to Alertmanager")
-	ErrHealthCheckFailed = errors.New("Alertmanager health check failed")
-	ErrFetchAlertsFailed = errors.New("failed to fetch alerts from Alertmanager")
 )
 
 // AlertmanagerClient manages interactions with Alertmanager server
@@ -73,14 +65,14 @@ func (c *AlertmanagerClient) GetAlerts(ctx context.Context) ([]Alert, error) {
 
 	req, err := http.NewRequestWithContext(ctx, "GET", alertsURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create alerts request: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrRequestFailed, err)
 	}
 
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrConnectionFailed, err)
+		return nil, fmt.Errorf("%w: %v", ErrConnectionFailed, err)
 	}
 	defer resp.Body.Close()
 
@@ -91,7 +83,7 @@ func (c *AlertmanagerClient) GetAlerts(ctx context.Context) ([]Alert, error) {
 
 	var alerts []Alert
 	if err := json.NewDecoder(resp.Body).Decode(&alerts); err != nil {
-		return nil, fmt.Errorf("failed to decode alerts response: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrResponseDecodeFailed, err)
 	}
 
 	c.logger.Debug("Retrieved alerts from Alertmanager", "count", len(alerts))
@@ -105,14 +97,14 @@ func (c *AlertmanagerClient) GetActiveAlerts(ctx context.Context) ([]Alert, erro
 
 	req, err := http.NewRequestWithContext(ctx, "GET", alertsURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create active alerts request: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrRequestFailed, err)
 	}
 
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrConnectionFailed, err)
+		return nil, fmt.Errorf("%w: %v", ErrConnectionFailed, err)
 	}
 	defer resp.Body.Close()
 
@@ -123,7 +115,7 @@ func (c *AlertmanagerClient) GetActiveAlerts(ctx context.Context) ([]Alert, erro
 
 	var alerts []Alert
 	if err := json.NewDecoder(resp.Body).Decode(&alerts); err != nil {
-		return nil, fmt.Errorf("failed to decode active alerts response: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrResponseDecodeFailed, err)
 	}
 
 	c.logger.Debug("Retrieved active alerts from Alertmanager", "count", len(alerts))
@@ -136,12 +128,12 @@ func (c *AlertmanagerClient) HealthCheck(ctx context.Context) error {
 
 	req, err := http.NewRequestWithContext(ctx, "GET", healthURL, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create health check request: %w", err)
+		return fmt.Errorf("%w: %v", ErrRequestFailed, err)
 	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrConnectionFailed, err)
+		return fmt.Errorf("%w: %v", ErrConnectionFailed, err)
 	}
 	defer resp.Body.Close()
 
@@ -166,25 +158,25 @@ func (c *AlertmanagerClient) GetStatus(ctx context.Context) (map[string]interfac
 
 	req, err := http.NewRequestWithContext(ctx, "GET", statusURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create status request: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrRequestFailed, err)
 	}
 
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrConnectionFailed, err)
+		return nil, fmt.Errorf("%w: %v", ErrConnectionFailed, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("failed to get status: status=%d, body=%s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("%w: status=%d, body=%s", ErrStatusFailed, resp.StatusCode, string(body))
 	}
 
 	var status map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
-		return nil, fmt.Errorf("failed to decode status response: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrResponseDecodeFailed, err)
 	}
 
 	c.logger.Debug("Retrieved Alertmanager status")

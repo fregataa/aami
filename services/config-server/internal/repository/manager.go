@@ -3,6 +3,7 @@ package repository
 import (
 	"fmt"
 
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -42,7 +43,7 @@ func NewManager(config Config) (*Manager, error) {
 	// 1. Create database connection (internal to repository layer)
 	db, err := connectDatabase(config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect database: %w", err)
+		return nil, domainerrors.Wrap(err, "failed to connect database")
 	}
 
 	// 2. Initialize all repositories
@@ -89,13 +90,13 @@ func connectDatabase(config Config) (*gorm.DB, error) {
 		Logger: logger.Default.LogMode(logLevel),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
+		return nil, domainerrors.Wrap(err, "failed to open database")
 	}
 
 	// Configure connection pool
 	sqlDB, err := db.DB()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get database instance: %w", err)
+		return nil, domainerrors.Wrap(err, "failed to get database instance")
 	}
 
 	// Connection pool settings
@@ -105,7 +106,7 @@ func connectDatabase(config Config) (*gorm.DB, error) {
 
 	// Test connection
 	if err := sqlDB.Ping(); err != nil {
-		return nil, fmt.Errorf("failed to ping database: %w", err)
+		return nil, domainerrors.Wrap(err, "failed to ping database")
 	}
 
 	return db, nil
@@ -115,7 +116,7 @@ func connectDatabase(config Config) (*gorm.DB, error) {
 func (m *Manager) Close() error {
 	sqlDB, err := m.db.DB()
 	if err != nil {
-		return fmt.Errorf("failed to get database instance: %w", err)
+		return domainerrors.Wrap(err, "failed to get database instance")
 	}
 	return sqlDB.Close()
 }
@@ -124,7 +125,7 @@ func (m *Manager) Close() error {
 func (m *Manager) Health() error {
 	sqlDB, err := m.db.DB()
 	if err != nil {
-		return fmt.Errorf("failed to get database instance: %w", err)
+		return domainerrors.Wrap(err, "failed to get database instance")
 	}
 	return sqlDB.Ping()
 }
