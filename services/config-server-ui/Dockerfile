@@ -43,11 +43,11 @@ COPY --from=builder /app/.next/static ./standalone/.next/static
 COPY --from=builder /app/public ./standalone/public
 
 # Find and set up the correct server location
+# Note: Using cp -r with /. suffix to include hidden files like .next
 RUN if [ -f ./standalone/server.js ]; then \
-      mv ./standalone/* ./ 2>/dev/null || true; \
+      cp -r ./standalone/. ./ && rm -rf ./standalone; \
     elif [ -d ./standalone/aami ]; then \
-      mv ./standalone/aami/services/config-server-ui/* ./ 2>/dev/null || true; \
-      rm -rf ./standalone; \
+      cp -r ./standalone/aami/services/config-server-ui/. ./ && rm -rf ./standalone; \
     fi
 
 # Copy static files to the correct location
