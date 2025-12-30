@@ -104,10 +104,10 @@ Check that all services are accessible:
 
 ```bash
 # Config Server health check
-curl http://localhost:8080/api/v1/health
+curl http://localhost:8080/health
 
 # Expected output:
-# {"status":"ok","timestamp":"2024-01-01T00:00:00Z"}
+# {"status":"healthy","version":"v1.0.0","database":"connected"}
 
 # Prometheus
 curl http://localhost:9090/-/healthy
@@ -134,33 +134,32 @@ curl -I http://localhost:3000
 
 ## Creating Your First Group
 
-Groups organize your infrastructure hierarchically. Let's create a basic structure.
+Groups organize your infrastructure. AAMI uses a flat group structure where targets can belong to multiple groups.
 
-### Step 1: Create Infrastructure Group
+### Step 1: Create a Group
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/groups \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "production",
-    "namespace": "environment",
-    "parent_id": null,
-    "description": "Production environment"
+    "name": "gpu-servers",
+    "description": "GPU compute servers",
+    "priority": 10
   }'
 ```
 
-Save the returned `group_id` for the next steps.
+Save the returned `id` for the next steps.
 
-### Step 2: Create Subgroup
+### Step 2: Create Additional Groups (Optional)
 
 ```bash
+# Create another group for web servers
 curl -X POST http://localhost:8080/api/v1/groups \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "gpu-cluster",
-    "namespace": "infrastructure",
-    "parent_id": "PARENT_GROUP_ID",
-    "description": "GPU compute cluster"
+    "name": "web-servers",
+    "description": "Web application servers",
+    "priority": 20
   }'
 ```
 
@@ -182,22 +181,8 @@ curl -X POST http://localhost:8080/api/v1/targets \
   -d '{
     "hostname": "gpu-node-01.example.com",
     "ip_address": "10.0.1.10",
-    "primary_group_id": "GROUP_ID_HERE",
-    "exporters": [
-      {
-        "type": "node_exporter",
-        "port": 9100,
-        "enabled": true,
-        "scrape_interval": "15s",
-        "scrape_timeout": "10s"
-      },
-      {
-        "type": "dcgm_exporter",
-        "port": 9400,
-        "enabled": true,
-        "scrape_interval": "30s"
-      }
-    ],
+    "port": 9100,
+    "group_ids": ["GROUP_ID_HERE"],
     "labels": {
       "datacenter": "dc1",
       "rack": "r1",
@@ -207,9 +192,24 @@ curl -X POST http://localhost:8080/api/v1/targets \
   }'
 ```
 
+Note: Targets can belong to multiple groups by providing multiple group IDs in the `group_ids` array.
+
 ### Method 2: Bootstrap Script (Recommended)
 
-On your target node, run:
+First, create a bootstrap token:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/bootstrap-tokens \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "gpu-cluster-token",
+    "group_id": "GROUP_ID_HERE",
+    "expires_at": "2025-12-31T23:59:59Z",
+    "max_uses": 100
+  }'
+```
+
+Then, on your target node, run:
 
 ```bash
 curl -fsSL https://your-config-server:8080/bootstrap.sh | \
@@ -248,43 +248,44 @@ You should see your registered targets appear within 30 seconds.
 
 ## Setting Up Alerts
 
-### Step 1: List Available Alert Rule Templates
+### Step 1: Create Alert Template
 
 ```bash
-curl http://localhost:8080/api/v1/alert-templates
+curl -X POST http://localhost:8080/api/v1/alert-templates \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "high-cpu",
+    "name": "High CPU Usage",
+    "description": "Alert when CPU usage exceeds threshold",
+    "severity": "warning",
+    "query_template": "100 - (avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100) > {{.threshold}}",
+    "default_config": {
+      "threshold": 80
+    }
+  }'
 ```
-
-Common templates include:
-- `HighCPUUsage`
-- `HighMemoryUsage`
-- `DiskSpaceLow`
-- `NodeDown`
-- `GPUHighTemperature`
 
 ### Step 2: Apply Alert Rule to Group
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/groups/GROUP_ID/alert-rules \
+curl -X POST http://localhost:8080/api/v1/alert-rules \
   -H "Content-Type: application/json" \
   -d '{
-    "rule_template_id": "HighCPUUsage",
+    "group_id": "GROUP_ID",
+    "template_id": "high-cpu",
     "enabled": true,
     "config": {
-      "threshold": 80,
-      "duration": "5m"
+      "threshold": 90
     },
-    "merge_strategy": "override"
+    "priority": 100
   }'
 ```
 
-### Step 3: Verify Alert Rules
+### Step 3: View Active Alerts
 
 ```bash
-# Check effective rules for a target
-curl http://localhost:8080/api/v1/targets/TARGET_ID/alert-rules/effective
-
-# Trace policy inheritance
-curl http://localhost:8080/api/v1/targets/TARGET_ID/alert-rules/trace
+# Check currently firing alerts
+curl http://localhost:8080/api/v1/alerts/active
 ```
 
 ### Step 4: Configure Alertmanager
@@ -366,7 +367,7 @@ Congratulations! You now have a working AAMI installation. Here's what to do nex
 ### Expand Your Monitoring
 
 1. **Add More Targets**: Register additional nodes
-2. **Create Group Hierarchy**: Organize by datacenter, environment, or function
+2. **Create Groups**: Organize targets by function, environment, or location
 3. **Customize Alerts**: Fine-tune thresholds per group
 4. **Deploy Custom Exporters**: Monitor specialized hardware
 
@@ -374,14 +375,14 @@ Congratulations! You now have a working AAMI installation. Here's what to do nex
 
 - [API Documentation](./API.md) - Full REST API reference
 - [Deployment Guide](../../deploy/README.md) - Production deployment
-- [Alert Rules Guide](./ALERT_RULES.md) - Advanced alert configuration
-- [Dashboard Guide](./DASHBOARDS.md) - Creating custom dashboards
+- [Alerting System](./ALERTING-SYSTEM.md) - Advanced alert configuration
+- [Check Management](./CHECK-MANAGEMENT.md) - Custom check scripts
 
 ### Automation
 
-- [Bootstrap Script](../../scripts/node/README.md) - Automated agent deployment
-- [Terraform Examples](../../examples/terraform/) - Infrastructure as Code
-- [Ansible Playbooks](../../deploy/ansible/) - Configuration management
+- [Node Registration](./NODE-REGISTRATION.md) - Automated node registration
+- [Cloud Init](./CLOUD-INIT.md) - Cloud-init integration
+- [Prometheus Integration](./PROMETHEUS-INTEGRATION.md) - Deep Prometheus integration
 
 ### Troubleshooting
 
@@ -389,8 +390,7 @@ If you encounter issues:
 
 1. Check logs: `docker-compose logs -f SERVICE_NAME`
 2. Verify connectivity: `docker-compose ps`
-3. Check Config Server: `curl http://localhost:8080/api/v1/health`
-4. See [Troubleshooting Guide](./TROUBLESHOOTING.md)
+3. Check Config Server: `curl http://localhost:8080/health`
 
 ## Common Issues
 
@@ -400,7 +400,7 @@ If you encounter issues:
 
 **Solution**:
 ```bash
-# Check service discovery file
+# Check service discovery endpoint
 curl http://localhost:8080/api/v1/sd/prometheus
 
 # Restart Prometheus to reload config
@@ -436,8 +436,8 @@ curl http://localhost:9090/api/v1/rules
 # Verify rule evaluation
 # Open http://localhost:9090/alerts
 
-# Check Alertmanager
-curl http://localhost:9093/api/v2/alerts
+# Check active alerts via API
+curl http://localhost:8080/api/v1/alerts/active
 ```
 
 ## Clean Up

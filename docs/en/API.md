@@ -10,23 +10,23 @@ http://localhost:8080/api/v1
 
 ## Authentication
 
-Currently, the API does not require authentication in development mode. For production deployments, implement API key or OAuth authentication.
-
-**Future Authentication Header:**
-```http
-Authorization: Bearer YOUR_API_KEY
-```
+Currently, the API does not require authentication. For production deployments, implement API key or OAuth authentication.
 
 ## Table of Contents
 
 1. [Health Check](#health-check)
 2. [Groups API](#groups-api)
 3. [Targets API](#targets-api)
-4. [Alert Rules API](#alert-rules-api)
-5. [Check Management API](#check-management-api)
-6. [Service Discovery API](#service-discovery-api)
-7. [Bootstrap API](#bootstrap-api)
-8. [Error Responses](#error-responses)
+4. [Exporters API](#exporters-api)
+5. [Alert Templates API](#alert-templates-api)
+6. [Alert Rules API](#alert-rules-api)
+7. [Active Alerts API](#active-alerts-api)
+8. [Script Templates API](#script-templates-api)
+9. [Script Policies API](#script-policies-api)
+10. [Bootstrap Tokens API](#bootstrap-tokens-api)
+11. [Service Discovery API](#service-discovery-api)
+12. [Prometheus Management API](#prometheus-management-api)
+13. [Error Responses](#error-responses)
 
 ---
 
@@ -34,896 +34,800 @@ Authorization: Bearer YOUR_API_KEY
 
 ### Check API Health
 
-Get the health status of the Config Server.
-
 **Endpoint:** `GET /health`
 
-**Example:**
 ```bash
-curl http://localhost:8080/api/v1/health
+curl http://localhost:8080/health
 ```
 
 **Response:**
 ```json
 {
-  "status": "ok",
-  "timestamp": "2024-01-01T12:00:00Z",
-  "version": "1.0.0",
-  "database": "connected",
-  "redis": "connected"
+  "status": "healthy",
+  "version": "v1.0.0",
+  "database": "connected"
 }
 ```
+
+### Readiness Check
+
+**Endpoint:** `GET /health/ready`
+
+### Liveness Check
+
+**Endpoint:** `GET /health/live`
 
 ---
 
 ## Groups API
 
-Manage monitoring groups and hierarchies.
+Manage monitoring groups. Groups are flat (no hierarchy) and targets can belong to multiple groups.
 
 ### List All Groups
 
-**Endpoint:** `GET /groups`
+**Endpoint:** `GET /api/v1/groups`
 
-**Query Parameters:**
-- `namespace` (optional): Filter by namespace (infrastructure, logical, environment)
-- `parent_id` (optional): Filter by parent group
-- `page` (optional): Page number (default: 1)
-- `limit` (optional): Items per page (default: 50)
-
-**Example:**
 ```bash
-# List all groups
 curl http://localhost:8080/api/v1/groups
-
-# Filter by namespace
-curl http://localhost:8080/api/v1/groups?namespace=environment
-
-# Filter by parent
-curl http://localhost:8080/api/v1/groups?parent_id=GROUP_ID
 ```
 
 **Response:**
 ```json
-{
-  "groups": [
-    {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "name": "production",
-      "namespace": "environment",
-      "parent_id": null,
-      "description": "Production environment",
-      "priority": 10,
-      "created_at": "2024-01-01T12:00:00Z",
-      "updated_at": "2024-01-01T12:00:00Z",
-      "target_count": 15
-    }
-  ],
-  "total": 1,
-  "page": 1,
-  "limit": 50
-}
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "gpu-servers",
+    "description": "GPU compute servers",
+    "priority": 10,
+    "is_default_own": false,
+    "metadata": {},
+    "created_at": "2024-01-01T12:00:00Z",
+    "updated_at": "2024-01-01T12:00:00Z"
+  }
+]
 ```
 
 ### Get Group by ID
 
-**Endpoint:** `GET /groups/:id`
+**Endpoint:** `GET /api/v1/groups/:id`
 
-**Example:**
 ```bash
 curl http://localhost:8080/api/v1/groups/550e8400-e29b-41d4-a716-446655440000
 ```
 
-**Response:**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "name": "production",
-  "namespace": "environment",
-  "parent_id": null,
-  "description": "Production environment",
-  "priority": 10,
-  "metadata": {
-    "owner": "devops-team",
-    "contact": "devops@example.com"
-  },
-  "created_at": "2024-01-01T12:00:00Z",
-  "updated_at": "2024-01-01T12:00:00Z",
-  "children": [],
-  "targets": []
-}
-```
-
 ### Create Group
 
-**Endpoint:** `POST /groups`
+**Endpoint:** `POST /api/v1/groups`
 
-**Request Body:**
-```json
-{
-  "name": "production",
-  "namespace": "environment",
-  "parent_id": null,
-  "description": "Production environment",
-  "metadata": {
-    "owner": "devops-team",
-    "contact": "devops@example.com"
-  }
-}
-```
-
-**Example:**
 ```bash
 curl -X POST http://localhost:8080/api/v1/groups \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "production",
-    "namespace": "environment",
-    "parent_id": null,
-    "description": "Production environment"
+    "name": "web-servers",
+    "description": "Web application servers",
+    "priority": 20,
+    "metadata": {
+      "environment": "production"
+    }
   }'
-```
-
-**Response:**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "name": "production",
-  "namespace": "environment",
-  "parent_id": null,
-  "description": "Production environment",
-  "priority": 10,
-  "created_at": "2024-01-01T12:00:00Z",
-  "updated_at": "2024-01-01T12:00:00Z"
-}
 ```
 
 ### Update Group
 
-**Endpoint:** `PUT /groups/:id`
+**Endpoint:** `PUT /api/v1/groups/:id`
 
-**Request Body:**
-```json
-{
-  "name": "production-updated",
-  "description": "Updated production environment"
-}
-```
-
-**Example:**
 ```bash
-curl -X PUT http://localhost:8080/api/v1/groups/550e8400-e29b-41d4-a716-446655440000 \
+curl -X PUT http://localhost:8080/api/v1/groups/GROUP_ID \
   -H "Content-Type: application/json" \
   -d '{
-    "description": "Updated production environment"
+    "description": "Updated description",
+    "priority": 15
   }'
 ```
 
-### Delete Group
+### Delete Group (Soft Delete)
 
-**Endpoint:** `DELETE /groups/:id`
+**Endpoint:** `POST /api/v1/groups/delete`
 
-**Example:**
 ```bash
-curl -X DELETE http://localhost:8080/api/v1/groups/550e8400-e29b-41d4-a716-446655440000
+curl -X POST http://localhost:8080/api/v1/groups/delete \
+  -H "Content-Type: application/json" \
+  -d '{"id": "GROUP_ID"}'
 ```
 
-**Response:**
-```json
-{
-  "message": "Group deleted successfully"
-}
+### Restore Group
+
+**Endpoint:** `POST /api/v1/groups/restore`
+
+```bash
+curl -X POST http://localhost:8080/api/v1/groups/restore \
+  -H "Content-Type: application/json" \
+  -d '{"id": "GROUP_ID"}'
+```
+
+### Purge Group (Hard Delete)
+
+**Endpoint:** `POST /api/v1/groups/purge`
+
+```bash
+curl -X POST http://localhost:8080/api/v1/groups/purge \
+  -H "Content-Type: application/json" \
+  -d '{"id": "GROUP_ID"}'
 ```
 
 ---
 
 ## Targets API
 
-Manage monitoring targets (servers, nodes).
+Manage monitoring targets (nodes/servers).
 
 ### List All Targets
 
-**Endpoint:** `GET /targets`
+**Endpoint:** `GET /api/v1/targets`
 
-**Query Parameters:**
-- `group_id` (optional): Filter by group
-- `status` (optional): Filter by status (active, inactive, down)
-- `page` (optional): Page number
-- `limit` (optional): Items per page
-
-**Example:**
 ```bash
-# List all targets
 curl http://localhost:8080/api/v1/targets
-
-# Filter by group
-curl http://localhost:8080/api/v1/targets?group_id=GROUP_ID
-
-# Filter by status
-curl http://localhost:8080/api/v1/targets?status=active
 ```
 
 **Response:**
 ```json
-{
-  "targets": [
-    {
-      "id": "660e8400-e29b-41d4-a716-446655440001",
-      "hostname": "gpu-node-01.example.com",
-      "ip_address": "10.0.1.10",
-      "primary_group_id": "550e8400-e29b-41d4-a716-446655440000",
-      "status": "active",
-      "last_seen": "2024-01-01T12:00:00Z",
-      "labels": {
-        "gpu_model": "A100",
-        "gpu_count": "8"
-      },
-      "created_at": "2024-01-01T11:00:00Z",
-      "updated_at": "2024-01-01T12:00:00Z"
-    }
-  ],
-  "total": 1,
-  "page": 1,
-  "limit": 50
-}
+[
+  {
+    "id": "target-uuid",
+    "hostname": "gpu-node-01",
+    "ip_address": "192.168.1.100",
+    "port": 9100,
+    "status": "active",
+    "labels": {
+      "rack": "A1",
+      "gpu": "nvidia"
+    },
+    "groups": [
+      {
+        "id": "group-uuid",
+        "name": "gpu-servers"
+      }
+    ],
+    "created_at": "2024-01-01T12:00:00Z",
+    "updated_at": "2024-01-01T12:00:00Z"
+  }
+]
 ```
 
 ### Get Target by ID
 
-**Endpoint:** `GET /targets/:id`
+**Endpoint:** `GET /api/v1/targets/:id`
 
-**Example:**
+### Get Target by Hostname
+
+**Endpoint:** `GET /api/v1/targets/hostname/:hostname`
+
 ```bash
-curl http://localhost:8080/api/v1/targets/660e8400-e29b-41d4-a716-446655440001
+curl http://localhost:8080/api/v1/targets/hostname/gpu-node-01
+```
+
+### Get Targets by Group
+
+**Endpoint:** `GET /api/v1/targets/group/:group_id`
+
+```bash
+curl http://localhost:8080/api/v1/targets/group/GROUP_ID
 ```
 
 ### Create Target
 
-**Endpoint:** `POST /targets`
+**Endpoint:** `POST /api/v1/targets`
 
-**Request Body:**
-```json
-{
-  "hostname": "gpu-node-01.example.com",
-  "ip_address": "10.0.1.10",
-  "primary_group_id": "550e8400-e29b-41d4-a716-446655440000",
-  "secondary_group_ids": [],
-  "exporters": [
-    {
-      "type": "node_exporter",
-      "port": 9100,
-      "enabled": true,
-      "scrape_interval": "15s",
-      "scrape_timeout": "10s",
-      "metrics_path": "/metrics"
-    },
-    {
-      "type": "dcgm_exporter",
-      "port": 9400,
-      "enabled": true,
-      "scrape_interval": "30s",
-      "scrape_timeout": "10s"
-    }
-  ],
-  "labels": {
-    "datacenter": "dc1",
-    "rack": "r1",
-    "gpu_model": "A100",
-    "gpu_count": "8",
-    "instance_type": "p4d.24xlarge"
-  },
-  "metadata": {
-    "provisioned_by": "terraform",
-    "owner": "ml-team"
-  }
-}
-```
-
-**Example:**
 ```bash
 curl -X POST http://localhost:8080/api/v1/targets \
   -H "Content-Type: application/json" \
   -d '{
-    "hostname": "gpu-node-01.example.com",
-    "ip_address": "10.0.1.10",
-    "primary_group_id": "550e8400-e29b-41d4-a716-446655440000",
-    "exporters": [
-      {
-        "type": "node_exporter",
-        "port": 9100,
-        "enabled": true
-      },
-      {
-        "type": "dcgm_exporter",
-        "port": 9400,
-        "enabled": true
-      }
-    ],
+    "hostname": "gpu-node-02",
+    "ip_address": "192.168.1.101",
+    "port": 9100,
     "labels": {
-      "gpu_model": "A100",
-      "gpu_count": "8"
-    }
+      "rack": "A2"
+    },
+    "group_ids": ["group-uuid-1", "group-uuid-2"]
   }'
 ```
 
 ### Update Target
 
-**Endpoint:** `PUT /targets/:id`
+**Endpoint:** `PUT /api/v1/targets/:id`
 
-**Example:**
+### Update Target Status
+
+**Endpoint:** `POST /api/v1/targets/:id/status`
+
 ```bash
-curl -X PUT http://localhost:8080/api/v1/targets/660e8400-e29b-41d4-a716-446655440001 \
+curl -X POST http://localhost:8080/api/v1/targets/TARGET_ID/status \
+  -H "Content-Type: application/json" \
+  -d '{"status": "inactive"}'
+```
+
+### Target Heartbeat
+
+**Endpoint:** `POST /api/v1/targets/:id/heartbeat`
+
+### Delete/Restore/Purge Target
+
+- `POST /api/v1/targets/delete`
+- `POST /api/v1/targets/restore`
+- `POST /api/v1/targets/purge`
+
+---
+
+## Exporters API
+
+Manage Prometheus exporters associated with targets.
+
+### List All Exporters
+
+**Endpoint:** `GET /api/v1/exporters`
+
+### Get Exporter by ID
+
+**Endpoint:** `GET /api/v1/exporters/:id`
+
+### Get Exporters by Target
+
+**Endpoint:** `GET /api/v1/exporters/target/:target_id`
+
+### Get Exporters by Type
+
+**Endpoint:** `GET /api/v1/exporters/type/:type`
+
+```bash
+curl http://localhost:8080/api/v1/exporters/type/node_exporter
+```
+
+### Create Exporter
+
+**Endpoint:** `POST /api/v1/exporters`
+
+```bash
+curl -X POST http://localhost:8080/api/v1/exporters \
   -H "Content-Type: application/json" \
   -d '{
-    "labels": {
-      "gpu_model": "A100",
-      "gpu_count": "8",
-      "maintenance": "false"
+    "target_id": "target-uuid",
+    "type": "node_exporter",
+    "port": 9100,
+    "path": "/metrics",
+    "enabled": true
+  }'
+```
+
+### Update/Delete/Restore/Purge Exporter
+
+- `PUT /api/v1/exporters/:id`
+- `POST /api/v1/exporters/delete`
+- `POST /api/v1/exporters/restore`
+- `POST /api/v1/exporters/purge`
+
+---
+
+## Alert Templates API
+
+Manage reusable alert rule templates.
+
+### List All Alert Templates
+
+**Endpoint:** `GET /api/v1/alert-templates`
+
+### Get Alert Template by ID
+
+**Endpoint:** `GET /api/v1/alert-templates/:id`
+
+### Get Alert Templates by Severity
+
+**Endpoint:** `GET /api/v1/alert-templates/severity/:severity`
+
+```bash
+curl http://localhost:8080/api/v1/alert-templates/severity/critical
+```
+
+### Create Alert Template
+
+**Endpoint:** `POST /api/v1/alert-templates`
+
+```bash
+curl -X POST http://localhost:8080/api/v1/alert-templates \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "high-cpu",
+    "name": "High CPU Usage",
+    "description": "Alert when CPU usage exceeds threshold",
+    "severity": "warning",
+    "query_template": "100 - (avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100) > {{.threshold}}",
+    "default_config": {
+      "threshold": 80
     }
   }'
 ```
 
-### Delete Target
+### Update/Delete/Restore/Purge Alert Template
 
-**Endpoint:** `DELETE /targets/:id`
-
-**Example:**
-```bash
-curl -X DELETE http://localhost:8080/api/v1/targets/660e8400-e29b-41d4-a716-446655440001
-```
+- `PUT /api/v1/alert-templates/:id`
+- `POST /api/v1/alert-templates/delete`
+- `POST /api/v1/alert-templates/restore`
+- `POST /api/v1/alert-templates/purge`
 
 ---
 
 ## Alert Rules API
 
-Manage alert rules and thresholds.
+Manage alert rules assigned to groups.
 
-### List Alert Rule Templates
+### List All Alert Rules
 
-**Endpoint:** `GET /alert-templates`
+**Endpoint:** `GET /api/v1/alert-rules`
 
-**Example:**
+### Get Alert Rule by ID
+
+**Endpoint:** `GET /api/v1/alert-rules/:id`
+
+### Get Alert Rules by Group
+
+**Endpoint:** `GET /api/v1/alert-rules/group/:group_id`
+
+### Get Alert Rules by Template
+
+**Endpoint:** `GET /api/v1/alert-rules/template/:template_id`
+
+### Create Alert Rule (from Template)
+
+**Endpoint:** `POST /api/v1/alert-rules`
+
 ```bash
-curl http://localhost:8080/api/v1/alert-templates
-```
-
-**Response:**
-```json
-{
-  "templates": [
-    {
-      "id": "HighCPUUsage",
-      "name": "High CPU Usage",
-      "description": "Alert when CPU usage exceeds threshold",
-      "severity": "warning",
-      "default_config": {
-        "threshold": 80,
-        "duration": "5m"
-      },
-      "query_template": "100 - (avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100) > {{.threshold}}"
-    }
-  ]
-}
-```
-
-### Apply Alert Rule to Group
-
-**Endpoint:** `POST /groups/:id/alert-rules`
-
-**Request Body:**
-```json
-{
-  "rule_template_id": "HighCPUUsage",
-  "enabled": true,
-  "config": {
-    "threshold": 70,
-    "duration": "5m"
-  },
-  "merge_strategy": "override",
-  "annotations": {
-    "summary": "High CPU usage detected",
-    "description": "CPU usage is above 70% for more than 5 minutes"
-  }
-}
-```
-
-**Example:**
-```bash
-curl -X POST http://localhost:8080/api/v1/groups/550e8400-e29b-41d4-a716-446655440000/alert-rules \
+curl -X POST http://localhost:8080/api/v1/alert-rules \
   -H "Content-Type: application/json" \
   -d '{
-    "rule_template_id": "HighCPUUsage",
+    "group_id": "group-uuid",
+    "template_id": "high-cpu",
     "enabled": true,
     "config": {
-      "threshold": 70,
-      "duration": "5m"
+      "threshold": 90
     },
-    "merge_strategy": "override"
+    "priority": 100
   }'
 ```
 
-### Get Effective Alert Rules for Target
+### Create Alert Rule (Direct)
 
-**Endpoint:** `GET /targets/:id/alert-rules/effective`
-
-**Example:**
 ```bash
-curl http://localhost:8080/api/v1/targets/660e8400-e29b-41d4-a716-446655440001/alert-rules/effective
+curl -X POST http://localhost:8080/api/v1/alert-rules \
+  -H "Content-Type: application/json" \
+  -d '{
+    "group_id": "group-uuid",
+    "name": "Custom Alert",
+    "description": "Custom alert rule",
+    "severity": "critical",
+    "query_template": "up == 0",
+    "enabled": true,
+    "priority": 100
+  }'
+```
+
+### Update/Delete/Restore/Purge Alert Rule
+
+- `PUT /api/v1/alert-rules/:id`
+- `POST /api/v1/alert-rules/delete`
+- `POST /api/v1/alert-rules/restore`
+- `POST /api/v1/alert-rules/purge`
+
+---
+
+## Active Alerts API
+
+Retrieve currently firing alerts from Alertmanager.
+
+### Get Active Alerts
+
+**Endpoint:** `GET /api/v1/alerts/active`
+
+```bash
+curl http://localhost:8080/api/v1/alerts/active
 ```
 
 **Response:**
 ```json
 {
-  "target_id": "660e8400-e29b-41d4-a716-446655440001",
-  "rules": [
+  "alerts": [
     {
-      "rule_id": "HighCPUUsage",
-      "enabled": true,
-      "config": {
-        "threshold": 70,
-        "duration": "5m"
+      "fingerprint": "abc123",
+      "status": "firing",
+      "labels": {
+        "alertname": "HighCPU",
+        "instance": "gpu-node-01:9100",
+        "severity": "warning"
       },
-      "source_group": "production",
-      "priority": 10
+      "annotations": {
+        "summary": "High CPU usage detected",
+        "description": "CPU usage is above 90%"
+      },
+      "starts_at": "2024-01-15T10:30:00Z",
+      "generator_url": "http://prometheus:9090/graph?..."
     }
-  ]
-}
-```
-
-### Trace Alert Rule Policy
-
-**Endpoint:** `GET /targets/:id/alert-rules/trace`
-
-Shows which groups contributed to the final alert configuration.
-
-**Example:**
-```bash
-curl http://localhost:8080/api/v1/targets/660e8400-e29b-41d4-a716-446655440001/alert-rules/trace
-```
-
-**Response:**
-```json
-{
-  "target_id": "660e8400-e29b-41d4-a716-446655440001",
-  "trace": [
-    {
-      "rule_id": "HighCPUUsage",
-      "inheritance_chain": [
-        {
-          "group_name": "infrastructure",
-          "group_id": "...",
-          "config": {"threshold": 80},
-          "priority": 100
-        },
-        {
-          "group_name": "production",
-          "group_id": "...",
-          "config": {"threshold": 70},
-          "priority": 10,
-          "override": true
-        }
-      ],
-      "final_config": {"threshold": 70, "duration": "5m"}
-    }
-  ]
+  ],
+  "total": 1
 }
 ```
 
 ---
 
-## Check Management API
+## Script Templates API
 
-Manages the dynamic check system. Use CheckTemplate (reusable check definitions) and CheckInstance (scope-specific template applications) to manage node-level checks.
+Manage check script templates.
 
-### Create Check Template
+### List All Script Templates
 
-**Endpoint:** `POST /check-templates`
+**Endpoint:** `GET /api/v1/script-templates`
 
-Creates a reusable check script template.
+### List Active Script Templates
 
-**Request Body:**
-```json
-{
-  "name": "disk-usage-check",
-  "check_type": "disk",
-  "script_content": "#!/bin/bash\ndf -h / | tail -1 | awk '{print \"disk_usage_percent{mount=\\\"/\\\"} \"$5}' | sed 's/%//'",
-  "language": "bash",
-  "default_config": {
-    "threshold": 80,
-    "mount": "/"
-  },
-  "description": "Disk usage check",
-  "version": "1.0.0"
-}
+**Endpoint:** `GET /api/v1/script-templates/active`
+
+### Get Script Template by ID
+
+**Endpoint:** `GET /api/v1/script-templates/:id`
+
+### Get Script Template by Name
+
+**Endpoint:** `GET /api/v1/script-templates/name/:name`
+
+### Get Script Templates by Type
+
+**Endpoint:** `GET /api/v1/script-templates/type/:scriptType`
+
+```bash
+curl http://localhost:8080/api/v1/script-templates/type/check
 ```
 
-**Example:**
+### Verify Script Hash
+
+**Endpoint:** `GET /api/v1/script-templates/:id/verify-hash`
+
+### Create Script Template
+
+**Endpoint:** `POST /api/v1/script-templates`
+
 ```bash
-curl -X POST http://localhost:8080/api/v1/check-templates \
+curl -X POST http://localhost:8080/api/v1/script-templates \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "disk-usage-check",
-    "check_type": "disk",
-    "script_content": "#!/bin/bash\ndf -h / | tail -1",
-    "language": "bash",
-    "default_config": {"threshold": 80},
-    "version": "1.0.0"
+    "name": "disk-check",
+    "description": "Check disk usage",
+    "script_type": "check",
+    "script_content": "#!/bin/bash\ndf -h / | awk '\''NR==2 {print $5}'\''",
+    "config_schema": {
+      "threshold": {"type": "number", "default": 80}
+    },
+    "enabled": true
+  }'
+```
+
+### Update/Delete/Restore/Purge Script Template
+
+- `PUT /api/v1/script-templates/:id`
+- `POST /api/v1/script-templates/delete`
+- `POST /api/v1/script-templates/restore`
+- `POST /api/v1/script-templates/purge`
+
+---
+
+## Script Policies API
+
+Manage script policy assignments to groups.
+
+### List All Script Policies
+
+**Endpoint:** `GET /api/v1/script-policies`
+
+### List Active Script Policies
+
+**Endpoint:** `GET /api/v1/script-policies/active`
+
+### Get Script Policy by ID
+
+**Endpoint:** `GET /api/v1/script-policies/:id`
+
+### Get Script Policies by Template
+
+**Endpoint:** `GET /api/v1/script-policies/template/:templateId`
+
+### Get Global Script Policies
+
+**Endpoint:** `GET /api/v1/script-policies/global`
+
+### Get Script Policies by Group
+
+**Endpoint:** `GET /api/v1/script-policies/group/:groupId`
+
+### Get Effective Checks by Group
+
+**Endpoint:** `GET /api/v1/script-policies/effective/group/:groupId`
+
+### Get Effective Checks by Target
+
+**Endpoint:** `GET /api/v1/checks/target/:targetId`
+
+This endpoint is used by nodes to fetch their assigned checks.
+
+```bash
+curl http://localhost:8080/api/v1/checks/target/TARGET_ID
+```
+
+### Create Script Policy
+
+**Endpoint:** `POST /api/v1/script-policies`
+
+```bash
+curl -X POST http://localhost:8080/api/v1/script-policies \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template_id": "disk-check-template-id",
+    "group_id": "group-uuid",
+    "config": {
+      "threshold": 85
+    },
+    "priority": 100,
+    "enabled": true
+  }'
+```
+
+### Update/Delete/Restore/Purge Script Policy
+
+- `PUT /api/v1/script-policies/:id`
+- `POST /api/v1/script-policies/delete`
+- `POST /api/v1/script-policies/restore`
+- `POST /api/v1/script-policies/purge`
+
+---
+
+## Bootstrap Tokens API
+
+Manage bootstrap tokens for node auto-registration.
+
+### List All Bootstrap Tokens
+
+**Endpoint:** `GET /api/v1/bootstrap-tokens`
+
+### Get Bootstrap Token by ID
+
+**Endpoint:** `GET /api/v1/bootstrap-tokens/:id`
+
+### Get Bootstrap Token by Token String
+
+**Endpoint:** `GET /api/v1/bootstrap-tokens/token/:token`
+
+### Create Bootstrap Token
+
+**Endpoint:** `POST /api/v1/bootstrap-tokens`
+
+```bash
+curl -X POST http://localhost:8080/api/v1/bootstrap-tokens \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "gpu-cluster-token",
+    "description": "Token for GPU cluster nodes",
+    "group_id": "gpu-servers-group-id",
+    "expires_at": "2024-12-31T23:59:59Z",
+    "max_uses": 100
   }'
 ```
 
 **Response:**
 ```json
 {
-  "id": "880e8400-e29b-41d4-a716-446655440003",
-  "name": "disk-usage-check",
-  "check_type": "disk",
-  "script_content": "...",
-  "language": "bash",
-  "default_config": {"threshold": 80},
-  "hash": "a1b2c3d4...",
-  "version": "1.0.0",
+  "id": "token-uuid",
+  "name": "gpu-cluster-token",
+  "token": "aami_bootstrap_abc123xyz...",
+  "group_id": "gpu-servers-group-id",
+  "expires_at": "2024-12-31T23:59:59Z",
+  "max_uses": 100,
+  "use_count": 0,
   "created_at": "2024-01-01T12:00:00Z"
 }
 ```
 
-### List Check Templates
+### Validate and Use Token
 
-**Endpoint:** `GET /check-templates`
+**Endpoint:** `POST /api/v1/bootstrap-tokens/validate`
 
-**Query Parameters:**
-- `page` (optional): Page number (default: 1)
-- `limit` (optional): Items per page (default: 20)
-
-**Example:**
 ```bash
-curl http://localhost:8080/api/v1/check-templates
+curl -X POST http://localhost:8080/api/v1/bootstrap-tokens/validate \
+  -H "Content-Type: application/json" \
+  -d '{"token": "aami_bootstrap_abc123xyz..."}'
 ```
 
-### Get Check Template
+### Register Node with Token
 
-**Endpoint:** `GET /check-templates/:id`
+**Endpoint:** `POST /api/v1/bootstrap-tokens/register`
 
-**Example:**
 ```bash
-curl http://localhost:8080/api/v1/check-templates/880e8400-e29b-41d4-a716-446655440003
-```
-
-### Create Check Instance
-
-**Endpoint:** `POST /check-instances`
-
-Applies a check template to a specific scope (Global/Namespace/Group).
-
-**Request Body:**
-```json
-{
-  "template_id": "880e8400-e29b-41d4-a716-446655440003",
-  "scope": "global",
-  "config": {
-    "threshold": 85
-  },
-  "priority": 100,
-  "is_active": true
-}
-```
-
-**Scope-Specific Parameters:**
-- **Global**: `scope: "global"` (no namespace_id or group_id required)
-- **Namespace**: `scope: "namespace"`, requires `namespace_id`
-- **Group**: `scope: "group"`, requires both `namespace_id` and `group_id`
-
-**Example (Global):**
-```bash
-curl -X POST http://localhost:8080/api/v1/check-instances \
+curl -X POST http://localhost:8080/api/v1/bootstrap-tokens/register \
   -H "Content-Type: application/json" \
   -d '{
-    "template_id": "880e8400-e29b-41d4-a716-446655440003",
-    "scope": "global",
-    "config": {"threshold": 85},
-    "priority": 100,
-    "is_active": true
+    "token": "aami_bootstrap_abc123xyz...",
+    "hostname": "gpu-node-03",
+    "ip_address": "192.168.1.103",
+    "port": 9100,
+    "labels": {
+      "rack": "B1",
+      "gpu_count": "8"
+    }
   }'
 ```
 
-**Example (Group - Override):**
-```bash
-curl -X POST http://localhost:8080/api/v1/check-instances \
-  -H "Content-Type: application/json" \
-  -d '{
-    "template_id": "880e8400-e29b-41d4-a716-446655440003",
-    "scope": "group",
-    "namespace_id": "550e8400-e29b-41d4-a716-446655440000",
-    "group_id": "660e8400-e29b-41d4-a716-446655440001",
-    "config": {"threshold": 70},
-    "priority": 50,
-    "is_active": true
-  }'
-```
+### Update/Delete/Restore/Purge Bootstrap Token
 
-### Get Node Effective Checks
-
-**Endpoint:** `GET /checks/node/:hostname`
-
-Retrieves all checks applied to a node based on priority (Group > Namespace > Global).
-
-**Example:**
-```bash
-curl http://localhost:8080/api/v1/checks/node/gpu-node-01.example.com
-```
-
-**Response:**
-```json
-[
-  {
-    "check_type": "disk",
-    "script_content": "#!/bin/bash\n...",
-    "language": "bash",
-    "config": {
-      "threshold": 70,
-      "mount": "/"
-    },
-    "version": "1.0.0",
-    "hash": "a1b2c3d4...",
-    "template_id": "880e8400-e29b-41d4-a716-446655440003",
-    "instance_id": "990e8400-e29b-41d4-a716-446655440004"
-  }
-]
-```
-
-**Note:** The config field is the merged result of the template's default_config and the instance's config.
-
-### List Check Instances
-
-**Endpoint:** `GET /check-instances`
-
-**Query Parameters:**
-- `scope` (optional): Filter by scope (global, namespace, group)
-- `namespace_id` (optional): Filter by namespace
-- `group_id` (optional): Filter by group
-
-**Example:**
-```bash
-# List all
-curl http://localhost:8080/api/v1/check-instances
-
-# Global instances only
-curl http://localhost:8080/api/v1/check-instances?scope=global
-
-# Specific group instances
-curl http://localhost:8080/api/v1/check-instances?group_id=660e8400-e29b-41d4-a716-446655440001
-```
-
-### Update Check Template
-
-**Endpoint:** `PUT /check-templates/:id`
-
-**Example:**
-```bash
-curl -X PUT http://localhost:8080/api/v1/check-templates/880e8400-e29b-41d4-a716-446655440003 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "description": "Updated disk check",
-    "version": "1.1.0"
-  }'
-```
-
-### Update Check Instance
-
-**Endpoint:** `PUT /check-instances/:id`
-
-**Example:**
-```bash
-curl -X PUT http://localhost:8080/api/v1/check-instances/990e8400-e29b-41d4-a716-446655440004 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "config": {"threshold": 75},
-    "is_active": true
-  }'
-```
-
-### Delete Check Template (Soft Delete)
-
-**Endpoint:** `DELETE /check-templates/:id`
-
-**Example:**
-```bash
-curl -X DELETE http://localhost:8080/api/v1/check-templates/880e8400-e29b-41d4-a716-446655440003
-```
-
-### Delete Check Instance (Soft Delete)
-
-**Endpoint:** `DELETE /check-instances/:id`
-
-**Example:**
-```bash
-curl -X DELETE http://localhost:8080/api/v1/check-instances/990e8400-e29b-41d4-a716-446655440004
-```
-
-**Note:** For more detailed check management guidance, refer to the [Check Management Documentation](CHECK-MANAGEMENT.md).
+- `PUT /api/v1/bootstrap-tokens/:id`
+- `POST /api/v1/bootstrap-tokens/delete`
+- `POST /api/v1/bootstrap-tokens/restore`
+- `POST /api/v1/bootstrap-tokens/purge`
 
 ---
 
 ## Service Discovery API
 
-Endpoints for Prometheus service discovery integration.
+Prometheus service discovery endpoints.
 
-### Get Prometheus SD Targets
+### HTTP Service Discovery
 
-**Endpoint:** `GET /sd/prometheus`
-
-Returns targets in Prometheus file-based service discovery format.
-
-**Example:**
+**Get All Prometheus Targets:**
 ```bash
 curl http://localhost:8080/api/v1/sd/prometheus
 ```
 
-**Response:**
+**Get Active Prometheus Targets:**
+```bash
+curl http://localhost:8080/api/v1/sd/prometheus/active
+```
+
+**Get Prometheus Targets by Group:**
+```bash
+curl http://localhost:8080/api/v1/sd/prometheus/group/GROUP_ID
+```
+
+**Response (Prometheus HTTP SD format):**
 ```json
 [
   {
-    "targets": ["10.0.1.10:9100"],
+    "targets": ["192.168.1.100:9100"],
     "labels": {
-      "__meta_aami_target_id": "660e8400-e29b-41d4-a716-446655440001",
-      "__meta_aami_group": "production",
-      "hostname": "gpu-node-01.example.com",
-      "gpu_model": "A100",
-      "gpu_count": "8",
-      "job": "node-exporter"
-    }
-  },
-  {
-    "targets": ["10.0.1.10:9400"],
-    "labels": {
-      "__meta_aami_target_id": "660e8400-e29b-41d4-a716-446655440001",
-      "__meta_aami_group": "production",
-      "hostname": "gpu-node-01.example.com",
-      "gpu_model": "A100",
-      "job": "dcgm-exporter"
+      "__meta_aami_hostname": "gpu-node-01",
+      "__meta_aami_group": "gpu-servers"
     }
   }
 ]
 ```
 
-### Get Alert Rules for Prometheus
+### File Service Discovery
 
-**Endpoint:** `GET /sd/alert-rules`
-
-Returns alert rules in Prometheus rule format.
-
-**Example:**
+**Generate File SD (All Targets):**
 ```bash
-curl http://localhost:8080/api/v1/sd/alert-rules
+curl -X POST http://localhost:8080/api/v1/sd/prometheus/file
+```
+
+**Generate File SD (Active Only):**
+```bash
+curl -X POST http://localhost:8080/api/v1/sd/prometheus/file/active
+```
+
+**Generate File SD (By Group):**
+```bash
+curl -X POST http://localhost:8080/api/v1/sd/prometheus/file/group/GROUP_ID
 ```
 
 ---
 
-## Bootstrap API
+## Prometheus Management API
 
-Endpoints for automated node registration.
+Manage Prometheus rule files and configuration.
 
-### Create Bootstrap Token
+### Get Prometheus Status
 
-**Endpoint:** `POST /bootstrap/tokens`
+**Endpoint:** `GET /api/v1/prometheus/status`
 
-**Request Body:**
-```json
-{
-  "name": "datacenter-1-token",
-  "expires_at": "2024-12-31T23:59:59Z",
-  "max_uses": 100,
-  "default_group_id": "550e8400-e29b-41d4-a716-446655440000",
-  "labels": {
-    "datacenter": "dc1"
-  }
-}
-```
-
-**Example:**
 ```bash
-curl -X POST http://localhost:8080/api/v1/bootstrap/tokens \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "datacenter-1-token",
-    "expires_at": "2024-12-31T23:59:59Z",
-    "max_uses": 100,
-    "default_group_id": "550e8400-e29b-41d4-a716-446655440000"
-  }'
+curl http://localhost:8080/api/v1/prometheus/status
 ```
 
-**Response:**
-```json
-{
-  "token": "aami_1234567890abcdef",
-  "id": "770e8400-e29b-41d4-a716-446655440002",
-  "name": "datacenter-1-token",
-  "expires_at": "2024-12-31T23:59:59Z",
-  "max_uses": 100,
-  "uses": 0,
-  "created_at": "2024-01-01T12:00:00Z"
-}
+### List Rule Files
+
+**Endpoint:** `GET /api/v1/prometheus/rules/files`
+
+```bash
+curl http://localhost:8080/api/v1/prometheus/rules/files
 ```
 
-### Bootstrap Registration
+### Get Effective Rules for Target
 
-**Endpoint:** `POST /bootstrap/register`
+**Endpoint:** `GET /api/v1/prometheus/rules/effective/:target_id`
 
-Used by bootstrap script to auto-register nodes.
+```bash
+curl http://localhost:8080/api/v1/prometheus/rules/effective/TARGET_ID
+```
 
-**Request Body:**
-```json
-{
-  "token": "aami_1234567890abcdef",
-  "hostname": "auto-gpu-node-01",
-  "ip_address": "10.0.1.15",
-  "hardware_info": {
-    "cpu_cores": 96,
-    "memory_gb": 768,
-    "gpu_count": 8,
-    "gpu_model": "NVIDIA A100",
-    "disk_size_gb": 2048
-  }
-}
+### Regenerate All Rules
+
+**Endpoint:** `POST /api/v1/prometheus/rules/regenerate`
+
+```bash
+curl -X POST http://localhost:8080/api/v1/prometheus/rules/regenerate
+```
+
+### Regenerate Group Rules
+
+**Endpoint:** `POST /api/v1/prometheus/rules/regenerate/:group_id`
+
+```bash
+curl -X POST http://localhost:8080/api/v1/prometheus/rules/regenerate/GROUP_ID
+```
+
+### Reload Prometheus
+
+**Endpoint:** `POST /api/v1/prometheus/reload`
+
+```bash
+curl -X POST http://localhost:8080/api/v1/prometheus/reload
 ```
 
 ---
 
 ## Error Responses
 
-All error responses follow this format:
+All API errors follow a consistent format:
 
 ```json
 {
   "error": {
-    "code": "ERROR_CODE",
-    "message": "Human-readable error message",
-    "details": {}
+    "code": "NOT_FOUND",
+    "message": "Resource not found",
+    "details": "Group with ID 'xxx' not found"
   }
 }
 ```
 
 ### Common Error Codes
 
-| Code | HTTP Status | Description |
-|------|-------------|-------------|
-| `INVALID_REQUEST` | 400 | Invalid request body or parameters |
-| `NOT_FOUND` | 404 | Resource not found |
-| `CONFLICT` | 409 | Resource already exists |
-| `VALIDATION_ERROR` | 422 | Validation failed |
-| `INTERNAL_ERROR` | 500 | Internal server error |
-| `DATABASE_ERROR` | 500 | Database operation failed |
+| HTTP Status | Code | Description |
+|-------------|------|-------------|
+| 400 | `BAD_REQUEST` | Invalid request body or parameters |
+| 400 | `VALIDATION_ERROR` | Request validation failed |
+| 404 | `NOT_FOUND` | Resource not found |
+| 409 | `CONFLICT` | Resource already exists |
+| 500 | `INTERNAL_ERROR` | Internal server error |
 
-**Example Error Response:**
-```json
-{
-  "error": {
-    "code": "NOT_FOUND",
-    "message": "Group not found",
-    "details": {
-      "group_id": "550e8400-e29b-41d4-a716-446655440000"
-    }
-  }
-}
+---
+
+## Common Patterns
+
+### Soft Delete
+
+All resources support soft delete. Deleted resources are marked with `deleted_at` timestamp and can be restored.
+
+```bash
+# Soft delete
+POST /api/v1/{resource}/delete
+{"id": "resource-id"}
+
+# Restore
+POST /api/v1/{resource}/restore
+{"id": "resource-id"}
+
+# Hard delete (permanent)
+POST /api/v1/{resource}/purge
+{"id": "resource-id"}
 ```
 
----
+### Pagination
 
-## Rate Limiting
+List endpoints support pagination:
 
-Currently, no rate limiting is enforced in development mode. For production deployments, implement rate limiting at the API gateway or load balancer level.
-
-**Recommended Headers:**
-```http
-X-RateLimit-Limit: 1000
-X-RateLimit-Remaining: 999
-X-RateLimit-Reset: 1609459200
+```bash
+GET /api/v1/targets?page=1&limit=20
 ```
 
----
-
-## API Versioning
-
-The API uses URL-based versioning (`/api/v1`). Breaking changes will result in a new version (`/api/v2`).
-
----
-
-For more examples, see [API Usage Examples](../../examples/api-usage/).
+Response includes pagination metadata in headers or response body.

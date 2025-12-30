@@ -10,920 +10,824 @@ http://localhost:8080/api/v1
 
 ## 인증
 
-현재 개발 모드에서는 API 인증이 필요하지 않습니다. 프로덕션 배포 시에는 API 키 또는 OAuth 인증을 구현하세요.
-
-**향후 인증 헤더:**
-```http
-Authorization: Bearer YOUR_API_KEY
-```
+현재 API는 인증이 필요하지 않습니다. 프로덕션 배포 시 API 키 또는 OAuth 인증을 구현하세요.
 
 ## 목차
 
 1. [헬스 체크](#헬스-체크)
 2. [그룹 API](#그룹-api)
 3. [타겟 API](#타겟-api)
-4. [알림 규칙 API](#알림-규칙-api)
-5. [체크 관리 API](#체크-관리-api)
-6. [서비스 디스커버리 API](#서비스-디스커버리-api)
-7. [부트스트랩 API](#부트스트랩-api)
-8. [에러 응답](#에러-응답)
+4. [익스포터 API](#익스포터-api)
+5. [알림 템플릿 API](#알림-템플릿-api)
+6. [알림 규칙 API](#알림-규칙-api)
+7. [활성 알림 API](#활성-알림-api)
+8. [스크립트 템플릿 API](#스크립트-템플릿-api)
+9. [스크립트 정책 API](#스크립트-정책-api)
+10. [부트스트랩 토큰 API](#부트스트랩-토큰-api)
+11. [서비스 디스커버리 API](#서비스-디스커버리-api)
+12. [Prometheus 관리 API](#prometheus-관리-api)
+13. [에러 응답](#에러-응답)
 
 ---
 
 ## 헬스 체크
 
-### API 헬스 확인
-
-Config Server의 헬스 상태를 조회합니다.
+### API 상태 확인
 
 **엔드포인트:** `GET /health`
 
-**예제:**
 ```bash
-curl http://localhost:8080/api/v1/health
+curl http://localhost:8080/health
 ```
 
 **응답:**
 ```json
 {
-  "status": "ok",
-  "timestamp": "2024-01-01T12:00:00Z",
-  "version": "1.0.0",
-  "database": "connected",
-  "redis": "connected"
+  "status": "healthy",
+  "version": "v1.0.0",
+  "database": "connected"
 }
 ```
+
+### 준비 상태 확인
+
+**엔드포인트:** `GET /health/ready`
+
+### 활성 상태 확인
+
+**엔드포인트:** `GET /health/live`
 
 ---
 
 ## 그룹 API
 
-모니터링 그룹과 계층 구조를 관리합니다.
+모니터링 그룹을 관리합니다. 그룹은 플랫(비계층) 구조이며 타겟은 여러 그룹에 속할 수 있습니다.
 
 ### 전체 그룹 목록 조회
 
-**엔드포인트:** `GET /groups`
+**엔드포인트:** `GET /api/v1/groups`
 
-**쿼리 파라미터:**
-- `namespace` (선택): 네임스페이스로 필터링 (infrastructure, logical, environment)
-- `parent_id` (선택): 부모 그룹으로 필터링
-- `page` (선택): 페이지 번호 (기본값: 1)
-- `limit` (선택): 페이지당 항목 수 (기본값: 50)
-
-**예제:**
 ```bash
-# 전체 그룹 조회
 curl http://localhost:8080/api/v1/groups
-
-# 네임스페이스로 필터링
-curl http://localhost:8080/api/v1/groups?namespace=environment
-
-# 부모 그룹으로 필터링
-curl http://localhost:8080/api/v1/groups?parent_id=GROUP_ID
 ```
 
 **응답:**
 ```json
-{
-  "groups": [
-    {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "name": "production",
-      "namespace": "environment",
-      "parent_id": null,
-      "description": "프로덕션 환경",
-      "priority": 10,
-      "created_at": "2024-01-01T12:00:00Z",
-      "updated_at": "2024-01-01T12:00:00Z",
-      "target_count": 15
-    }
-  ],
-  "total": 1,
-  "page": 1,
-  "limit": 50
-}
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "gpu-servers",
+    "description": "GPU 컴퓨팅 서버",
+    "priority": 10,
+    "is_default_own": false,
+    "metadata": {},
+    "created_at": "2024-01-01T12:00:00Z",
+    "updated_at": "2024-01-01T12:00:00Z"
+  }
+]
 ```
 
 ### ID로 그룹 조회
 
-**엔드포인트:** `GET /groups/:id`
+**엔드포인트:** `GET /api/v1/groups/:id`
 
-**예제:**
 ```bash
 curl http://localhost:8080/api/v1/groups/550e8400-e29b-41d4-a716-446655440000
 ```
 
-**응답:**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "name": "production",
-  "namespace": "environment",
-  "parent_id": null,
-  "description": "프로덕션 환경",
-  "priority": 10,
-  "metadata": {
-    "owner": "devops-team",
-    "contact": "devops@example.com"
-  },
-  "created_at": "2024-01-01T12:00:00Z",
-  "updated_at": "2024-01-01T12:00:00Z",
-  "children": [],
-  "targets": []
-}
-```
-
 ### 그룹 생성
 
-**엔드포인트:** `POST /groups`
+**엔드포인트:** `POST /api/v1/groups`
 
-**요청 본문:**
-```json
-{
-  "name": "production",
-  "namespace": "environment",
-  "parent_id": null,
-  "description": "프로덕션 환경",
-  "metadata": {
-    "owner": "devops-team",
-    "contact": "devops@example.com"
-  }
-}
-```
-
-**예제:**
 ```bash
 curl -X POST http://localhost:8080/api/v1/groups \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "production",
-    "namespace": "environment",
-    "parent_id": null,
-    "description": "프로덕션 환경"
+    "name": "web-servers",
+    "description": "웹 애플리케이션 서버",
+    "priority": 20,
+    "metadata": {
+      "environment": "production"
+    }
   }'
-```
-
-**응답:**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "name": "production",
-  "namespace": "environment",
-  "parent_id": null,
-  "description": "프로덕션 환경",
-  "priority": 10,
-  "created_at": "2024-01-01T12:00:00Z",
-  "updated_at": "2024-01-01T12:00:00Z"
-}
 ```
 
 ### 그룹 수정
 
-**엔드포인트:** `PUT /groups/:id`
+**엔드포인트:** `PUT /api/v1/groups/:id`
 
-**요청 본문:**
-```json
-{
-  "name": "production-updated",
-  "description": "업데이트된 프로덕션 환경"
-}
-```
-
-**예제:**
 ```bash
-curl -X PUT http://localhost:8080/api/v1/groups/550e8400-e29b-41d4-a716-446655440000 \
+curl -X PUT http://localhost:8080/api/v1/groups/GROUP_ID \
   -H "Content-Type: application/json" \
   -d '{
-    "description": "업데이트된 프로덕션 환경"
+    "description": "업데이트된 설명",
+    "priority": 15
   }'
 ```
 
-### 그룹 삭제
+### 그룹 삭제 (소프트 삭제)
 
-**엔드포인트:** `DELETE /groups/:id`
+**엔드포인트:** `POST /api/v1/groups/delete`
 
-**예제:**
 ```bash
-curl -X DELETE http://localhost:8080/api/v1/groups/550e8400-e29b-41d4-a716-446655440000
+curl -X POST http://localhost:8080/api/v1/groups/delete \
+  -H "Content-Type: application/json" \
+  -d '{"id": "GROUP_ID"}'
 ```
 
-**응답:**
-```json
-{
-  "message": "그룹이 성공적으로 삭제되었습니다"
-}
+### 그룹 복원
+
+**엔드포인트:** `POST /api/v1/groups/restore`
+
+```bash
+curl -X POST http://localhost:8080/api/v1/groups/restore \
+  -H "Content-Type: application/json" \
+  -d '{"id": "GROUP_ID"}'
+```
+
+### 그룹 영구 삭제 (하드 삭제)
+
+**엔드포인트:** `POST /api/v1/groups/purge`
+
+```bash
+curl -X POST http://localhost:8080/api/v1/groups/purge \
+  -H "Content-Type: application/json" \
+  -d '{"id": "GROUP_ID"}'
 ```
 
 ---
 
 ## 타겟 API
 
-모니터링 타겟(서버, 노드)을 관리합니다.
+모니터링 타겟(노드/서버)을 관리합니다.
 
 ### 전체 타겟 목록 조회
 
-**엔드포인트:** `GET /targets`
+**엔드포인트:** `GET /api/v1/targets`
 
-**쿼리 파라미터:**
-- `group_id` (선택): 그룹으로 필터링
-- `status` (선택): 상태로 필터링 (active, inactive, down)
-- `page` (선택): 페이지 번호
-- `limit` (선택): 페이지당 항목 수
-
-**예제:**
 ```bash
-# 전체 타겟 조회
 curl http://localhost:8080/api/v1/targets
-
-# 그룹으로 필터링
-curl http://localhost:8080/api/v1/targets?group_id=GROUP_ID
-
-# 상태로 필터링
-curl http://localhost:8080/api/v1/targets?status=active
 ```
 
 **응답:**
 ```json
-{
-  "targets": [
-    {
-      "id": "660e8400-e29b-41d4-a716-446655440001",
-      "hostname": "gpu-node-01.example.com",
-      "ip_address": "10.0.1.10",
-      "primary_group_id": "550e8400-e29b-41d4-a716-446655440000",
-      "status": "active",
-      "last_seen": "2024-01-01T12:00:00Z",
-      "labels": {
-        "gpu_model": "A100",
-        "gpu_count": "8"
-      },
-      "created_at": "2024-01-01T11:00:00Z",
-      "updated_at": "2024-01-01T12:00:00Z"
-    }
-  ],
-  "total": 1,
-  "page": 1,
-  "limit": 50
-}
+[
+  {
+    "id": "target-uuid",
+    "hostname": "gpu-node-01",
+    "ip_address": "192.168.1.100",
+    "port": 9100,
+    "status": "active",
+    "labels": {
+      "rack": "A1",
+      "gpu": "nvidia"
+    },
+    "groups": [
+      {
+        "id": "group-uuid",
+        "name": "gpu-servers"
+      }
+    ],
+    "created_at": "2024-01-01T12:00:00Z",
+    "updated_at": "2024-01-01T12:00:00Z"
+  }
+]
 ```
 
 ### ID로 타겟 조회
 
-**엔드포인트:** `GET /targets/:id`
+**엔드포인트:** `GET /api/v1/targets/:id`
 
-**예제:**
+### 호스트네임으로 타겟 조회
+
+**엔드포인트:** `GET /api/v1/targets/hostname/:hostname`
+
 ```bash
-curl http://localhost:8080/api/v1/targets/660e8400-e29b-41d4-a716-446655440001
+curl http://localhost:8080/api/v1/targets/hostname/gpu-node-01
+```
+
+### 그룹별 타겟 조회
+
+**엔드포인트:** `GET /api/v1/targets/group/:group_id`
+
+```bash
+curl http://localhost:8080/api/v1/targets/group/GROUP_ID
 ```
 
 ### 타겟 생성
 
-**엔드포인트:** `POST /targets`
+**엔드포인트:** `POST /api/v1/targets`
 
-**요청 본문:**
-```json
-{
-  "hostname": "gpu-node-01.example.com",
-  "ip_address": "10.0.1.10",
-  "primary_group_id": "550e8400-e29b-41d4-a716-446655440000",
-  "secondary_group_ids": [],
-  "exporters": [
-    {
-      "type": "node_exporter",
-      "port": 9100,
-      "enabled": true,
-      "scrape_interval": "15s",
-      "scrape_timeout": "10s",
-      "metrics_path": "/metrics"
-    },
-    {
-      "type": "dcgm_exporter",
-      "port": 9400,
-      "enabled": true,
-      "scrape_interval": "30s",
-      "scrape_timeout": "10s"
-    }
-  ],
-  "labels": {
-    "datacenter": "dc1",
-    "rack": "r1",
-    "gpu_model": "A100",
-    "gpu_count": "8",
-    "instance_type": "p4d.24xlarge"
-  },
-  "metadata": {
-    "provisioned_by": "terraform",
-    "owner": "ml-team"
-  }
-}
-```
-
-**예제:**
 ```bash
 curl -X POST http://localhost:8080/api/v1/targets \
   -H "Content-Type: application/json" \
   -d '{
-    "hostname": "gpu-node-01.example.com",
-    "ip_address": "10.0.1.10",
-    "primary_group_id": "550e8400-e29b-41d4-a716-446655440000",
-    "exporters": [
-      {
-        "type": "node_exporter",
-        "port": 9100,
-        "enabled": true
-      },
-      {
-        "type": "dcgm_exporter",
-        "port": 9400,
-        "enabled": true
-      }
-    ],
+    "hostname": "gpu-node-02",
+    "ip_address": "192.168.1.101",
+    "port": 9100,
     "labels": {
-      "gpu_model": "A100",
-      "gpu_count": "8"
-    }
+      "rack": "A2"
+    },
+    "group_ids": ["group-uuid-1", "group-uuid-2"]
   }'
 ```
 
 ### 타겟 수정
 
-**엔드포인트:** `PUT /targets/:id`
+**엔드포인트:** `PUT /api/v1/targets/:id`
 
-**예제:**
+### 타겟 상태 업데이트
+
+**엔드포인트:** `POST /api/v1/targets/:id/status`
+
 ```bash
-curl -X PUT http://localhost:8080/api/v1/targets/660e8400-e29b-41d4-a716-446655440001 \
+curl -X POST http://localhost:8080/api/v1/targets/TARGET_ID/status \
+  -H "Content-Type: application/json" \
+  -d '{"status": "inactive"}'
+```
+
+### 타겟 하트비트
+
+**엔드포인트:** `POST /api/v1/targets/:id/heartbeat`
+
+### 타겟 삭제/복원/영구삭제
+
+- `POST /api/v1/targets/delete`
+- `POST /api/v1/targets/restore`
+- `POST /api/v1/targets/purge`
+
+---
+
+## 익스포터 API
+
+타겟에 연결된 Prometheus 익스포터를 관리합니다.
+
+### 전체 익스포터 목록 조회
+
+**엔드포인트:** `GET /api/v1/exporters`
+
+### ID로 익스포터 조회
+
+**엔드포인트:** `GET /api/v1/exporters/:id`
+
+### 타겟별 익스포터 조회
+
+**엔드포인트:** `GET /api/v1/exporters/target/:target_id`
+
+### 타입별 익스포터 조회
+
+**엔드포인트:** `GET /api/v1/exporters/type/:type`
+
+```bash
+curl http://localhost:8080/api/v1/exporters/type/node_exporter
+```
+
+### 익스포터 생성
+
+**엔드포인트:** `POST /api/v1/exporters`
+
+```bash
+curl -X POST http://localhost:8080/api/v1/exporters \
   -H "Content-Type: application/json" \
   -d '{
-    "labels": {
-      "gpu_model": "A100",
-      "gpu_count": "8",
-      "maintenance": "false"
+    "target_id": "target-uuid",
+    "type": "node_exporter",
+    "port": 9100,
+    "path": "/metrics",
+    "enabled": true
+  }'
+```
+
+### 익스포터 수정/삭제/복원/영구삭제
+
+- `PUT /api/v1/exporters/:id`
+- `POST /api/v1/exporters/delete`
+- `POST /api/v1/exporters/restore`
+- `POST /api/v1/exporters/purge`
+
+---
+
+## 알림 템플릿 API
+
+재사용 가능한 알림 규칙 템플릿을 관리합니다.
+
+### 전체 알림 템플릿 목록 조회
+
+**엔드포인트:** `GET /api/v1/alert-templates`
+
+### ID로 알림 템플릿 조회
+
+**엔드포인트:** `GET /api/v1/alert-templates/:id`
+
+### 심각도별 알림 템플릿 조회
+
+**엔드포인트:** `GET /api/v1/alert-templates/severity/:severity`
+
+```bash
+curl http://localhost:8080/api/v1/alert-templates/severity/critical
+```
+
+### 알림 템플릿 생성
+
+**엔드포인트:** `POST /api/v1/alert-templates`
+
+```bash
+curl -X POST http://localhost:8080/api/v1/alert-templates \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "high-cpu",
+    "name": "높은 CPU 사용률",
+    "description": "CPU 사용률이 임계값을 초과할 때 알림",
+    "severity": "warning",
+    "query_template": "100 - (avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100) > {{.threshold}}",
+    "default_config": {
+      "threshold": 80
     }
   }'
 ```
 
-### 타겟 삭제
+### 알림 템플릿 수정/삭제/복원/영구삭제
 
-**엔드포인트:** `DELETE /targets/:id`
-
-**예제:**
-```bash
-curl -X DELETE http://localhost:8080/api/v1/targets/660e8400-e29b-41d4-a716-446655440001
-```
+- `PUT /api/v1/alert-templates/:id`
+- `POST /api/v1/alert-templates/delete`
+- `POST /api/v1/alert-templates/restore`
+- `POST /api/v1/alert-templates/purge`
 
 ---
 
 ## 알림 규칙 API
 
-알림 규칙과 임계값을 관리합니다.
+그룹에 할당된 알림 규칙을 관리합니다.
 
-### 알림 규칙 템플릿 목록 조회
+### 전체 알림 규칙 목록 조회
 
-**엔드포인트:** `GET /alert-templates`
+**엔드포인트:** `GET /api/v1/alert-rules`
 
-**예제:**
+### ID로 알림 규칙 조회
+
+**엔드포인트:** `GET /api/v1/alert-rules/:id`
+
+### 그룹별 알림 규칙 조회
+
+**엔드포인트:** `GET /api/v1/alert-rules/group/:group_id`
+
+### 템플릿별 알림 규칙 조회
+
+**엔드포인트:** `GET /api/v1/alert-rules/template/:template_id`
+
+### 알림 규칙 생성 (템플릿 기반)
+
+**엔드포인트:** `POST /api/v1/alert-rules`
+
 ```bash
-curl http://localhost:8080/api/v1/alert-templates
-```
-
-**응답:**
-```json
-{
-  "templates": [
-    {
-      "id": "HighCPUUsage",
-      "name": "높은 CPU 사용률",
-      "description": "CPU 사용률이 임계값을 초과할 때 알림",
-      "severity": "warning",
-      "default_config": {
-        "threshold": 80,
-        "duration": "5m"
-      },
-      "query_template": "100 - (avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100) > {{.threshold}}"
-    }
-  ]
-}
-```
-
-### 그룹에 알림 규칙 적용
-
-**엔드포인트:** `POST /groups/:id/alert-rules`
-
-**요청 본문:**
-```json
-{
-  "rule_template_id": "HighCPUUsage",
-  "enabled": true,
-  "config": {
-    "threshold": 70,
-    "duration": "5m"
-  },
-  "merge_strategy": "override",
-  "annotations": {
-    "summary": "높은 CPU 사용률 감지",
-    "description": "CPU 사용률이 5분 이상 70%를 초과했습니다"
-  }
-}
-```
-
-**예제:**
-```bash
-curl -X POST http://localhost:8080/api/v1/groups/550e8400-e29b-41d4-a716-446655440000/alert-rules \
+curl -X POST http://localhost:8080/api/v1/alert-rules \
   -H "Content-Type: application/json" \
   -d '{
-    "rule_template_id": "HighCPUUsage",
+    "group_id": "group-uuid",
+    "template_id": "high-cpu",
     "enabled": true,
     "config": {
-      "threshold": 70,
-      "duration": "5m"
+      "threshold": 90
     },
-    "merge_strategy": "override"
+    "priority": 100
   }'
 ```
 
-### 타겟의 유효한 알림 규칙 조회
+### 알림 규칙 직접 생성
 
-**엔드포인트:** `GET /targets/:id/alert-rules/effective`
-
-**예제:**
 ```bash
-curl http://localhost:8080/api/v1/targets/660e8400-e29b-41d4-a716-446655440001/alert-rules/effective
+curl -X POST http://localhost:8080/api/v1/alert-rules \
+  -H "Content-Type: application/json" \
+  -d '{
+    "group_id": "group-uuid",
+    "name": "커스텀 알림",
+    "description": "커스텀 알림 규칙",
+    "severity": "critical",
+    "query_template": "up == 0",
+    "enabled": true,
+    "priority": 100
+  }'
+```
+
+### 알림 규칙 수정/삭제/복원/영구삭제
+
+- `PUT /api/v1/alert-rules/:id`
+- `POST /api/v1/alert-rules/delete`
+- `POST /api/v1/alert-rules/restore`
+- `POST /api/v1/alert-rules/purge`
+
+---
+
+## 활성 알림 API
+
+Alertmanager에서 현재 발생 중인 알림을 조회합니다.
+
+### 활성 알림 조회
+
+**엔드포인트:** `GET /api/v1/alerts/active`
+
+```bash
+curl http://localhost:8080/api/v1/alerts/active
 ```
 
 **응답:**
 ```json
 {
-  "target_id": "660e8400-e29b-41d4-a716-446655440001",
-  "rules": [
+  "alerts": [
     {
-      "rule_id": "HighCPUUsage",
-      "enabled": true,
-      "config": {
-        "threshold": 70,
-        "duration": "5m"
+      "fingerprint": "abc123",
+      "status": "firing",
+      "labels": {
+        "alertname": "HighCPU",
+        "instance": "gpu-node-01:9100",
+        "severity": "warning"
       },
-      "source_group": "production",
-      "priority": 10
+      "annotations": {
+        "summary": "높은 CPU 사용률 감지",
+        "description": "CPU 사용률이 90%를 초과했습니다"
+      },
+      "starts_at": "2024-01-15T10:30:00Z",
+      "generator_url": "http://prometheus:9090/graph?..."
     }
-  ]
-}
-```
-
-### 알림 규칙 정책 추적
-
-**엔드포인트:** `GET /targets/:id/alert-rules/trace`
-
-어떤 그룹들이 최종 알림 설정에 기여했는지 보여줍니다.
-
-**예제:**
-```bash
-curl http://localhost:8080/api/v1/targets/660e8400-e29b-41d4-a716-446655440001/alert-rules/trace
-```
-
-**응답:**
-```json
-{
-  "target_id": "660e8400-e29b-41d4-a716-446655440001",
-  "trace": [
-    {
-      "rule_id": "HighCPUUsage",
-      "inheritance_chain": [
-        {
-          "group_name": "infrastructure",
-          "group_id": "...",
-          "config": {"threshold": 80},
-          "priority": 100
-        },
-        {
-          "group_name": "production",
-          "group_id": "...",
-          "config": {"threshold": 70},
-          "priority": 10,
-          "override": true
-        }
-      ],
-      "final_config": {"threshold": 70, "duration": "5m"}
-    }
-  ]
+  ],
+  "total": 1
 }
 ```
 
 ---
 
-## 체크 관리 API
+## 스크립트 템플릿 API
 
-동적 체크 시스템을 관리합니다. CheckTemplate(재사용 가능한 체크 정의)과 CheckInstance(스코프별 템플릿 적용)를 통해 노드별 체크를 관리합니다.
+체크 스크립트 템플릿을 관리합니다.
 
-### 체크 템플릿 생성
+### 전체 스크립트 템플릿 목록 조회
 
-**엔드포인트:** `POST /check-templates`
+**엔드포인트:** `GET /api/v1/script-templates`
 
-재사용 가능한 체크 스크립트 템플릿을 생성합니다.
+### 활성 스크립트 템플릿 목록 조회
 
-**요청 본문:**
-```json
-{
-  "name": "disk-usage-check",
-  "check_type": "disk",
-  "script_content": "#!/bin/bash\ndf -h / | tail -1 | awk '{print \"disk_usage_percent{mount=\\\"/\\\"} \"$5}' | sed 's/%//'",
-  "language": "bash",
-  "default_config": {
-    "threshold": 80,
-    "mount": "/"
-  },
-  "description": "디스크 사용률 체크",
-  "version": "1.0.0"
-}
+**엔드포인트:** `GET /api/v1/script-templates/active`
+
+### ID로 스크립트 템플릿 조회
+
+**엔드포인트:** `GET /api/v1/script-templates/:id`
+
+### 이름으로 스크립트 템플릿 조회
+
+**엔드포인트:** `GET /api/v1/script-templates/name/:name`
+
+### 타입별 스크립트 템플릿 조회
+
+**엔드포인트:** `GET /api/v1/script-templates/type/:scriptType`
+
+```bash
+curl http://localhost:8080/api/v1/script-templates/type/check
 ```
 
-**예제:**
+### 스크립트 해시 검증
+
+**엔드포인트:** `GET /api/v1/script-templates/:id/verify-hash`
+
+### 스크립트 템플릿 생성
+
+**엔드포인트:** `POST /api/v1/script-templates`
+
 ```bash
-curl -X POST http://localhost:8080/api/v1/check-templates \
+curl -X POST http://localhost:8080/api/v1/script-templates \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "disk-usage-check",
-    "check_type": "disk",
-    "script_content": "#!/bin/bash\ndf -h / | tail -1",
-    "language": "bash",
-    "default_config": {"threshold": 80},
-    "version": "1.0.0"
+    "name": "disk-check",
+    "description": "디스크 사용률 체크",
+    "script_type": "check",
+    "script_content": "#!/bin/bash\ndf -h / | awk '\''NR==2 {print $5}'\''",
+    "config_schema": {
+      "threshold": {"type": "number", "default": 80}
+    },
+    "enabled": true
+  }'
+```
+
+### 스크립트 템플릿 수정/삭제/복원/영구삭제
+
+- `PUT /api/v1/script-templates/:id`
+- `POST /api/v1/script-templates/delete`
+- `POST /api/v1/script-templates/restore`
+- `POST /api/v1/script-templates/purge`
+
+---
+
+## 스크립트 정책 API
+
+그룹에 스크립트 정책 할당을 관리합니다.
+
+### 전체 스크립트 정책 목록 조회
+
+**엔드포인트:** `GET /api/v1/script-policies`
+
+### 활성 스크립트 정책 목록 조회
+
+**엔드포인트:** `GET /api/v1/script-policies/active`
+
+### ID로 스크립트 정책 조회
+
+**엔드포인트:** `GET /api/v1/script-policies/:id`
+
+### 템플릿별 스크립트 정책 조회
+
+**엔드포인트:** `GET /api/v1/script-policies/template/:templateId`
+
+### 글로벌 스크립트 정책 조회
+
+**엔드포인트:** `GET /api/v1/script-policies/global`
+
+### 그룹별 스크립트 정책 조회
+
+**엔드포인트:** `GET /api/v1/script-policies/group/:groupId`
+
+### 그룹의 유효 체크 조회
+
+**엔드포인트:** `GET /api/v1/script-policies/effective/group/:groupId`
+
+### 타겟의 유효 체크 조회
+
+**엔드포인트:** `GET /api/v1/checks/target/:targetId`
+
+노드가 할당된 체크를 조회하는 데 사용됩니다.
+
+```bash
+curl http://localhost:8080/api/v1/checks/target/TARGET_ID
+```
+
+### 스크립트 정책 생성
+
+**엔드포인트:** `POST /api/v1/script-policies`
+
+```bash
+curl -X POST http://localhost:8080/api/v1/script-policies \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template_id": "disk-check-template-id",
+    "group_id": "group-uuid",
+    "config": {
+      "threshold": 85
+    },
+    "priority": 100,
+    "enabled": true
+  }'
+```
+
+### 스크립트 정책 수정/삭제/복원/영구삭제
+
+- `PUT /api/v1/script-policies/:id`
+- `POST /api/v1/script-policies/delete`
+- `POST /api/v1/script-policies/restore`
+- `POST /api/v1/script-policies/purge`
+
+---
+
+## 부트스트랩 토큰 API
+
+노드 자동 등록을 위한 부트스트랩 토큰을 관리합니다.
+
+### 전체 부트스트랩 토큰 목록 조회
+
+**엔드포인트:** `GET /api/v1/bootstrap-tokens`
+
+### ID로 부트스트랩 토큰 조회
+
+**엔드포인트:** `GET /api/v1/bootstrap-tokens/:id`
+
+### 토큰 문자열로 부트스트랩 토큰 조회
+
+**엔드포인트:** `GET /api/v1/bootstrap-tokens/token/:token`
+
+### 부트스트랩 토큰 생성
+
+**엔드포인트:** `POST /api/v1/bootstrap-tokens`
+
+```bash
+curl -X POST http://localhost:8080/api/v1/bootstrap-tokens \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "gpu-cluster-token",
+    "description": "GPU 클러스터 노드용 토큰",
+    "group_id": "gpu-servers-group-id",
+    "expires_at": "2024-12-31T23:59:59Z",
+    "max_uses": 100
   }'
 ```
 
 **응답:**
 ```json
 {
-  "id": "880e8400-e29b-41d4-a716-446655440003",
-  "name": "disk-usage-check",
-  "check_type": "disk",
-  "script_content": "...",
-  "language": "bash",
-  "default_config": {"threshold": 80},
-  "hash": "a1b2c3d4...",
-  "version": "1.0.0",
+  "id": "token-uuid",
+  "name": "gpu-cluster-token",
+  "token": "aami_bootstrap_abc123xyz...",
+  "group_id": "gpu-servers-group-id",
+  "expires_at": "2024-12-31T23:59:59Z",
+  "max_uses": 100,
+  "use_count": 0,
   "created_at": "2024-01-01T12:00:00Z"
 }
 ```
 
-### 체크 템플릿 목록 조회
+### 토큰 검증 및 사용
 
-**엔드포인트:** `GET /check-templates`
+**엔드포인트:** `POST /api/v1/bootstrap-tokens/validate`
 
-**쿼리 파라미터:**
-- `page` (선택): 페이지 번호 (기본값: 1)
-- `limit` (선택): 페이지당 항목 수 (기본값: 20)
-
-**예제:**
 ```bash
-curl http://localhost:8080/api/v1/check-templates
+curl -X POST http://localhost:8080/api/v1/bootstrap-tokens/validate \
+  -H "Content-Type: application/json" \
+  -d '{"token": "aami_bootstrap_abc123xyz..."}'
 ```
 
-### 체크 템플릿 조회
+### 토큰으로 노드 등록
 
-**엔드포인트:** `GET /check-templates/:id`
+**엔드포인트:** `POST /api/v1/bootstrap-tokens/register`
 
-**예제:**
 ```bash
-curl http://localhost:8080/api/v1/check-templates/880e8400-e29b-41d4-a716-446655440003
-```
-
-### 체크 인스턴스 생성
-
-**엔드포인트:** `POST /check-instances`
-
-특정 스코프(Global/Namespace/Group)에 체크 템플릿을 적용합니다.
-
-**요청 본문:**
-```json
-{
-  "template_id": "880e8400-e29b-41d4-a716-446655440003",
-  "scope": "global",
-  "config": {
-    "threshold": 85
-  },
-  "priority": 100,
-  "is_active": true
-}
-```
-
-**스코프별 파라미터:**
-- **Global**: `scope: "global"` (namespace_id, group_id 불필요)
-- **Namespace**: `scope: "namespace"`, `namespace_id` 필수
-- **Group**: `scope: "group"`, `namespace_id`, `group_id` 필수
-
-**예제 (Global):**
-```bash
-curl -X POST http://localhost:8080/api/v1/check-instances \
+curl -X POST http://localhost:8080/api/v1/bootstrap-tokens/register \
   -H "Content-Type: application/json" \
   -d '{
-    "template_id": "880e8400-e29b-41d4-a716-446655440003",
-    "scope": "global",
-    "config": {"threshold": 85},
-    "priority": 100,
-    "is_active": true
+    "token": "aami_bootstrap_abc123xyz...",
+    "hostname": "gpu-node-03",
+    "ip_address": "192.168.1.103",
+    "port": 9100,
+    "labels": {
+      "rack": "B1",
+      "gpu_count": "8"
+    }
   }'
 ```
 
-**예제 (Group - 오버라이드):**
-```bash
-curl -X POST http://localhost:8080/api/v1/check-instances \
-  -H "Content-Type: application/json" \
-  -d '{
-    "template_id": "880e8400-e29b-41d4-a716-446655440003",
-    "scope": "group",
-    "namespace_id": "550e8400-e29b-41d4-a716-446655440000",
-    "group_id": "660e8400-e29b-41d4-a716-446655440001",
-    "config": {"threshold": 70},
-    "priority": 50,
-    "is_active": true
-  }'
-```
+### 부트스트랩 토큰 수정/삭제/복원/영구삭제
 
-### 노드의 Effective Checks 조회
-
-**엔드포인트:** `GET /checks/node/:hostname`
-
-노드에 적용되는 모든 체크를 우선순위에 따라 조회합니다 (Group > Namespace > Global).
-
-**예제:**
-```bash
-curl http://localhost:8080/api/v1/checks/node/gpu-node-01.example.com
-```
-
-**응답:**
-```json
-[
-  {
-    "check_type": "disk",
-    "script_content": "#!/bin/bash\n...",
-    "language": "bash",
-    "config": {
-      "threshold": 70,
-      "mount": "/"
-    },
-    "version": "1.0.0",
-    "hash": "a1b2c3d4...",
-    "template_id": "880e8400-e29b-41d4-a716-446655440003",
-    "instance_id": "990e8400-e29b-41d4-a716-446655440004"
-  }
-]
-```
-
-**참고:** config 필드는 템플릿의 default_config와 인스턴스의 config가 병합된 결과입니다.
-
-### 체크 인스턴스 목록 조회
-
-**엔드포인트:** `GET /check-instances`
-
-**쿼리 파라미터:**
-- `scope` (선택): 스코프로 필터링 (global, namespace, group)
-- `namespace_id` (선택): 네임스페이스로 필터링
-- `group_id` (선택): 그룹으로 필터링
-
-**예제:**
-```bash
-# 전체 조회
-curl http://localhost:8080/api/v1/check-instances
-
-# Global 인스턴스만
-curl http://localhost:8080/api/v1/check-instances?scope=global
-
-# 특정 그룹의 인스턴스
-curl http://localhost:8080/api/v1/check-instances?group_id=660e8400-e29b-41d4-a716-446655440001
-```
-
-### 체크 템플릿 수정
-
-**엔드포인트:** `PUT /check-templates/:id`
-
-**예제:**
-```bash
-curl -X PUT http://localhost:8080/api/v1/check-templates/880e8400-e29b-41d4-a716-446655440003 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "description": "업데이트된 디스크 체크",
-    "version": "1.1.0"
-  }'
-```
-
-### 체크 인스턴스 수정
-
-**엔드포인트:** `PUT /check-instances/:id`
-
-**예제:**
-```bash
-curl -X PUT http://localhost:8080/api/v1/check-instances/990e8400-e29b-41d4-a716-446655440004 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "config": {"threshold": 75},
-    "is_active": true
-  }'
-```
-
-### 체크 템플릿 삭제 (Soft Delete)
-
-**엔드포인트:** `DELETE /check-templates/:id`
-
-**예제:**
-```bash
-curl -X DELETE http://localhost:8080/api/v1/check-templates/880e8400-e29b-41d4-a716-446655440003
-```
-
-### 체크 인스턴스 삭제 (Soft Delete)
-
-**엔드포인트:** `DELETE /check-instances/:id`
-
-**예제:**
-```bash
-curl -X DELETE http://localhost:8080/api/v1/check-instances/990e8400-e29b-41d4-a716-446655440004
-```
-
-**참고:** 더 자세한 체크 관리 가이드는 [체크 관리 문서](CHECK-MANAGEMENT.md)를 참조하세요.
+- `PUT /api/v1/bootstrap-tokens/:id`
+- `POST /api/v1/bootstrap-tokens/delete`
+- `POST /api/v1/bootstrap-tokens/restore`
+- `POST /api/v1/bootstrap-tokens/purge`
 
 ---
 
 ## 서비스 디스커버리 API
 
-Prometheus 서비스 디스커버리 통합을 위한 엔드포인트입니다.
+Prometheus 서비스 디스커버리 엔드포인트입니다.
 
-### Prometheus SD 타겟 조회
+### HTTP 서비스 디스커버리
 
-**엔드포인트:** `GET /sd/prometheus`
-
-Prometheus 파일 기반 서비스 디스커버리 형식으로 타겟을 반환합니다.
-
-**예제:**
+**전체 Prometheus 타겟 조회:**
 ```bash
 curl http://localhost:8080/api/v1/sd/prometheus
 ```
 
-**응답:**
+**활성 Prometheus 타겟 조회:**
+```bash
+curl http://localhost:8080/api/v1/sd/prometheus/active
+```
+
+**그룹별 Prometheus 타겟 조회:**
+```bash
+curl http://localhost:8080/api/v1/sd/prometheus/group/GROUP_ID
+```
+
+**응답 (Prometheus HTTP SD 형식):**
 ```json
 [
   {
-    "targets": ["10.0.1.10:9100"],
+    "targets": ["192.168.1.100:9100"],
     "labels": {
-      "__meta_aami_target_id": "660e8400-e29b-41d4-a716-446655440001",
-      "__meta_aami_group": "production",
-      "hostname": "gpu-node-01.example.com",
-      "gpu_model": "A100",
-      "gpu_count": "8",
-      "job": "node-exporter"
-    }
-  },
-  {
-    "targets": ["10.0.1.10:9400"],
-    "labels": {
-      "__meta_aami_target_id": "660e8400-e29b-41d4-a716-446655440001",
-      "__meta_aami_group": "production",
-      "hostname": "gpu-node-01.example.com",
-      "gpu_model": "A100",
-      "job": "dcgm-exporter"
+      "__meta_aami_hostname": "gpu-node-01",
+      "__meta_aami_group": "gpu-servers"
     }
   }
 ]
 ```
 
-### Prometheus 알림 규칙 조회
+### 파일 서비스 디스커버리
 
-**엔드포인트:** `GET /sd/alert-rules`
-
-Prometheus 규칙 형식으로 알림 규칙을 반환합니다.
-
-**예제:**
+**파일 SD 생성 (전체 타겟):**
 ```bash
-curl http://localhost:8080/api/v1/sd/alert-rules
+curl -X POST http://localhost:8080/api/v1/sd/prometheus/file
+```
+
+**파일 SD 생성 (활성 타겟만):**
+```bash
+curl -X POST http://localhost:8080/api/v1/sd/prometheus/file/active
+```
+
+**파일 SD 생성 (그룹별):**
+```bash
+curl -X POST http://localhost:8080/api/v1/sd/prometheus/file/group/GROUP_ID
 ```
 
 ---
 
-## 부트스트랩 API
+## Prometheus 관리 API
 
-자동 노드 등록을 위한 엔드포인트입니다.
+Prometheus 규칙 파일 및 구성을 관리합니다.
 
-### 부트스트랩 토큰 생성
+### Prometheus 상태 조회
 
-**엔드포인트:** `POST /bootstrap/tokens`
+**엔드포인트:** `GET /api/v1/prometheus/status`
 
-**요청 본문:**
-```json
-{
-  "name": "datacenter-1-token",
-  "expires_at": "2024-12-31T23:59:59Z",
-  "max_uses": 100,
-  "default_group_id": "550e8400-e29b-41d4-a716-446655440000",
-  "labels": {
-    "datacenter": "dc1"
-  }
-}
-```
-
-**예제:**
 ```bash
-curl -X POST http://localhost:8080/api/v1/bootstrap/tokens \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "datacenter-1-token",
-    "expires_at": "2024-12-31T23:59:59Z",
-    "max_uses": 100,
-    "default_group_id": "550e8400-e29b-41d4-a716-446655440000"
-  }'
+curl http://localhost:8080/api/v1/prometheus/status
 ```
 
-**응답:**
-```json
-{
-  "token": "aami_1234567890abcdef",
-  "id": "770e8400-e29b-41d4-a716-446655440002",
-  "name": "datacenter-1-token",
-  "expires_at": "2024-12-31T23:59:59Z",
-  "max_uses": 100,
-  "uses": 0,
-  "created_at": "2024-01-01T12:00:00Z"
-}
+### 규칙 파일 목록 조회
+
+**엔드포인트:** `GET /api/v1/prometheus/rules/files`
+
+```bash
+curl http://localhost:8080/api/v1/prometheus/rules/files
 ```
 
-### 부트스트랩 등록
+### 타겟의 유효 규칙 조회
 
-**엔드포인트:** `POST /bootstrap/register`
+**엔드포인트:** `GET /api/v1/prometheus/rules/effective/:target_id`
 
-부트스트랩 스크립트가 노드를 자동 등록하는 데 사용됩니다.
+```bash
+curl http://localhost:8080/api/v1/prometheus/rules/effective/TARGET_ID
+```
 
-**요청 본문:**
-```json
-{
-  "token": "aami_1234567890abcdef",
-  "hostname": "auto-gpu-node-01",
-  "ip_address": "10.0.1.15",
-  "hardware_info": {
-    "cpu_cores": 96,
-    "memory_gb": 768,
-    "gpu_count": 8,
-    "gpu_model": "NVIDIA A100",
-    "disk_size_gb": 2048
-  }
-}
+### 전체 규칙 재생성
+
+**엔드포인트:** `POST /api/v1/prometheus/rules/regenerate`
+
+```bash
+curl -X POST http://localhost:8080/api/v1/prometheus/rules/regenerate
+```
+
+### 그룹 규칙 재생성
+
+**엔드포인트:** `POST /api/v1/prometheus/rules/regenerate/:group_id`
+
+```bash
+curl -X POST http://localhost:8080/api/v1/prometheus/rules/regenerate/GROUP_ID
+```
+
+### Prometheus 리로드
+
+**엔드포인트:** `POST /api/v1/prometheus/reload`
+
+```bash
+curl -X POST http://localhost:8080/api/v1/prometheus/reload
 ```
 
 ---
 
 ## 에러 응답
 
-모든 에러 응답은 다음 형식을 따릅니다:
+모든 API 에러는 일관된 형식을 따릅니다:
 
-```json
-{
-  "error": {
-    "code": "ERROR_CODE",
-    "message": "사람이 읽을 수 있는 에러 메시지",
-    "details": {}
-  }
-}
-```
-
-### 일반적인 에러 코드
-
-| 코드 | HTTP 상태 | 설명 |
-|------|----------|------|
-| `INVALID_REQUEST` | 400 | 잘못된 요청 본문 또는 파라미터 |
-| `NOT_FOUND` | 404 | 리소스를 찾을 수 없음 |
-| `CONFLICT` | 409 | 리소스가 이미 존재함 |
-| `VALIDATION_ERROR` | 422 | 검증 실패 |
-| `INTERNAL_ERROR` | 500 | 내부 서버 에러 |
-| `DATABASE_ERROR` | 500 | 데이터베이스 작업 실패 |
-
-**에러 응답 예제:**
 ```json
 {
   "error": {
     "code": "NOT_FOUND",
-    "message": "그룹을 찾을 수 없습니다",
-    "details": {
-      "group_id": "550e8400-e29b-41d4-a716-446655440000"
-    }
+    "message": "리소스를 찾을 수 없습니다",
+    "details": "ID 'xxx'인 그룹을 찾을 수 없습니다"
   }
 }
 ```
 
+### 일반 에러 코드
+
+| HTTP 상태 | 코드 | 설명 |
+|-----------|------|------|
+| 400 | `BAD_REQUEST` | 잘못된 요청 본문 또는 파라미터 |
+| 400 | `VALIDATION_ERROR` | 요청 검증 실패 |
+| 404 | `NOT_FOUND` | 리소스를 찾을 수 없음 |
+| 409 | `CONFLICT` | 리소스가 이미 존재함 |
+| 500 | `INTERNAL_ERROR` | 내부 서버 에러 |
+
 ---
 
-## 속도 제한
+## 공통 패턴
 
-현재 개발 모드에서는 속도 제한이 적용되지 않습니다. 프로덕션 배포 시에는 API 게이트웨이 또는 로드 밸런서 레벨에서 속도 제한을 구현하세요.
+### 소프트 삭제
 
-**권장 헤더:**
-```http
-X-RateLimit-Limit: 1000
-X-RateLimit-Remaining: 999
-X-RateLimit-Reset: 1609459200
+모든 리소스는 소프트 삭제를 지원합니다. 삭제된 리소스는 `deleted_at` 타임스탬프로 표시되며 복원할 수 있습니다.
+
+```bash
+# 소프트 삭제
+POST /api/v1/{resource}/delete
+{"id": "resource-id"}
+
+# 복원
+POST /api/v1/{resource}/restore
+{"id": "resource-id"}
+
+# 하드 삭제 (영구)
+POST /api/v1/{resource}/purge
+{"id": "resource-id"}
 ```
 
----
+### 페이지네이션
 
-## API 버전 관리
+목록 엔드포인트는 페이지네이션을 지원합니다:
 
-API는 URL 기반 버전 관리를 사용합니다 (`/api/v1`). 호환성이 깨지는 변경사항이 있을 경우 새 버전이 생성됩니다 (`/api/v2`).
+```bash
+GET /api/v1/targets?page=1&limit=20
+```
 
----
-
-더 많은 예제는 [API 사용 예제](../../examples/api-usage/)를 참조하세요.
+응답에는 헤더 또는 응답 본문에 페이지네이션 메타데이터가 포함됩니다.

@@ -104,10 +104,10 @@ docker-compose ps
 
 ```bash
 # Config Server 상태 확인
-curl http://localhost:8080/api/v1/health
+curl http://localhost:8080/health
 
 # 예상 출력:
-# {"status":"ok","timestamp":"2024-01-01T00:00:00Z"}
+# {"status":"healthy","version":"v1.0.0","database":"connected"}
 
 # Prometheus
 curl http://localhost:9090/-/healthy
@@ -134,33 +134,32 @@ curl -I http://localhost:3000
 
 ## 첫 번째 그룹 생성하기
 
-그룹은 인프라를 계층적으로 구성합니다. 기본 구조를 만들어 봅시다.
+그룹은 인프라를 조직화합니다. AAMI는 플랫 그룹 구조를 사용하며 타겟은 여러 그룹에 속할 수 있습니다.
 
-### 1단계: 인프라 그룹 생성
+### 1단계: 그룹 생성
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/groups \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "production",
-    "namespace": "environment",
-    "parent_id": null,
-    "description": "프로덕션 환경"
+    "name": "gpu-servers",
+    "description": "GPU 컴퓨팅 서버",
+    "priority": 10
   }'
 ```
 
-다음 단계를 위해 반환된 `group_id`를 저장하세요.
+다음 단계를 위해 반환된 `id`를 저장하세요.
 
-### 2단계: 하위 그룹 생성
+### 2단계: 추가 그룹 생성 (선택사항)
 
 ```bash
+# 웹 서버용 그룹 생성
 curl -X POST http://localhost:8080/api/v1/groups \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "gpu-cluster",
-    "namespace": "infrastructure",
-    "parent_id": "PARENT_GROUP_ID",
-    "description": "GPU 컴퓨팅 클러스터"
+    "name": "web-servers",
+    "description": "웹 애플리케이션 서버",
+    "priority": 20
   }'
 ```
 
@@ -182,22 +181,8 @@ curl -X POST http://localhost:8080/api/v1/targets \
   -d '{
     "hostname": "gpu-node-01.example.com",
     "ip_address": "10.0.1.10",
-    "primary_group_id": "GROUP_ID_HERE",
-    "exporters": [
-      {
-        "type": "node_exporter",
-        "port": 9100,
-        "enabled": true,
-        "scrape_interval": "15s",
-        "scrape_timeout": "10s"
-      },
-      {
-        "type": "dcgm_exporter",
-        "port": 9400,
-        "enabled": true,
-        "scrape_interval": "30s"
-      }
-    ],
+    "port": 9100,
+    "group_ids": ["GROUP_ID_HERE"],
     "labels": {
       "datacenter": "dc1",
       "rack": "r1",
@@ -207,9 +192,24 @@ curl -X POST http://localhost:8080/api/v1/targets \
   }'
 ```
 
+참고: `group_ids` 배열에 여러 그룹 ID를 제공하여 타겟을 여러 그룹에 속하게 할 수 있습니다.
+
 ### 방법 2: 부트스트랩 스크립트 (권장)
 
-대상 노드에서 다음을 실행하세요:
+먼저 부트스트랩 토큰을 생성합니다:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/bootstrap-tokens \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "gpu-cluster-token",
+    "group_id": "GROUP_ID_HERE",
+    "expires_at": "2025-12-31T23:59:59Z",
+    "max_uses": 100
+  }'
+```
+
+그런 다음 대상 노드에서 다음을 실행하세요:
 
 ```bash
 curl -fsSL https://your-config-server:8080/bootstrap.sh | \
@@ -248,43 +248,44 @@ open http://localhost:9090/targets
 
 ## 알림 설정하기
 
-### 1단계: 사용 가능한 알림 규칙 템플릿 목록 조회
+### 1단계: 알림 템플릿 생성
 
 ```bash
-curl http://localhost:8080/api/v1/alert-templates
+curl -X POST http://localhost:8080/api/v1/alert-templates \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "high-cpu",
+    "name": "높은 CPU 사용률",
+    "description": "CPU 사용률이 임계값을 초과할 때 알림",
+    "severity": "warning",
+    "query_template": "100 - (avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100) > {{.threshold}}",
+    "default_config": {
+      "threshold": 80
+    }
+  }'
 ```
-
-일반적인 템플릿:
-- `HighCPUUsage` - 높은 CPU 사용률
-- `HighMemoryUsage` - 높은 메모리 사용률
-- `DiskSpaceLow` - 디스크 공간 부족
-- `NodeDown` - 노드 다운
-- `GPUHighTemperature` - GPU 고온
 
 ### 2단계: 그룹에 알림 규칙 적용
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/groups/GROUP_ID/alert-rules \
+curl -X POST http://localhost:8080/api/v1/alert-rules \
   -H "Content-Type: application/json" \
   -d '{
-    "rule_template_id": "HighCPUUsage",
+    "group_id": "GROUP_ID",
+    "template_id": "high-cpu",
     "enabled": true,
     "config": {
-      "threshold": 80,
-      "duration": "5m"
+      "threshold": 90
     },
-    "merge_strategy": "override"
+    "priority": 100
   }'
 ```
 
-### 3단계: 알림 규칙 확인
+### 3단계: 활성 알림 확인
 
 ```bash
-# 대상에 대한 유효한 규칙 확인
-curl http://localhost:8080/api/v1/targets/TARGET_ID/alert-rules/effective
-
-# 정책 상속 추적
-curl http://localhost:8080/api/v1/targets/TARGET_ID/alert-rules/trace
+# 현재 발생 중인 알림 확인
+curl http://localhost:8080/api/v1/alerts/active
 ```
 
 ### 4단계: Alertmanager 구성
@@ -366,7 +367,7 @@ DCGM_FI_DEV_FB_USED / DCGM_FI_DEV_FB_TOTAL * 100
 ### 모니터링 확장
 
 1. **더 많은 대상 추가**: 추가 노드 등록
-2. **그룹 계층 구조 생성**: 데이터센터, 환경 또는 기능별로 구성
+2. **그룹 생성**: 기능, 환경 또는 위치별로 타겟 조직화
 3. **알림 커스터마이징**: 그룹별 임계값 미세 조정
 4. **커스텀 Exporter 배포**: 특수 하드웨어 모니터링
 
@@ -374,14 +375,14 @@ DCGM_FI_DEV_FB_USED / DCGM_FI_DEV_FB_TOTAL * 100
 
 - [API 문서](./API.md) - 전체 REST API 레퍼런스
 - [배포 가이드](../../deploy/README.md) - 프로덕션 배포
-- [알림 규칙 가이드](./ALERT_RULES.md) - 고급 알림 구성
-- [대시보드 가이드](./DASHBOARDS.md) - 커스텀 대시보드 생성
+- [알림 시스템](./ALERTING-SYSTEM.md) - 고급 알림 구성
+- [체크 관리](./CHECK-MANAGEMENT.md) - 커스텀 체크 스크립트
 
 ### 자동화
 
-- [부트스트랩 스크립트](../../scripts/node/README.md) - 자동화된 에이전트 배포
-- [Terraform 예제](../../examples/terraform/) - Infrastructure as Code
-- [Ansible Playbook](../../deploy/ansible/) - 구성 관리
+- [노드 등록](./NODE-REGISTRATION.md) - 자동화된 노드 등록
+- [Cloud Init](./CLOUD-INIT.md) - Cloud-init 통합
+- [Prometheus 통합](./PROMETHEUS-INTEGRATION.md) - 심층 Prometheus 통합
 
 ### 문제 해결
 
@@ -389,8 +390,7 @@ DCGM_FI_DEV_FB_USED / DCGM_FI_DEV_FB_TOTAL * 100
 
 1. 로그 확인: `docker-compose logs -f SERVICE_NAME`
 2. 연결 확인: `docker-compose ps`
-3. Config Server 확인: `curl http://localhost:8080/api/v1/health`
-4. [문제 해결 가이드](./TROUBLESHOOTING.md) 참조
+3. Config Server 확인: `curl http://localhost:8080/health`
 
 ## 일반적인 문제
 
@@ -400,7 +400,7 @@ DCGM_FI_DEV_FB_USED / DCGM_FI_DEV_FB_TOTAL * 100
 
 **해결 방법**:
 ```bash
-# 서비스 디스커버리 파일 확인
+# 서비스 디스커버리 엔드포인트 확인
 curl http://localhost:8080/api/v1/sd/prometheus
 
 # Prometheus 재시작하여 구성 다시 로드
@@ -436,8 +436,8 @@ curl http://localhost:9090/api/v1/rules
 # 규칙 평가 확인
 # http://localhost:9090/alerts 열기
 
-# Alertmanager 확인
-curl http://localhost:9093/api/v2/alerts
+# API를 통해 활성 알림 확인
+curl http://localhost:8080/api/v1/alerts/active
 ```
 
 ## 정리
