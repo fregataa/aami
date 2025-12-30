@@ -17,8 +17,8 @@ type ScriptTemplateModel struct {
 	Language      string         `gorm:"not null;default:'bash'"`
 	DefaultConfig JSONB          `gorm:"type:jsonb;default:'{}'"`
 	Description   string         `gorm:"type:text"`
-	Version       string         `gorm:"not null"`
-	Hash          string         `gorm:"not null;index"`
+	Version       string         `gorm:"not null;default:'1.0.0'"`
+	Hash          string         `gorm:"not null;index;default:''"`
 	DeletedAt     gorm.DeletedAt `gorm:"index"`
 	CreatedAt     time.Time      `gorm:"autoCreateTime"`
 	UpdatedAt     time.Time      `gorm:"autoUpdateTime"`
@@ -85,6 +85,7 @@ type ScriptTemplateRepository interface {
 	Purge(ctx context.Context, id string) error   // Hard delete (permanent removal)
 	Restore(ctx context.Context, id string) error // Restore soft-deleted record
 	List(ctx context.Context, page, limit int) ([]domain.ScriptTemplate, int, error)
+	UpsertByName(ctx context.Context, template *domain.ScriptTemplate) error
 }
 
 // scriptTemplateRepository implements ScriptTemplateRepository interface using GORM
@@ -222,4 +223,47 @@ func (r *scriptTemplateRepository) List(ctx context.Context, page, limit int) ([
 	}
 
 	return templates, int(total), nil
+}
+
+// UpsertByName creates or updates a script template by name
+// If a template with the same name exists, it will be updated
+// If not, a new template will be created
+func (r *scriptTemplateRepository) UpsertByName(ctx context.Context, template *domain.ScriptTemplate) error {
+	model := ToScriptTemplateModel(template)
+
+	// Try to find existing template by name
+	var existing ScriptTemplateModel
+	err := r.db.WithContext(ctx).
+		Unscoped(). // Include soft-deleted records
+		Where("name = ?", model.Name).
+		First(&existing).Error
+
+	if err == nil {
+		// Template exists, update it
+		model.ID = existing.ID
+		model.CreatedAt = existing.CreatedAt
+		// Clear deleted_at if it was soft-deleted
+		return fromGormError(r.db.WithContext(ctx).
+			Unscoped().
+			Model(&ScriptTemplateModel{}).
+			Where("id = ?", existing.ID).
+			Updates(map[string]interface{}{
+				"script_type":    model.ScriptType,
+				"script_content": model.ScriptContent,
+				"language":       model.Language,
+				"default_config": model.DefaultConfig,
+				"description":    model.Description,
+				"version":        model.Version,
+				"hash":           model.Hash,
+				"deleted_at":     nil,
+				"updated_at":     time.Now(),
+			}).Error)
+	}
+
+	if err != gorm.ErrRecordNotFound {
+		return fromGormError(err)
+	}
+
+	// Template doesn't exist, create it
+	return fromGormError(r.db.WithContext(ctx).Create(model).Error)
 }

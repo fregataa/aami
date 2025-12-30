@@ -84,12 +84,14 @@ func (m *AlertTemplateModel) ToDomain() *domain.AlertTemplate {
 type AlertTemplateRepository interface {
 	Create(ctx context.Context, template *domain.AlertTemplate) error
 	GetByID(ctx context.Context, id string) (*domain.AlertTemplate, error)
+	GetByName(ctx context.Context, name string) (*domain.AlertTemplate, error)
 	GetBySeverity(ctx context.Context, severity domain.AlertSeverity) ([]domain.AlertTemplate, error)
 	List(ctx context.Context, page, limit int) ([]domain.AlertTemplate, int, error)
 	Update(ctx context.Context, template *domain.AlertTemplate) error
 	Delete(ctx context.Context, id string) error  // Soft delete (sets deleted_at)
 	Purge(ctx context.Context, id string) error   // Hard delete (permanent removal)
 	Restore(ctx context.Context, id string) error // Restore soft-deleted record
+	UpsertByName(ctx context.Context, template *domain.AlertTemplate) error
 }
 
 // alertTemplateRepository implements AlertTemplateRepository interface using GORM
@@ -192,4 +194,56 @@ func (r *alertTemplateRepository) Restore(ctx context.Context, id string) error 
 		Model(&AlertTemplateModel{}).
 		Where("id = ?", id).
 		Update("deleted_at", nil).Error)
+}
+
+// GetByName retrieves an alert template by its name
+func (r *alertTemplateRepository) GetByName(ctx context.Context, name string) (*domain.AlertTemplate, error) {
+	var model AlertTemplateModel
+	err := r.db.WithContext(ctx).
+		Where("name = ?", name).
+		First(&model).Error
+	if err != nil {
+		return nil, fromGormError(err)
+	}
+	return model.ToDomain(), nil
+}
+
+// UpsertByName creates or updates an alert template by name
+// If a template with the same name exists, it will be updated
+// If not, a new template will be created
+func (r *alertTemplateRepository) UpsertByName(ctx context.Context, template *domain.AlertTemplate) error {
+	model := ToAlertTemplateModel(template)
+
+	// Try to find existing template by name
+	var existing AlertTemplateModel
+	err := r.db.WithContext(ctx).
+		Unscoped(). // Include soft-deleted records
+		Where("name = ?", model.Name).
+		First(&existing).Error
+
+	if err == nil {
+		// Template exists, update it
+		model.ID = existing.ID
+		model.CreatedAt = existing.CreatedAt
+		// Clear deleted_at if it was soft-deleted
+		return fromGormError(r.db.WithContext(ctx).
+			Unscoped().
+			Model(&AlertTemplateModel{}).
+			Where("id = ?", existing.ID).
+			Updates(map[string]interface{}{
+				"description":    model.Description,
+				"severity":       model.Severity,
+				"query_template": model.QueryTemplate,
+				"default_config": model.DefaultConfig,
+				"deleted_at":     nil,
+				"updated_at":     time.Now(),
+			}).Error)
+	}
+
+	if err != gorm.ErrRecordNotFound {
+		return fromGormError(err)
+	}
+
+	// Template doesn't exist, create it
+	return fromGormError(r.db.WithContext(ctx).Create(model).Error)
 }

@@ -1,0 +1,293 @@
+package service
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/fregataa/aami/config-server/internal/config"
+	"github.com/fregataa/aami/config-server/internal/domain"
+	"github.com/fregataa/aami/config-server/internal/repository"
+	"gopkg.in/yaml.v3"
+)
+
+// DefaultsLoaderService handles loading default templates from config files
+type DefaultsLoaderService struct {
+	config             *config.DefaultsConfig
+	alertTemplateRepo  repository.AlertTemplateRepository
+	scriptTemplateRepo repository.ScriptTemplateRepository
+	logger             *slog.Logger
+}
+
+// NewDefaultsLoaderService creates a new DefaultsLoaderService
+func NewDefaultsLoaderService(
+	cfg *config.DefaultsConfig,
+	alertTemplateRepo repository.AlertTemplateRepository,
+	scriptTemplateRepo repository.ScriptTemplateRepository,
+	logger *slog.Logger,
+) *DefaultsLoaderService {
+	return &DefaultsLoaderService{
+		config:             cfg,
+		alertTemplateRepo:  alertTemplateRepo,
+		scriptTemplateRepo: scriptTemplateRepo,
+		logger:             logger,
+	}
+}
+
+// LoadResult contains the result of loading default templates
+type LoadResult struct {
+	AlertTemplatesCreated  int
+	AlertTemplatesUpdated  int
+	AlertTemplatesSkipped  int
+	ScriptTemplatesCreated int
+	ScriptTemplatesUpdated int
+	ScriptTemplatesSkipped int
+	Errors                 []string
+}
+
+// LoadAll loads all default templates from config files into the database
+func (s *DefaultsLoaderService) LoadAll(ctx context.Context, force bool, dryRun bool) (*LoadResult, error) {
+	result := &LoadResult{}
+
+	// Load alert templates
+	alertResult, err := s.loadAlertTemplates(ctx, force, dryRun)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load alert templates: %w", err)
+	}
+	result.AlertTemplatesCreated = alertResult.created
+	result.AlertTemplatesUpdated = alertResult.updated
+	result.AlertTemplatesSkipped = alertResult.skipped
+	result.Errors = append(result.Errors, alertResult.errors...)
+
+	// Load script templates
+	scriptResult, err := s.loadScriptTemplates(ctx, force, dryRun)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load script templates: %w", err)
+	}
+	result.ScriptTemplatesCreated = scriptResult.created
+	result.ScriptTemplatesUpdated = scriptResult.updated
+	result.ScriptTemplatesSkipped = scriptResult.skipped
+	result.Errors = append(result.Errors, scriptResult.errors...)
+
+	return result, nil
+}
+
+type loadSubResult struct {
+	created int
+	updated int
+	skipped int
+	errors  []string
+}
+
+func (s *DefaultsLoaderService) loadAlertTemplates(ctx context.Context, force bool, dryRun bool) (*loadSubResult, error) {
+	result := &loadSubResult{}
+
+	if s.config.AlertTemplatesFile == "" {
+		s.logger.Info("alert templates file not configured, skipping")
+		return result, nil
+	}
+
+	// Read and parse YAML file
+	data, err := os.ReadFile(s.config.AlertTemplatesFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read alert templates file: %w", err)
+	}
+
+	var yamlConfig config.AlertTemplateYAML
+	if err := yaml.Unmarshal(data, &yamlConfig); err != nil {
+		return nil, fmt.Errorf("failed to parse alert templates YAML: %w", err)
+	}
+
+	s.logger.Info("loading alert templates", "count", len(yamlConfig.Templates))
+
+	for _, entry := range yamlConfig.Templates {
+		defaultConfig := mapToAlertRuleConfig(entry.DefaultConfig)
+
+		template := &domain.AlertTemplate{
+			ID:            entry.ID,
+			Name:          entry.Name,
+			Description:   entry.Description,
+			Severity:      domain.AlertSeverity(entry.Severity),
+			QueryTemplate: entry.QueryTemplate,
+			DefaultConfig: defaultConfig,
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+
+		// Check if template already exists
+		_, err := s.alertTemplateRepo.GetByName(ctx, template.Name)
+		exists := err == nil
+
+		if exists && !force {
+			s.logger.Debug("skipping existing alert template", "name", template.Name)
+			result.skipped++
+			continue
+		}
+
+		if dryRun {
+			if exists {
+				s.logger.Info("[dry-run] would update alert template", "name", template.Name)
+				result.updated++
+			} else {
+				s.logger.Info("[dry-run] would create alert template", "name", template.Name)
+				result.created++
+			}
+			continue
+		}
+
+		// Upsert the template
+		if err := s.alertTemplateRepo.UpsertByName(ctx, template); err != nil {
+			result.errors = append(result.errors, fmt.Sprintf("failed to upsert alert template '%s': %v", template.Name, err))
+			continue
+		}
+
+		if exists {
+			s.logger.Info("updated alert template", "name", template.Name)
+			result.updated++
+		} else {
+			s.logger.Info("created alert template", "name", template.Name)
+			result.created++
+		}
+	}
+
+	return result, nil
+}
+
+func (s *DefaultsLoaderService) loadScriptTemplates(ctx context.Context, force bool, dryRun bool) (*loadSubResult, error) {
+	result := &loadSubResult{}
+
+	if s.config.ScriptTemplatesFile == "" {
+		s.logger.Info("script templates file not configured, skipping")
+		return result, nil
+	}
+
+	// Read and parse YAML file
+	data, err := os.ReadFile(s.config.ScriptTemplatesFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read script templates file: %w", err)
+	}
+
+	var yamlConfig config.ScriptTemplateYAML
+	if err := yaml.Unmarshal(data, &yamlConfig); err != nil {
+		return nil, fmt.Errorf("failed to parse script templates YAML: %w", err)
+	}
+
+	s.logger.Info("loading script templates", "count", len(yamlConfig.Templates))
+
+	for _, entry := range yamlConfig.Templates {
+		// Read the actual script content from file
+		scriptPath := entry.ScriptFile
+		if !filepath.IsAbs(scriptPath) && s.config.ScriptsDir != "" {
+			scriptPath = filepath.Join(s.config.ScriptsDir, entry.ScriptFile)
+		}
+
+		scriptContent, err := os.ReadFile(scriptPath)
+		if err != nil {
+			result.errors = append(result.errors, fmt.Sprintf("failed to read script file '%s' for template '%s': %v", scriptPath, entry.Name, err))
+			continue
+		}
+
+		language := entry.Language
+		if language == "" {
+			language = "bash"
+		}
+
+		version := entry.Version
+		if version == "" {
+			version = "1.0.0"
+		}
+
+		template := &domain.ScriptTemplate{
+			Name:          entry.Name,
+			Description:   entry.Description,
+			ScriptType:    entry.ScriptType,
+			ScriptContent: string(scriptContent),
+			Language:      language,
+			DefaultConfig: entry.DefaultConfig,
+			Version:       version,
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+
+		// Compute hash
+		template.UpdateHash()
+
+		// Check if template already exists
+		_, err = s.scriptTemplateRepo.GetByName(ctx, template.Name)
+		exists := err == nil
+
+		if exists && !force {
+			s.logger.Debug("skipping existing script template", "name", template.Name)
+			result.skipped++
+			continue
+		}
+
+		if dryRun {
+			if exists {
+				s.logger.Info("[dry-run] would update script template", "name", template.Name)
+				result.updated++
+			} else {
+				s.logger.Info("[dry-run] would create script template", "name", template.Name)
+				result.created++
+			}
+			continue
+		}
+
+		// Upsert the template
+		if err := s.scriptTemplateRepo.UpsertByName(ctx, template); err != nil {
+			result.errors = append(result.errors, fmt.Sprintf("failed to upsert script template '%s': %v", template.Name, err))
+			continue
+		}
+
+		if exists {
+			s.logger.Info("updated script template", "name", template.Name)
+			result.updated++
+		} else {
+			s.logger.Info("created script template", "name", template.Name)
+			result.created++
+		}
+	}
+
+	return result, nil
+}
+
+// mapToAlertRuleConfig converts a map to AlertRuleConfig
+func mapToAlertRuleConfig(m map[string]interface{}) domain.AlertRuleConfig {
+	cfg := domain.AlertRuleConfig{
+		TemplateVars: make(map[string]interface{}),
+	}
+
+	if forDuration, ok := m["for_duration"].(string); ok {
+		cfg.ForDuration = forDuration
+	}
+
+	if labels, ok := m["labels"].(map[string]interface{}); ok {
+		cfg.Labels = make(map[string]string)
+		for k, v := range labels {
+			if str, ok := v.(string); ok {
+				cfg.Labels[k] = str
+			}
+		}
+	}
+
+	if annotations, ok := m["annotations"].(map[string]interface{}); ok {
+		cfg.Annotations = make(map[string]string)
+		for k, v := range annotations {
+			if str, ok := v.(string); ok {
+				cfg.Annotations[k] = str
+			}
+		}
+	}
+
+	// All other keys go into template vars
+	for k, v := range m {
+		if k != "for_duration" && k != "labels" && k != "annotations" {
+			cfg.TemplateVars[k] = v
+		}
+	}
+
+	return cfg
+}
