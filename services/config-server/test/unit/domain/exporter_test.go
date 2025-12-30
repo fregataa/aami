@@ -31,6 +31,11 @@ func TestExporterType_IsValid(t *testing.T) {
 			want:         true,
 		},
 		{
+			name:         "all-smi exporter is valid",
+			exporterType: domain.ExporterTypeAllSMI,
+			want:         true,
+		},
+		{
 			name:         "invalid exporter type returns false",
 			exporterType: domain.ExporterType("invalid"),
 			want:         false,
@@ -113,6 +118,11 @@ func TestDefaultPortForType(t *testing.T) {
 			want:         9090,
 		},
 		{
+			name:         "all-smi exporter default port",
+			exporterType: domain.ExporterTypeAllSMI,
+			want:         9401,
+		},
+		{
 			name:         "invalid type defaults to 9090",
 			exporterType: domain.ExporterType("invalid"),
 			want:         9090,
@@ -148,6 +158,7 @@ func TestExporter_TypeConstants(t *testing.T) {
 	// Verify the constant values are as expected
 	assert.Equal(t, domain.ExporterType("node_exporter"), domain.ExporterTypeNodeExporter)
 	assert.Equal(t, domain.ExporterType("dcgm_exporter"), domain.ExporterTypeDCGMExporter)
+	assert.Equal(t, domain.ExporterType("all_smi"), domain.ExporterTypeAllSMI)
 	assert.Equal(t, domain.ExporterType("custom"), domain.ExporterTypeCustom)
 }
 
@@ -155,6 +166,7 @@ func TestExporter_AllTypes(t *testing.T) {
 	types := []domain.ExporterType{
 		domain.ExporterTypeNodeExporter,
 		domain.ExporterTypeDCGMExporter,
+		domain.ExporterTypeAllSMI,
 		domain.ExporterTypeCustom,
 	}
 

@@ -31,6 +31,9 @@ const (
 	// ExporterTypeDCGMExporter for NVIDIA GPU metrics
 	ExporterTypeDCGMExporter ExporterType = "dcgm_exporter"
 
+	// ExporterTypeAllSMI for multi-vendor AI accelerator metrics (NVIDIA, AMD, Intel, etc.)
+	ExporterTypeAllSMI ExporterType = "all_smi"
+
 	// ExporterTypeCustom for custom exporters
 	ExporterTypeCustom ExporterType = "custom"
 )
@@ -38,7 +41,7 @@ const (
 // IsValid checks if the exporter type is one of the allowed values
 func (t ExporterType) IsValid() bool {
 	switch t {
-	case ExporterTypeNodeExporter, ExporterTypeDCGMExporter, ExporterTypeCustom:
+	case ExporterTypeNodeExporter, ExporterTypeDCGMExporter, ExporterTypeAllSMI, ExporterTypeCustom:
 		return true
 	default:
 		return false
@@ -93,6 +96,8 @@ func DefaultPortForType(exporterType ExporterType) int {
 		return 9100
 	case ExporterTypeDCGMExporter:
 		return 9400
+	case ExporterTypeAllSMI:
+		return 9401
 	case ExporterTypeCustom:
 		return 9090
 	default:
