@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/fregataa/aami/config-server/internal/api/handler"
 	"github.com/fregataa/aami/config-server/internal/api/middleware"
+	"github.com/fregataa/aami/config-server/internal/pkg/prometheus"
 	"github.com/fregataa/aami/config-server/internal/repository"
 	"github.com/fregataa/aami/config-server/internal/service"
 	"github.com/gin-gonic/gin"
@@ -10,8 +11,11 @@ import (
 
 // Server represents the API server
 type Server struct {
-	router *gin.Engine
-	rm     *repository.Manager
+	router           *gin.Engine
+	rm               *repository.Manager
+	ruleGenerator    *service.PrometheusRuleGenerator
+	fileManager      *prometheus.RuleFileManager
+	prometheusClient *prometheus.PrometheusClient
 }
 
 // NewServer creates a new API server
@@ -19,6 +23,22 @@ func NewServer(rm *repository.Manager) *Server {
 	return &Server{
 		router: gin.New(),
 		rm:     rm,
+	}
+}
+
+// NewServerWithPrometheus creates a new API server with Prometheus components
+func NewServerWithPrometheus(
+	rm *repository.Manager,
+	ruleGenerator *service.PrometheusRuleGenerator,
+	fileManager *prometheus.RuleFileManager,
+	prometheusClient *prometheus.PrometheusClient,
+) *Server {
+	return &Server{
+		router:           gin.New(),
+		rm:               rm,
+		ruleGenerator:    ruleGenerator,
+		fileManager:      fileManager,
+		prometheusClient: prometheusClient,
 	}
 }
 
@@ -47,8 +67,11 @@ func (s *Server) SetupRouter() *gin.Engine {
 	targetService := service.NewTargetService(s.rm.Target, s.rm.TargetGroup, s.rm.Group, s.rm.Namespace)
 	exporterService := service.NewExporterService(s.rm.Exporter, s.rm.Target)
 	alertTemplateService := service.NewAlertTemplateService(s.rm.AlertTemplate)
-	// TODO: Configure PrometheusRuleGenerator and PrometheusClient when Prometheus integration is needed
-	alertRuleService := service.NewAlertRuleService(s.rm.AlertRule, s.rm.AlertTemplate, s.rm.Group, nil, nil)
+	// Use Prometheus components if available, include target repo for effective rules
+	alertRuleService := service.NewAlertRuleServiceWithTargetRepo(
+		s.rm.AlertRule, s.rm.AlertTemplate, s.rm.Group, s.rm.Target,
+		s.ruleGenerator, s.prometheusClient,
+	)
 	scriptTemplateService := service.NewScriptTemplateService(s.rm.ScriptTemplate, s.rm.ScriptPolicy)
 	scriptPolicyService := service.NewScriptPolicyService(s.rm.ScriptPolicy, s.rm.ScriptTemplate, s.rm.Namespace, s.rm.Group, s.rm.Target)
 	bootstrapTokenService := service.NewBootstrapTokenService(s.rm.BootstrapToken, s.rm.Group, targetService)
@@ -65,6 +88,9 @@ func (s *Server) SetupRouter() *gin.Engine {
 	scriptPolicyHandler := handler.NewScriptPolicyHandler(scriptPolicyService)
 	bootstrapTokenHandler := handler.NewBootstrapTokenHandler(bootstrapTokenService)
 	serviceDiscoveryHandler := handler.NewServiceDiscoveryHandler(serviceDiscoveryService)
+	prometheusRuleHandler := handler.NewPrometheusRuleHandlerWithAlertService(
+		s.ruleGenerator, s.fileManager, s.prometheusClient, alertRuleService,
+	)
 
 	// API v1 routes
 	v1 := s.router.Group("/api/v1")
@@ -225,6 +251,17 @@ func (s *Server) SetupRouter() *gin.Engine {
 			sd.POST("/prometheus/file/active", serviceDiscoveryHandler.GenerateActiveFileSD)
 			sd.POST("/prometheus/file/group/:groupId", serviceDiscoveryHandler.GenerateGroupFileSD)
 			sd.POST("/prometheus/file/namespace/:namespaceId", serviceDiscoveryHandler.GenerateNamespaceFileSD)
+		}
+
+		// Prometheus rule management routes
+		prometheusRules := v1.Group("/prometheus")
+		{
+			prometheusRules.POST("/rules/regenerate", prometheusRuleHandler.RegenerateAllRules)
+			prometheusRules.POST("/rules/regenerate/:group_id", prometheusRuleHandler.RegenerateGroupRules)
+			prometheusRules.GET("/rules/files", prometheusRuleHandler.ListRuleFiles)
+			prometheusRules.GET("/rules/effective/:target_id", prometheusRuleHandler.GetEffectiveRulesByTarget)
+			prometheusRules.POST("/reload", prometheusRuleHandler.ReloadPrometheus)
+			prometheusRules.GET("/status", prometheusRuleHandler.GetStatus)
 		}
 	}
 

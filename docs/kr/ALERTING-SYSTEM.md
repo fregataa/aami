@@ -477,69 +477,58 @@ Config: {
 
 ## Alert Rule 생성
 
-### 현재 상태
+### 아키텍처
 
-**구현됨**:
-- ✅ AlertTemplate API (services/config-server/internal/service/alert.go)
-- ✅ AlertRule API (그룹별 설정)
-- ✅ AlertRule.RenderQuery() (템플릿 렌더링)
-- ✅ 그룹 계층 구조 및 정책 상속
-- ✅ 데이터베이스 스키마 (alert_templates, alert_rules)
+Alert Rule 생성 시스템은 다음 컴포넌트로 구성됩니다:
 
-**구현 안 됨**:
-- ❌ Prometheus rule 파일 생성
-- ❌ Prometheus로 동적 rule 배포
-- ❌ 자동 Prometheus reload
+- **AlertTemplate API**: 재사용 가능한 alert 템플릿 관리
+- **AlertRule API**: 그룹별 alert rule 설정
+- **Prometheus Rule Generator**: AlertRule을 Prometheus rule 파일로 변환
+- **Rule File Manager**: Atomic write, 검증, 백업 기능 제공
+- **Prometheus Client**: Prometheus reload 및 헬스체크
 
-### 계획된 구현 (Phase 3)
+### Prometheus Rule Management API
 
-**위치**: `services/config-server/internal/service/prometheus_rule_generator.go` (미래)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/prometheus/rules/regenerate` | 모든 Prometheus rule 파일 재생성 |
+| POST | `/api/v1/prometheus/rules/regenerate/:group_id` | 특정 그룹의 rule 파일 재생성 |
+| GET | `/api/v1/prometheus/rules/files` | 생성된 rule 파일 목록 조회 |
+| GET | `/api/v1/prometheus/rules/effective/:target_id` | 특정 Target에 적용되는 effective rules 조회 |
+| POST | `/api/v1/prometheus/reload` | Prometheus 설정 reload 트리거 |
+| GET | `/api/v1/prometheus/status` | Prometheus 연결 상태 확인 |
 
-**워크플로우**:
-```go
-func GeneratePrometheusRules(ctx context.Context) error {
-    // 1. 데이터베이스에서 활성화된 모든 alert rules 조회
-    rules := alertRuleRepo.ListEnabled(ctx)
+### 구현 세부사항
 
-    // 2. group_id로 그룹화
-    rulesByGroup := groupRules(rules)
+**Rule Generator** (`prometheus_rule_generator.go`):
+- `GenerateRulesForGroup()`: 특정 그룹의 AlertRule을 Prometheus YAML로 변환
+- `GenerateAllRules()`: 모든 그룹의 rule 파일 일괄 생성
+- `DeleteRulesForGroup()`: 그룹의 rule 파일 삭제
 
-    // 3. 각 그룹에 대해 rule 파일 생성
-    for groupID, groupRules := range rulesByGroup {
-        prometheusRules := []PrometheusRule{}
+**File Manager** (`file_manager.go`):
+- Atomic write (temp 파일 → rename)
+- promtool 검증 지원
+- 백업 및 롤백 기능
 
-        for _, rule := range groupRules {
-            // 4. PromQL 쿼리 렌더링 (이미 구현됨!)
-            query := rule.RenderQuery()
+**Prometheus Client** (`client.go`):
+- HTTP POST `/-/reload` 엔드포인트 호출
+- 재시도 로직 (exponential backoff)
+- 헬스체크 (`/-/ready`, `/-/healthy`)
 
-            // 5. Prometheus YAML 형식으로 변환
-            prometheusRules = append(prometheusRules, PrometheusRule{
-                Alert: fmt.Sprintf("%s_Group_%s", rule.Name, groupID),
-                Expr:  query,
-                For:   rule.Config["for_duration"],
-                Labels: map[string]string{
-                    "group_id": groupID,
-                    "severity": string(rule.Severity),
-                },
-            })
-        }
+### 환경 변수
 
-        // 6. 파일에 쓰기
-        filename := fmt.Sprintf("/etc/prometheus/rules/generated/group-%s.yml", groupID)
-        writeYAML(filename, prometheusRules)
-    }
-
-    // 7. Prometheus reload
-    reloadPrometheus()
-}
+```bash
+PROMETHEUS_URL=http://localhost:9090
+PROMETHEUS_RULE_PATH=/etc/prometheus/rules/generated
+PROMETHEUS_RELOAD_ENABLED=true
+PROMETHEUS_RELOAD_TIMEOUT=30s
+PROMETHEUS_VALIDATE_RULES=false
+PROMETHEUS_BACKUP_ENABLED=true
 ```
 
-**트리거 이벤트**:
-- Alert rule 생성/수정/삭제
-- 그룹 설정 변경
-- API를 통한 수동 새로고침
-
-**예상 일정**: Q2 2025 (Phase 3: Integration & Advanced Features)
+### 트리거 이벤트
+- AlertRule 생성/수정/삭제 시 자동 재생성
+- API를 통한 수동 재생성
 
 ---
 

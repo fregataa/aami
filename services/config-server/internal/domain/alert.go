@@ -287,3 +287,16 @@ func NewAlertRuleFromTemplate(
 	}
 }
 
+// EffectiveAlertRule represents an alert rule with its source information
+type EffectiveAlertRule struct {
+	AlertRule
+	RenderedQuery string // Rendered PromQL with config values
+	SourceGroup   *Group // Group where this rule is defined
+}
+
+// EffectiveAlertRulesResult contains effective rules for a target
+type EffectiveAlertRulesResult struct {
+	Target *Target
+	Rules  []EffectiveAlertRule
+}
+

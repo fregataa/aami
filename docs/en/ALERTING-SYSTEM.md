@@ -479,69 +479,58 @@ For even finer control, use target labels:
 
 ## Alert Rule Generation
 
-### Current State
+### Architecture
 
-**Implemented**:
-- ✅ AlertTemplate API (services/config-server/internal/service/alert.go)
-- ✅ AlertRule API (group-specific configuration)
-- ✅ AlertRule.RenderQuery() (template rendering)
-- ✅ Group hierarchy and policy inheritance
-- ✅ Database schema (alert_templates, alert_rules)
+The Alert Rule generation system consists of the following components:
 
-**Not Implemented**:
-- ❌ Prometheus rule file generation
-- ❌ Dynamic rule deployment to Prometheus
-- ❌ Automatic Prometheus reload
+- **AlertTemplate API**: Manages reusable alert templates
+- **AlertRule API**: Group-specific alert rule configuration
+- **Prometheus Rule Generator**: Converts AlertRules to Prometheus rule files
+- **Rule File Manager**: Provides atomic write, validation, and backup functionality
+- **Prometheus Client**: Handles Prometheus reload and health checks
 
-### Planned Implementation (Phase 3)
+### Prometheus Rule Management API
 
-**Location**: `services/config-server/internal/service/prometheus_rule_generator.go` (future)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/prometheus/rules/regenerate` | Regenerate all Prometheus rule files |
+| POST | `/api/v1/prometheus/rules/regenerate/:group_id` | Regenerate rule files for specific group |
+| GET | `/api/v1/prometheus/rules/files` | List generated rule files |
+| GET | `/api/v1/prometheus/rules/effective/:target_id` | Get effective rules for a specific target |
+| POST | `/api/v1/prometheus/reload` | Trigger Prometheus configuration reload |
+| GET | `/api/v1/prometheus/status` | Check Prometheus connection status |
 
-**Workflow**:
-```go
-func GeneratePrometheusRules(ctx context.Context) error {
-    // 1. Query all enabled alert rules from database
-    rules := alertRuleRepo.ListEnabled(ctx)
+### Implementation Details
 
-    // 2. Group by group_id
-    rulesByGroup := groupRules(rules)
+**Rule Generator** (`prometheus_rule_generator.go`):
+- `GenerateRulesForGroup()`: Convert AlertRules for a group to Prometheus YAML
+- `GenerateAllRules()`: Batch generate rule files for all groups
+- `DeleteRulesForGroup()`: Delete rule file for a group
 
-    // 3. For each group, generate rule file
-    for groupID, groupRules := range rulesByGroup {
-        prometheusRules := []PrometheusRule{}
+**File Manager** (`file_manager.go`):
+- Atomic write (temp file → rename)
+- promtool validation support
+- Backup and rollback functionality
 
-        for _, rule := range groupRules {
-            // 4. Render PromQL query (already implemented!)
-            query := rule.RenderQuery()
+**Prometheus Client** (`client.go`):
+- HTTP POST to `/-/reload` endpoint
+- Retry logic (exponential backoff)
+- Health checks (`/-/ready`, `/-/healthy`)
 
-            // 5. Convert to Prometheus YAML format
-            prometheusRules = append(prometheusRules, PrometheusRule{
-                Alert: fmt.Sprintf("%s_Group_%s", rule.Name, groupID),
-                Expr:  query,
-                For:   rule.Config["for_duration"],
-                Labels: map[string]string{
-                    "group_id": groupID,
-                    "severity": string(rule.Severity),
-                },
-            })
-        }
+### Environment Variables
 
-        // 6. Write to file
-        filename := fmt.Sprintf("/etc/prometheus/rules/generated/group-%s.yml", groupID)
-        writeYAML(filename, prometheusRules)
-    }
-
-    // 7. Reload Prometheus
-    reloadPrometheus()
-}
+```bash
+PROMETHEUS_URL=http://localhost:9090
+PROMETHEUS_RULE_PATH=/etc/prometheus/rules/generated
+PROMETHEUS_RELOAD_ENABLED=true
+PROMETHEUS_RELOAD_TIMEOUT=30s
+PROMETHEUS_VALIDATE_RULES=false
+PROMETHEUS_BACKUP_ENABLED=true
 ```
 
-**Trigger Events**:
-- Alert rule created/updated/deleted
-- Group configuration changed
-- Manual refresh via API
-
-**Expected Timeline**: Q2 2025 (Phase 3: Integration & Advanced Features)
+### Trigger Events
+- Automatic regeneration on AlertRule create/update/delete
+- Manual regeneration via API
 
 ---
 

@@ -157,10 +157,11 @@ func (s *AlertTemplateService) GetBySeverity(ctx context.Context, severity domai
 
 // AlertRuleService handles business logic for alert rules
 type AlertRuleService struct {
-	ruleRepo       repository.AlertRuleRepository
-	templateRepo   repository.AlertTemplateRepository
-	groupRepo      repository.GroupRepository
-	ruleGenerator  *PrometheusRuleGenerator
+	ruleRepo         repository.AlertRuleRepository
+	templateRepo     repository.AlertTemplateRepository
+	groupRepo        repository.GroupRepository
+	targetRepo       repository.TargetRepository
+	ruleGenerator    *PrometheusRuleGenerator
 	prometheusClient *prometheus.PrometheusClient
 }
 
@@ -176,6 +177,26 @@ func NewAlertRuleService(
 		ruleRepo:         ruleRepo,
 		templateRepo:     templateRepo,
 		groupRepo:        groupRepo,
+		ruleGenerator:    ruleGenerator,
+		prometheusClient: prometheusClient,
+	}
+}
+
+// NewAlertRuleServiceWithTargetRepo creates a new AlertRuleService with target repository
+// Use this constructor when you need effective rules by target functionality
+func NewAlertRuleServiceWithTargetRepo(
+	ruleRepo repository.AlertRuleRepository,
+	templateRepo repository.AlertTemplateRepository,
+	groupRepo repository.GroupRepository,
+	targetRepo repository.TargetRepository,
+	ruleGenerator *PrometheusRuleGenerator,
+	prometheusClient *prometheus.PrometheusClient,
+) *AlertRuleService {
+	return &AlertRuleService{
+		ruleRepo:         ruleRepo,
+		templateRepo:     templateRepo,
+		groupRepo:        groupRepo,
+		targetRepo:       targetRepo,
 		ruleGenerator:    ruleGenerator,
 		prometheusClient: prometheusClient,
 	}
@@ -463,4 +484,103 @@ func (s *AlertRuleService) regenerateAndReload(ctx context.Context, groupID stri
 	}
 
 	return nil
+}
+
+// GetEffectiveRulesByTargetID retrieves all effective alert rules for a target
+// considering group hierarchy and rule priority
+func (s *AlertRuleService) GetEffectiveRulesByTargetID(ctx context.Context, targetID string) (*domain.EffectiveAlertRulesResult, error) {
+	if s.targetRepo == nil {
+		return nil, domainerrors.NewValidationError("service", "target repository not configured")
+	}
+
+	// Get target with groups
+	target, err := s.targetRepo.GetByID(ctx, targetID)
+	if err != nil {
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
+		}
+		return nil, err
+	}
+
+	if len(target.Groups) == 0 {
+		return &domain.EffectiveAlertRulesResult{
+			Target: target,
+			Rules:  []domain.EffectiveAlertRule{},
+		}, nil
+	}
+
+	// Map to track effective rules by name (for deduplication)
+	effectiveRulesMap := make(map[string]domain.EffectiveAlertRule)
+
+	// Process each group the target belongs to
+	for _, group := range target.Groups {
+		// Get ancestors for this group (from root to leaf)
+		ancestors, err := s.groupRepo.GetAncestors(ctx, group.ID)
+		if err != nil && !errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, err
+		}
+
+		// Build hierarchy: ancestors first (root to parent), then current group
+		// Ancestors are returned in priority DESC order, so we need to reverse
+		hierarchy := make([]domain.Group, 0, len(ancestors)+1)
+		for i := len(ancestors) - 1; i >= 0; i-- {
+			hierarchy = append(hierarchy, ancestors[i])
+		}
+		hierarchy = append(hierarchy, group)
+
+		// Process rules from root to leaf (child overrides parent)
+		for _, g := range hierarchy {
+			rules, err := s.ruleRepo.GetByGroupID(ctx, g.ID)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, rule := range rules {
+				if !rule.Enabled || rule.DeletedAt != nil {
+					continue
+				}
+
+				// Render the query
+				renderedQuery, err := rule.RenderQuery()
+				if err != nil {
+					slog.Warn("Failed to render query for rule",
+						"rule_id", rule.ID, "rule_name", rule.Name, "error", err)
+					renderedQuery = rule.QueryTemplate // Fallback to template
+				}
+
+				// Create a copy of the group for source tracking
+				sourceGroup := g
+
+				effectiveRule := domain.EffectiveAlertRule{
+					AlertRule:     rule,
+					RenderedQuery: renderedQuery,
+					SourceGroup:   &sourceGroup,
+				}
+
+				// Check if we already have a rule with the same name
+				if existing, exists := effectiveRulesMap[rule.Name]; exists {
+					// Child group overrides parent group based on merge strategy
+					if rule.MergeStrategy == "merge" {
+						// Merge configs: existing (parent) + new (child)
+						mergedConfig := existing.Config.Merge(rule.Config)
+						effectiveRule.Config = mergedConfig
+					}
+					// For "override" strategy, just replace entirely
+				}
+
+				effectiveRulesMap[rule.Name] = effectiveRule
+			}
+		}
+	}
+
+	// Convert map to slice
+	effectiveRules := make([]domain.EffectiveAlertRule, 0, len(effectiveRulesMap))
+	for _, rule := range effectiveRulesMap {
+		effectiveRules = append(effectiveRules, rule)
+	}
+
+	return &domain.EffectiveAlertRulesResult{
+		Target: target,
+		Rules:  effectiveRules,
+	}, nil
 }

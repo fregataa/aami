@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fregataa/aami/config-server/internal/domain"
+	"github.com/fregataa/aami/config-server/internal/pkg/prometheus"
 	"github.com/fregataa/aami/config-server/internal/service"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -125,18 +126,22 @@ func createTestAlertRule(groupID string, name string, enabled bool) domain.Alert
 		Description:   "Test alert rule: " + name,
 		Severity:      domain.AlertSeverityCritical,
 		QueryTemplate: "cpu_usage > {{ .threshold }}",
-		DefaultConfig: map[string]interface{}{
-			"threshold": 80,
+		DefaultConfig: domain.AlertRuleConfig{
+			TemplateVars: map[string]interface{}{
+				"threshold": 80,
+			},
 		},
 		Enabled: enabled,
-		Config: map[string]interface{}{
-			"threshold":    90,
-			"for_duration": "5m",
-			"labels": map[string]interface{}{
+		Config: domain.AlertRuleConfig{
+			ForDuration: "5m",
+			Labels: map[string]string{
 				"team": "platform",
 			},
-			"annotations": map[string]interface{}{
+			Annotations: map[string]string{
 				"runbook_url": "https://example.com/runbook",
+			},
+			TemplateVars: map[string]interface{}{
+				"threshold": 90,
 			},
 		},
 		MergeStrategy: "override",
@@ -145,6 +150,18 @@ func createTestAlertRule(groupID string, name string, enabled bool) domain.Alert
 		CreatedAt:     time.Now(),
 		UpdatedAt:     time.Now(),
 	}
+}
+
+// Helper function to create a test file manager
+func createTestFileManager(t *testing.T, tmpDir string, logger *slog.Logger) *prometheus.RuleFileManager {
+	config := prometheus.RuleFileManagerConfig{
+		BasePath:         tmpDir,
+		EnableValidation: false,
+		EnableBackup:     false,
+	}
+	fm, err := prometheus.NewRuleFileManager(config, logger)
+	require.NoError(t, err)
+	return fm
 }
 
 func TestPrometheusRuleGenerator_GenerateRulesForGroup(t *testing.T) {
@@ -224,7 +241,8 @@ func TestPrometheusRuleGenerator_GenerateRulesForGroup(t *testing.T) {
 			}
 
 			logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
-			generator := service.NewPrometheusRuleGenerator(alertRuleRepo, groupRepo, tmpDir, logger)
+			fileManager := createTestFileManager(t, tmpDir, logger)
+			generator := service.NewPrometheusRuleGenerator(alertRuleRepo, groupRepo, fileManager, logger)
 
 			// Execute
 			err := generator.GenerateRulesForGroup(ctx, groupID)
@@ -299,16 +317,18 @@ func TestPrometheusRuleGenerator_ConvertToPrometheusRule(t *testing.T) {
 				Severity:      domain.AlertSeverityCritical,
 				QueryTemplate: "cpu_usage > {{ .threshold }}",
 				Enabled:       true,
-				Config: map[string]interface{}{
-					"threshold":    90,
-					"for_duration": "5m",
-					"labels": map[string]interface{}{
+				Config: domain.AlertRuleConfig{
+					ForDuration: "5m",
+					Labels: map[string]string{
 						"team":        "platform",
 						"environment": "production",
 					},
-					"annotations": map[string]interface{}{
+					Annotations: map[string]string{
 						"runbook_url": "https://example.com/runbook",
 						"dashboard":   "https://grafana.example.com/d/cpu",
+					},
+					TemplateVars: map[string]interface{}{
+						"threshold": 90,
 					},
 				},
 			},
@@ -337,7 +357,7 @@ func TestPrometheusRuleGenerator_ConvertToPrometheusRule(t *testing.T) {
 				Severity:      domain.AlertSeverityWarning,
 				QueryTemplate: "metric_value > 100",
 				Enabled:       true,
-				Config:        map[string]interface{}{},
+				Config:        domain.AlertRuleConfig{},
 			},
 			expectError: false,
 			validate: func(t *testing.T, rule *domain.PrometheusRule) {
@@ -360,9 +380,11 @@ func TestPrometheusRuleGenerator_ConvertToPrometheusRule(t *testing.T) {
 				Severity:      domain.AlertSeverityCritical,
 				QueryTemplate: "disk_usage{mount=\"{{ .mount }}\"} > {{ .threshold }}",
 				Enabled:       true,
-				Config: map[string]interface{}{
-					"mount":     "/data",
-					"threshold": 95,
+				Config: domain.AlertRuleConfig{
+					TemplateVars: map[string]interface{}{
+						"mount":     "/data",
+						"threshold": 95,
+					},
 				},
 			},
 			expectError: false,
@@ -399,7 +421,8 @@ func TestPrometheusRuleGenerator_ConvertToPrometheusRule(t *testing.T) {
 			}
 
 			logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
-			generator := service.NewPrometheusRuleGenerator(alertRuleRepo, groupRepo, tmpDir, logger)
+			fileManager := createTestFileManager(t, tmpDir, logger)
+			generator := service.NewPrometheusRuleGenerator(alertRuleRepo, groupRepo, fileManager, logger)
 
 			// Generate rules
 			err = generator.GenerateRulesForGroup(ctx, tt.alertRule.GroupID)
@@ -470,7 +493,8 @@ func TestPrometheusRuleGenerator_GenerateAllRules(t *testing.T) {
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
-	generator := service.NewPrometheusRuleGenerator(alertRuleRepo, groupRepo, tmpDir, logger)
+	fileManager := createTestFileManager(t, tmpDir, logger)
+	generator := service.NewPrometheusRuleGenerator(alertRuleRepo, groupRepo, fileManager, logger)
 
 	// Execute
 	err = generator.GenerateAllRules(ctx)
@@ -503,7 +527,8 @@ func TestPrometheusRuleGenerator_DeleteRulesForGroup(t *testing.T) {
 	alertRuleRepo := &mockAlertRuleRepo{}
 	groupRepo := &mockGroupRepo{}
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
-	generator := service.NewPrometheusRuleGenerator(alertRuleRepo, groupRepo, tmpDir, logger)
+	fileManager := createTestFileManager(t, tmpDir, logger)
+	generator := service.NewPrometheusRuleGenerator(alertRuleRepo, groupRepo, fileManager, logger)
 
 	// Execute delete
 	err = generator.DeleteRulesForGroup(ctx, groupID)
@@ -590,7 +615,8 @@ func TestPrometheusRuleGenerator_FilterDeletedRules(t *testing.T) {
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
-	generator := service.NewPrometheusRuleGenerator(alertRuleRepo, groupRepo, tmpDir, logger)
+	fileManager := createTestFileManager(t, tmpDir, logger)
+	generator := service.NewPrometheusRuleGenerator(alertRuleRepo, groupRepo, fileManager, logger)
 
 	err = generator.GenerateRulesForGroup(ctx, groupID)
 	assert.NoError(t, err)
