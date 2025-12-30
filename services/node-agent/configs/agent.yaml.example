@@ -1,0 +1,83 @@
+# AAMI Node Agent Configuration Example
+# Copy this file to /etc/aami/agent.yaml and modify as needed
+
+# Config-server connection settings
+server:
+  # URL of the config-server
+  url: "http://localhost:8080"
+
+  # TLS settings (optional)
+  tls_enabled: false
+  # tls_cert: "/etc/aami/certs/agent.crt"
+  # tls_key: "/etc/aami/certs/agent.key"
+  # tls_ca: "/etc/aami/certs/ca.crt"
+  skip_verify: false
+
+  # Request timeout
+  timeout: "30s"
+
+# Agent settings
+agent:
+  # Path to store the agent's state (target_id after registration)
+  state_file: "/var/lib/aami/state.json"
+
+  # Hostname override (auto-detected if empty)
+  # hostname: "my-server.example.com"
+
+  # IP address override (auto-detected if empty)
+  # ip_address: "192.168.1.100"
+
+  # Group ID to join on registration (optional)
+  # group_id: "web-servers"
+
+  # Bootstrap token for initial registration
+  # Can also be provided via CLI: --bootstrap-token <token>
+  # bootstrap_token: "your-bootstrap-token-here"
+
+  # Labels for target classification (optional)
+  labels:
+    environment: "production"
+    role: "web"
+
+  # Additional metadata (optional)
+  metadata:
+    datacenter: "us-east-1"
+    rack: "A1"
+
+  # Heartbeat interval to config-server
+  heartbeat_interval: "30s"
+
+  # Interval for polling check configurations
+  check_poll_interval: "60s"
+
+  # Registration retry settings
+  registration_retry_interval: "10s"
+  registration_max_retries: 10
+
+# Script executor settings
+executor:
+  # Working directory for script execution
+  work_dir: "/var/lib/aami/work"
+
+  # Directory to store downloaded scripts
+  script_dir: "/var/lib/aami/scripts"
+
+  # Default timeout for script execution
+  default_timeout: "60s"
+
+  # Maximum concurrent script executions
+  max_concurrent: 5
+
+  # Shell to use for script execution
+  shell_path: "/bin/bash"
+
+# Logging settings
+logging:
+  # Log level: debug, info, warn, error
+  level: "info"
+
+  # Log format: json, text
+  format: "json"
+
+  # Output: stdout, stderr, or file path
+  output: "stdout"
