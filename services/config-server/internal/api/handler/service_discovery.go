@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/fregataa/aami/config-server/internal/api/dto"
+	domainerrors "github.com/fregataa/aami/config-server/internal/errors"
 	"github.com/fregataa/aami/config-server/internal/service"
 	"github.com/gin-gonic/gin"
 )
@@ -43,9 +44,14 @@ func (h *ServiceDiscoveryHandler) GetPrometheusTargets(c *gin.Context) {
 // Returns targets for a specific group
 func (h *ServiceDiscoveryHandler) GetPrometheusTargetsByGroup(c *gin.Context) {
 	groupID := c.Param("groupId")
-	enabledOnly := c.DefaultQuery("enabled_only", "false") == "true"
 
-	targets, err := h.sdService.GetPrometheusTargetsForGroup(c.Request.Context(), groupID, enabledOnly)
+	var req dto.GroupTargetsRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		respondError(c, domainerrors.NewValidationError("query", err.Error()))
+		return
+	}
+
+	targets, err := h.sdService.GetPrometheusTargetsForGroup(c.Request.Context(), groupID, req.EnabledOnly)
 	if err != nil {
 		respondError(c, err)
 		return

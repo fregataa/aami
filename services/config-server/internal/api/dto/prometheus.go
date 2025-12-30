@@ -1,5 +1,11 @@
 package dto
 
+// SyncModeRequest is used for endpoints that support sync/async execution modes.
+// Default is async mode (Sync=false).
+type SyncModeRequest struct {
+	Sync bool `form:"sync"` // If true, execute synchronously; default is async
+}
+
 // RegenerateRulesResponse represents the result of rule regeneration
 type RegenerateRulesResponse struct {
 	Message       string `json:"message"`

@@ -25,6 +25,11 @@ func ToPrometheusSDTargetResponseList(targets []domain.PrometheusSDTarget) []Pro
 	return responses
 }
 
+// GroupTargetsRequest represents query parameters for group-specific target requests
+type GroupTargetsRequest struct {
+	EnabledOnly bool `form:"enabled_only"`
+}
+
 // ServiceDiscoveryFilterRequest represents filter parameters for service discovery
 type ServiceDiscoveryFilterRequest struct {
 	Status       string            `form:"status"`

@@ -4,6 +4,7 @@ import (
 	"github.com/fregataa/aami/config-server/internal/api/handler"
 	"github.com/fregataa/aami/config-server/internal/api/middleware"
 	"github.com/fregataa/aami/config-server/internal/pkg/alertmanager"
+	"github.com/fregataa/aami/config-server/internal/pkg/jobmanager"
 	"github.com/fregataa/aami/config-server/internal/pkg/prometheus"
 	"github.com/fregataa/aami/config-server/internal/repository"
 	"github.com/fregataa/aami/config-server/internal/service"
@@ -18,6 +19,7 @@ type Server struct {
 	fileManager        *prometheus.RuleFileManager
 	prometheusClient   *prometheus.PrometheusClient
 	alertmanagerClient *alertmanager.AlertmanagerClient
+	jobManager         *jobmanager.Manager
 }
 
 // NewServer creates a new API server
@@ -65,6 +67,16 @@ func NewServerWithAlertmanager(
 // SetAlertmanagerClient sets the Alertmanager client (optional)
 func (s *Server) SetAlertmanagerClient(client *alertmanager.AlertmanagerClient) {
 	s.alertmanagerClient = client
+}
+
+// SetJobManager sets the Job Manager (optional)
+func (s *Server) SetJobManager(manager *jobmanager.Manager) {
+	s.jobManager = manager
+}
+
+// JobManager returns the job manager instance
+func (s *Server) JobManager() *jobmanager.Manager {
+	return s.jobManager
 }
 
 // SetupRouter configures all routes and middleware
@@ -277,6 +289,18 @@ func (s *Server) SetupRouter() *gin.Engine {
 			prometheusRules.GET("/rules/effective/:target_id", prometheusRuleHandler.GetEffectiveRulesByTarget)
 			prometheusRules.POST("/reload", prometheusRuleHandler.ReloadPrometheus)
 			prometheusRules.GET("/status", prometheusRuleHandler.GetStatus)
+		}
+
+		// Job management routes (only if job manager is configured)
+		if s.jobManager != nil {
+			jobHandler := handler.NewJobHandler(s.jobManager)
+			jobs := v1.Group("/jobs")
+			{
+				jobs.GET("", jobHandler.List)
+				jobs.GET("/stats", jobHandler.GetStats)
+				jobs.GET("/:id", jobHandler.GetByID)
+				jobs.DELETE("/:id", jobHandler.Cancel)
+			}
 		}
 	}
 
