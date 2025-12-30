@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,7 +26,6 @@ interface ScriptTemplateTableProps {
   isLoading: boolean
   onEdit: (template: ScriptTemplate) => void
   onDelete: (template: ScriptTemplate) => void
-  onToggleEnabled?: (template: ScriptTemplate, enabled: boolean) => void
 }
 
 export function ScriptTemplateTable({
@@ -35,7 +33,6 @@ export function ScriptTemplateTable({
   isLoading,
   onEdit,
   onDelete,
-  onToggleEnabled,
 }: ScriptTemplateTableProps) {
   if (isLoading) {
     return <TableLoading />
@@ -57,7 +54,6 @@ export function ScriptTemplateTable({
             <TableHead>Name</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>Description</TableHead>
-            <TableHead>Enabled</TableHead>
             <TableHead className="w-[50px]"></TableHead>
           </TableRow>
         </TableHeader>
@@ -78,18 +74,6 @@ export function ScriptTemplateTable({
               </TableCell>
               <TableCell className="max-w-xs truncate text-gray-500">
                 {template.description || '-'}
-              </TableCell>
-              <TableCell>
-                {onToggleEnabled ? (
-                  <Switch
-                    checked={template.enabled}
-                    onCheckedChange={(checked) => onToggleEnabled(template, checked)}
-                  />
-                ) : (
-                  <Badge variant={template.enabled ? 'default' : 'secondary'}>
-                    {template.enabled ? 'Yes' : 'No'}
-                  </Badge>
-                )}
               </TableCell>
               <TableCell>
                 <DropdownMenu>

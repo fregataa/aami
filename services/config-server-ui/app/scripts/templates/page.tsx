@@ -56,16 +56,6 @@ export default function ScriptTemplatesPage() {
     }
   }
 
-  const handleToggleEnabled = async (template: ScriptTemplate, enabled: boolean) => {
-    try {
-      await scriptTemplatesApi.update(template.id, { enabled })
-      toast.success(`Script template ${enabled ? 'enabled' : 'disabled'}`)
-      mutate()
-    } catch (error) {
-      toast.error('Failed to update script template')
-    }
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -81,7 +71,6 @@ export default function ScriptTemplatesPage() {
         isLoading={isLoading}
         onEdit={setEditingTemplate}
         onDelete={setDeletingTemplate}
-        onToggleEnabled={handleToggleEnabled}
       />
 
       <ScriptTemplateForm

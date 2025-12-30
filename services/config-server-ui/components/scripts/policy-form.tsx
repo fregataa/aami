@@ -34,6 +34,8 @@ import { useGroups } from '@/lib/hooks/use-groups'
 import { useScriptTemplates } from '@/lib/hooks/use-script-templates'
 import type { ScriptPolicy } from '@/types/api'
 
+const GLOBAL_VALUE = '__global__'
+
 const formSchema = z.object({
   template_id: z.string().min(1, 'Template is required'),
   group_id: z.string(),
@@ -65,7 +67,7 @@ export function ScriptPolicyForm({ open, onClose, policy, onSubmit }: ScriptPoli
     resolver: zodResolver(formSchema),
     defaultValues: {
       template_id: '',
-      group_id: '',
+      group_id: GLOBAL_VALUE,
       config: '{}',
       priority: 0,
       enabled: true,
@@ -76,7 +78,7 @@ export function ScriptPolicyForm({ open, onClose, policy, onSubmit }: ScriptPoli
     if (policy) {
       form.reset({
         template_id: policy.template_id,
-        group_id: policy.group_id || '',
+        group_id: policy.group_id || GLOBAL_VALUE,
         config: JSON.stringify(policy.config || {}, null, 2),
         priority: policy.priority,
         enabled: policy.enabled,
@@ -84,7 +86,7 @@ export function ScriptPolicyForm({ open, onClose, policy, onSubmit }: ScriptPoli
     } else {
       form.reset({
         template_id: '',
-        group_id: '',
+        group_id: GLOBAL_VALUE,
         config: '{}',
         priority: 0,
         enabled: true,
@@ -103,7 +105,7 @@ export function ScriptPolicyForm({ open, onClose, policy, onSubmit }: ScriptPoli
 
     await onSubmit({
       template_id: data.template_id,
-      group_id: data.group_id || undefined,
+      group_id: data.group_id === GLOBAL_VALUE ? undefined : data.group_id,
       config: config,
       priority: data.priority,
       enabled: data.enabled,
@@ -162,7 +164,7 @@ export function ScriptPolicyForm({ open, onClose, policy, onSubmit }: ScriptPoli
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">Global (all targets)</SelectItem>
+                      <SelectItem value={GLOBAL_VALUE}>Global (all targets)</SelectItem>
                       {groups.map((group) => (
                         <SelectItem key={group.id} value={group.id}>
                           {group.name}

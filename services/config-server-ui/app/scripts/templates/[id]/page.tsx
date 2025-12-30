@@ -9,7 +9,6 @@ import { scriptTemplatesApi, type UpdateScriptTemplateRequest } from '@/lib/api/
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ScriptEditor } from '@/components/scripts/script-editor'
 import { DeleteDialog } from '@/components/shared/delete-dialog'
@@ -53,16 +52,6 @@ export default function ScriptTemplateDetailPage({
 
   const handleReset = () => {
     setEditedContent(null)
-  }
-
-  const handleToggleEnabled = async (enabled: boolean) => {
-    try {
-      await scriptTemplatesApi.update(id, { enabled })
-      toast.success(`Script template ${enabled ? 'enabled' : 'disabled'}`)
-      mutate()
-    } catch (error) {
-      toast.error('Failed to update script template')
-    }
   }
 
   const handleVerifyHash = async () => {
@@ -125,9 +114,6 @@ export default function ScriptTemplateDetailPage({
           </Link>
           <h1 className="text-2xl font-bold">{template.name}</h1>
           <Badge variant="outline">{template.script_type}</Badge>
-          <Badge variant={template.enabled ? 'default' : 'secondary'}>
-            {template.enabled ? 'Enabled' : 'Disabled'}
-          </Badge>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleVerifyHash}>
@@ -174,10 +160,6 @@ export default function ScriptTemplateDetailPage({
             <CardTitle>Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-medium text-gray-500">Enabled</div>
-              <Switch checked={template.enabled} onCheckedChange={handleToggleEnabled} />
-            </div>
             <div>
               <div className="text-sm font-medium text-gray-500">Description</div>
               <div>{template.description || '-'}</div>
