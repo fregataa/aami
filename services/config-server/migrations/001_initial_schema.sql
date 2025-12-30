@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS exporters (
 
 -- Alert templates table: Reusable alert definitions
 CREATE TABLE IF NOT EXISTS alert_templates (
-    id VARCHAR(100) PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     description TEXT,
     severity VARCHAR(20) NOT NULL CHECK (severity IN ('critical', 'warning', 'info')),
@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS alert_templates (
 CREATE TABLE IF NOT EXISTS alert_rules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-    created_from_template_id VARCHAR(100) REFERENCES alert_templates(id) ON DELETE SET NULL,
+    created_from_template_id UUID REFERENCES alert_templates(id) ON DELETE SET NULL,
     created_from_template_name VARCHAR(255),
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -192,34 +192,3 @@ CREATE INDEX IF NOT EXISTS idx_script_policies_deleted_at ON script_policies(del
 CREATE INDEX IF NOT EXISTS idx_bootstrap_tokens_token ON bootstrap_tokens(token) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_bootstrap_tokens_expires ON bootstrap_tokens(expires_at) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_bootstrap_tokens_deleted_at ON bootstrap_tokens(deleted_at);
-
--- ============================================================================
--- DEFAULT DATA
--- ============================================================================
-
--- Insert default alert templates (idempotent with ON CONFLICT DO NOTHING)
-INSERT INTO alert_templates (id, name, description, severity, query_template, default_config) VALUES
-('high_cpu_usage', 'High CPU Usage', 'Alert when CPU usage exceeds threshold', 'warning',
- '100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > {{ .threshold }}',
- '{"threshold": 80, "for": "5m"}'::jsonb),
-
-('high_memory_usage', 'High Memory Usage', 'Alert when memory usage exceeds threshold', 'warning',
- '(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > {{ .threshold }}',
- '{"threshold": 90, "for": "5m"}'::jsonb),
-
-('low_disk_space', 'Low Disk Space', 'Alert when disk space is running low', 'warning',
- '(node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.lxcfs|squashfs|devtmpfs"} / node_filesystem_size_bytes) * 100 < {{ .threshold }}',
- '{"threshold": 20, "for": "5m"}'::jsonb),
-
-('node_down', 'Node Down', 'Alert when node is unreachable', 'critical',
- 'up{job="node-exporter"} == 0',
- '{"for": "2m"}'::jsonb),
-
-('high_gpu_temperature', 'High GPU Temperature', 'Alert when GPU temperature exceeds threshold', 'critical',
- 'dcgm_gpu_temp > {{ .threshold }}',
- '{"threshold": 85, "for": "3m"}'::jsonb),
-
-('high_gpu_memory', 'High GPU Memory Usage', 'Alert when GPU memory usage exceeds threshold', 'warning',
- '(dcgm_fb_used / dcgm_fb_total) * 100 > {{ .threshold }}',
- '{"threshold": 90, "for": "5m"}'::jsonb)
-ON CONFLICT (id) DO NOTHING;

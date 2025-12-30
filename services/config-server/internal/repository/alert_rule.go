@@ -29,7 +29,7 @@ type AlertRuleModel struct {
 	Priority      int    `gorm:"not null;default:100"`
 
 	// Metadata (optional, for tracking origin)
-	CreatedFromTemplateID   *string `gorm:"type:varchar(255);index"`
+	CreatedFromTemplateID   *string `gorm:"type:uuid;index"`
 	CreatedFromTemplateName *string `gorm:"type:varchar(255)"`
 
 	DeletedAt gorm.DeletedAt `gorm:"index"`
