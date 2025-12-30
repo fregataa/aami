@@ -1,6 +1,3 @@
-# Agent-related planning documents
-.agent/
-
 # Binaries
 bin/
 *.exe
