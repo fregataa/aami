@@ -248,3 +248,19 @@ func ToAlertRuleResponseList(results []action.AlertRuleResult) []AlertRuleRespon
 	}
 	return responses
 }
+
+// ActiveAlertResponse represents an active alert from Alertmanager
+type ActiveAlertResponse struct {
+	Fingerprint  string            `json:"fingerprint"`
+	Status       string            `json:"status"`
+	Labels       map[string]string `json:"labels"`
+	Annotations  map[string]string `json:"annotations"`
+	StartsAt     string            `json:"starts_at"`
+	GeneratorURL string            `json:"generator_url"`
+}
+
+// ActiveAlertsResponse represents the response for active alerts endpoint
+type ActiveAlertsResponse struct {
+	Alerts []ActiveAlertResponse `json:"alerts"`
+	Total  int                   `json:"total"`
+}

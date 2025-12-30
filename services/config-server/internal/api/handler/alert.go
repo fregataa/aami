@@ -325,3 +325,42 @@ func mapToStruct(m map[string]interface{}, target interface{}) error {
 	}
 	return json.Unmarshal(data, target)
 }
+
+// ActiveAlertsHandler handles HTTP requests for active alerts from Alertmanager
+type ActiveAlertsHandler struct {
+	alertmanagerService *service.AlertmanagerService
+}
+
+// NewActiveAlertsHandler creates a new ActiveAlertsHandler
+func NewActiveAlertsHandler(alertmanagerService *service.AlertmanagerService) *ActiveAlertsHandler {
+	return &ActiveAlertsHandler{
+		alertmanagerService: alertmanagerService,
+	}
+}
+
+// GetActive handles GET /alerts/active
+func (h *ActiveAlertsHandler) GetActive(c *gin.Context) {
+	result, err := h.alertmanagerService.GetActiveAlerts(c.Request.Context())
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+
+	// Convert to DTO response
+	alerts := make([]dto.ActiveAlertResponse, len(result.Alerts))
+	for i, alert := range result.Alerts {
+		alerts[i] = dto.ActiveAlertResponse{
+			Fingerprint:  alert.Fingerprint,
+			Status:       alert.Status,
+			Labels:       alert.Labels,
+			Annotations:  alert.Annotations,
+			StartsAt:     alert.StartsAt.Format("2006-01-02T15:04:05Z07:00"),
+			GeneratorURL: alert.GeneratorURL,
+		}
+	}
+
+	c.JSON(http.StatusOK, dto.ActiveAlertsResponse{
+		Alerts: alerts,
+		Total:  result.Total,
+	})
+}

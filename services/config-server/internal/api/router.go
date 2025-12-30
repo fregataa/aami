@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/fregataa/aami/config-server/internal/api/handler"
 	"github.com/fregataa/aami/config-server/internal/api/middleware"
+	"github.com/fregataa/aami/config-server/internal/pkg/alertmanager"
 	"github.com/fregataa/aami/config-server/internal/pkg/prometheus"
 	"github.com/fregataa/aami/config-server/internal/repository"
 	"github.com/fregataa/aami/config-server/internal/service"
@@ -11,11 +12,12 @@ import (
 
 // Server represents the API server
 type Server struct {
-	router           *gin.Engine
-	rm               *repository.Manager
-	ruleGenerator    *service.PrometheusRuleGenerator
-	fileManager      *prometheus.RuleFileManager
-	prometheusClient *prometheus.PrometheusClient
+	router             *gin.Engine
+	rm                 *repository.Manager
+	ruleGenerator      *service.PrometheusRuleGenerator
+	fileManager        *prometheus.RuleFileManager
+	prometheusClient   *prometheus.PrometheusClient
+	alertmanagerClient *alertmanager.AlertmanagerClient
 }
 
 // NewServer creates a new API server
@@ -40,6 +42,29 @@ func NewServerWithPrometheus(
 		fileManager:      fileManager,
 		prometheusClient: prometheusClient,
 	}
+}
+
+// NewServerWithAlertmanager creates a new API server with Prometheus and Alertmanager components
+func NewServerWithAlertmanager(
+	rm *repository.Manager,
+	ruleGenerator *service.PrometheusRuleGenerator,
+	fileManager *prometheus.RuleFileManager,
+	prometheusClient *prometheus.PrometheusClient,
+	alertmanagerClient *alertmanager.AlertmanagerClient,
+) *Server {
+	return &Server{
+		router:             gin.New(),
+		rm:                 rm,
+		ruleGenerator:      ruleGenerator,
+		fileManager:        fileManager,
+		prometheusClient:   prometheusClient,
+		alertmanagerClient: alertmanagerClient,
+	}
+}
+
+// SetAlertmanagerClient sets the Alertmanager client (optional)
+func (s *Server) SetAlertmanagerClient(client *alertmanager.AlertmanagerClient) {
+	s.alertmanagerClient = client
 }
 
 // SetupRouter configures all routes and middleware
@@ -89,6 +114,10 @@ func (s *Server) SetupRouter() *gin.Engine {
 	prometheusRuleHandler := handler.NewPrometheusRuleHandlerWithAlertService(
 		s.ruleGenerator, s.fileManager, s.prometheusClient, alertRuleService,
 	)
+
+	// Initialize Alertmanager service and handler (optional)
+	alertmanagerService := service.NewAlertmanagerService(s.alertmanagerClient)
+	activeAlertsHandler := handler.NewActiveAlertsHandler(alertmanagerService)
 
 	// API v1 routes
 	v1 := s.router.Group("/api/v1")
@@ -160,6 +189,12 @@ func (s *Server) SetupRouter() *gin.Engine {
 			alertRules.POST("/restore", alertRuleHandler.RestoreResource)
 			alertRules.GET("/group/:group_id", alertRuleHandler.GetByGroupID)
 			alertRules.GET("/template/:template_id", alertRuleHandler.GetByTemplateID)
+		}
+
+		// Active alerts routes (from Alertmanager)
+		alerts := v1.Group("/alerts")
+		{
+			alerts.GET("/active", activeAlertsHandler.GetActive)
 		}
 
 		// Bootstrap token routes
