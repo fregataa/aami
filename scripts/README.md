@@ -106,21 +106,61 @@ After successful installation:
 - **Purpose**: Install and configure monitoring agents on target nodes
 
 Available scripts:
+- `bootstrap.sh` - One-line bootstrap script for auto-registration
 - `install-node-exporter.sh` - Install Prometheus Node Exporter
 - `dynamic-check.sh` - Execute dynamic checks from Config Server
 - `install-dcgm-exporter.sh` - Install NVIDIA DCGM Exporter (planned)
 - `install-all-smi.sh` - Install all-smi for multi-vendor GPU support (planned)
-- `bootstrap.sh` - One-line bootstrap script for auto-registration (planned)
 - `uninstall.sh` - Remove all monitoring agents (planned)
+
+#### Bootstrap Script (`bootstrap.sh`)
+
+The bootstrap script automates the entire node registration process:
+1. Run preflight checks (system requirements, connectivity)
+2. Detect system information (hostname, IP, OS, GPU)
+3. Validate bootstrap token with Config Server
+4. Install Node Exporter
+5. Install dynamic-check.sh and register cron job
+6. Register node with Config Server API
+7. Verify registration success
 
 Example usage:
 ```bash
-# Install Node Exporter
-curl -fsSL https://raw.githubusercontent.com/your-org/aami/main/scripts/node/install-node-exporter.sh | bash
+# Basic usage (requires sudo)
+sudo ./bootstrap.sh --token aami_bootstrap_xxx --server http://config-server:8080
 
-# Or with bootstrap token
-curl -fsSL https://raw.githubusercontent.com/your-org/aami/main/scripts/node/bootstrap.sh | \
-  bash -s -- --token YOUR_BOOTSTRAP_TOKEN --server https://config-server.example.com
+# One-liner from Config Server
+curl -fsSL http://config-server:8080/bootstrap.sh | \
+  sudo bash -s -- --token aami_bootstrap_xxx --server http://config-server:8080
+
+# With custom labels
+sudo ./bootstrap.sh --token aami_xxx --server http://config-server:8080 \
+  --labels env=production --labels rack=A1
+
+# Dry run to preview actions
+sudo ./bootstrap.sh --token aami_xxx --server http://config-server:8080 --dry-run
+```
+
+Options:
+- `--token TOKEN` - Bootstrap token (required)
+- `--server URL` - Config Server URL (required)
+- `--port PORT` - Node Exporter port (default: 9100)
+- `--labels KEY=VALUE` - Additional labels (repeatable)
+- `--group-id ID` - Assign to specific group (default: self group)
+- `--dry-run` - Preview without executing
+- `--skip-preflight` - Skip preflight checks
+- `--skip-gpu` - Skip GPU detection
+- `--verbose` - Enable verbose output
+
+#### Install Node Exporter (`install-node-exporter.sh`)
+
+Standalone script to install Node Exporter:
+```bash
+# Install with defaults
+sudo ./install-node-exporter.sh
+
+# Custom port and version
+sudo ./install-node-exporter.sh --version 1.7.0 --port 9100
 ```
 
 ### Database Scripts
