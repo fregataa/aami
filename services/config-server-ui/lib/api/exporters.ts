@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { Exporter } from '@/types/api'
+import type { Exporter, PaginatedResponse } from '@/types/api'
 
 export interface CreateExporterRequest {
   target_id: string
@@ -17,12 +17,17 @@ export interface UpdateExporterRequest {
 }
 
 export const exportersApi = {
-  list: () => api.get<Exporter[]>('/api/v1/exporters'),
+  list: async () => {
+    const response = await api.get<PaginatedResponse<Exporter>>('/api/v1/exporters')
+    return response.data
+  },
 
   getById: (id: string) => api.get<Exporter>(`/api/v1/exporters/${id}`),
 
-  getByTarget: (targetId: string) =>
-    api.get<Exporter[]>(`/api/v1/exporters/target/${targetId}`),
+  getByTarget: async (targetId: string) => {
+    const response = await api.get<PaginatedResponse<Exporter>>(`/api/v1/exporters/target/${targetId}`)
+    return response.data
+  },
 
   create: (data: CreateExporterRequest) =>
     api.post<Exporter>('/api/v1/exporters', data),

@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { AlertRule } from '@/types/api'
+import type { AlertRule, PaginatedResponse } from '@/types/api'
 
 export interface CreateAlertRuleRequest {
   group_id: string
@@ -35,15 +35,22 @@ export interface CreateFromTemplateRequest {
 }
 
 export const alertRulesApi = {
-  list: () => api.get<AlertRule[]>('/api/v1/alert-rules'),
+  list: async () => {
+    const response = await api.get<PaginatedResponse<AlertRule>>('/api/v1/alert-rules')
+    return response.data
+  },
 
   getById: (id: string) => api.get<AlertRule>(`/api/v1/alert-rules/${id}`),
 
-  getByGroup: (groupId: string) =>
-    api.get<AlertRule[]>(`/api/v1/alert-rules/group/${groupId}`),
+  getByGroup: async (groupId: string) => {
+    const response = await api.get<PaginatedResponse<AlertRule>>(`/api/v1/alert-rules/group/${groupId}`)
+    return response.data
+  },
 
-  getByTemplate: (templateId: string) =>
-    api.get<AlertRule[]>(`/api/v1/alert-rules/template/${templateId}`),
+  getByTemplate: async (templateId: string) => {
+    const response = await api.get<PaginatedResponse<AlertRule>>(`/api/v1/alert-rules/template/${templateId}`)
+    return response.data
+  },
 
   create: (data: CreateAlertRuleRequest) =>
     api.post<AlertRule>('/api/v1/alert-rules', data),

@@ -11,11 +11,16 @@ export interface PaginationParams {
   limit?: number
 }
 
-export interface PaginatedResponse<T> {
-  data: T[]
-  total: number
+export interface Pagination {
   page: number
   limit: number
+  total: number
+  total_pages: number
+}
+
+export interface PaginatedResponse<T> {
+  data: T[]
+  pagination: Pagination
 }
 
 // Target

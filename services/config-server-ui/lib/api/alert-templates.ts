@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { AlertTemplate } from '@/types/api'
+import type { AlertTemplate, PaginatedResponse } from '@/types/api'
 
 export interface CreateAlertTemplateRequest {
   name: string
@@ -18,7 +18,10 @@ export interface UpdateAlertTemplateRequest {
 }
 
 export const alertTemplatesApi = {
-  list: () => api.get<AlertTemplate[]>('/api/v1/alert-templates'),
+  list: async () => {
+    const response = await api.get<PaginatedResponse<AlertTemplate>>('/api/v1/alert-templates')
+    return response.data
+  },
 
   getById: (id: string) => api.get<AlertTemplate>(`/api/v1/alert-templates/${id}`),
 

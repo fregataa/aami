@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { ScriptPolicy } from '@/types/api'
+import type { ScriptPolicy, PaginatedResponse } from '@/types/api'
 
 export interface CreateScriptPolicyRequest {
   template_id: string
@@ -18,15 +18,22 @@ export interface UpdateScriptPolicyRequest {
 }
 
 export const scriptPoliciesApi = {
-  list: () => api.get<ScriptPolicy[]>('/api/v1/script-policies'),
+  list: async () => {
+    const response = await api.get<PaginatedResponse<ScriptPolicy>>('/api/v1/script-policies')
+    return response.data
+  },
 
   getById: (id: string) => api.get<ScriptPolicy>(`/api/v1/script-policies/${id}`),
 
-  getByGroup: (groupId: string) =>
-    api.get<ScriptPolicy[]>(`/api/v1/script-policies/group/${groupId}`),
+  getByGroup: async (groupId: string) => {
+    const response = await api.get<PaginatedResponse<ScriptPolicy>>(`/api/v1/script-policies/group/${groupId}`)
+    return response.data
+  },
 
-  getByTemplate: (templateId: string) =>
-    api.get<ScriptPolicy[]>(`/api/v1/script-policies/template/${templateId}`),
+  getByTemplate: async (templateId: string) => {
+    const response = await api.get<PaginatedResponse<ScriptPolicy>>(`/api/v1/script-policies/template/${templateId}`)
+    return response.data
+  },
 
   create: (data: CreateScriptPolicyRequest) =>
     api.post<ScriptPolicy>('/api/v1/script-policies', data),

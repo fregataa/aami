@@ -13,6 +13,7 @@ type Config struct {
 	Server     ServerConfig
 	Database   database.Config
 	Prometheus PrometheusConfig
+	Defaults   DefaultsConfig
 }
 
 // ServerConfig holds server configuration
@@ -63,6 +64,11 @@ func Load() (*Config, error) {
 	viper.SetDefault("prometheus.backupenabled", true)
 	viper.SetDefault("prometheus.backuppath", "")
 
+	// Defaults (seed templates) configuration
+	viper.SetDefault("defaults.alert_templates_file", "configs/defaults/alert-templates.yaml")
+	viper.SetDefault("defaults.script_templates_file", "configs/defaults/script-templates.yaml")
+	viper.SetDefault("defaults.scripts_dir", "configs/defaults/scripts")
+
 	// Environment variables
 	viper.AutomaticEnv()
 
@@ -75,6 +81,11 @@ func Load() (*Config, error) {
 	_ = viper.BindEnv("prometheus.promtoolpath", "PROMETHEUS_PROMTOOL_PATH")
 	_ = viper.BindEnv("prometheus.backupenabled", "PROMETHEUS_BACKUP_ENABLED")
 	_ = viper.BindEnv("prometheus.backuppath", "PROMETHEUS_BACKUP_PATH")
+
+	// Defaults environment variable bindings
+	_ = viper.BindEnv("defaults.alert_templates_file", "SEED_ALERT_TEMPLATES_FILE")
+	_ = viper.BindEnv("defaults.script_templates_file", "SEED_SCRIPT_TEMPLATES_FILE")
+	_ = viper.BindEnv("defaults.scripts_dir", "SEED_SCRIPTS_DIR")
 
 	// Read from config file if exists
 	viper.SetConfigName("config")

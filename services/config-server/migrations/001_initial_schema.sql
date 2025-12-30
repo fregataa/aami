@@ -105,6 +105,8 @@ CREATE TABLE IF NOT EXISTS script_templates (
     default_config JSONB NOT NULL DEFAULT '{}',
     timeout_seconds INTEGER NOT NULL DEFAULT 30,
     description TEXT,
+    version VARCHAR(50) NOT NULL DEFAULT '1.0.0',
+    hash VARCHAR(64),
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMP
@@ -168,8 +170,8 @@ CREATE INDEX IF NOT EXISTS idx_exporters_target ON exporters(target_id) WHERE de
 CREATE INDEX IF NOT EXISTS idx_exporters_type ON exporters(type) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_exporters_deleted_at ON exporters(deleted_at);
 
--- Alert templates indexes
-CREATE INDEX IF NOT EXISTS idx_alert_templates_name ON alert_templates(name) WHERE deleted_at IS NULL;
+-- Alert templates indexes (unique partial index for upsert support)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_alert_templates_name ON alert_templates(name) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_alert_templates_deleted_at ON alert_templates(deleted_at);
 
 -- Alert rules indexes
@@ -177,9 +179,9 @@ CREATE INDEX IF NOT EXISTS idx_alert_rules_group ON alert_rules(group_id) WHERE 
 CREATE INDEX IF NOT EXISTS idx_alert_rules_created_from_template_id ON alert_rules(created_from_template_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_alert_rules_deleted_at ON alert_rules(deleted_at);
 
--- Script templates indexes
+-- Script templates indexes (unique partial index for upsert support)
 CREATE INDEX IF NOT EXISTS idx_script_templates_script_type ON script_templates(script_type) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_script_templates_name ON script_templates(name) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_script_templates_name ON script_templates(name) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_script_templates_deleted_at ON script_templates(deleted_at);
 
 -- Script policies indexes

@@ -14,3 +14,7 @@
 
 # tmp files
 tmp/
+
+# Go binaries
+cli/aami
+*.exe

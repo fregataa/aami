@@ -170,10 +170,10 @@ services:
       context: ../../services/config-server-ui
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=http://config-server:8080
+        - NEXT_PUBLIC_API_URL=http://localhost:8080
     container_name: aami-config-server-ui
     environment:
-      - NEXT_PUBLIC_API_URL=http://config-server:8080
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
     ports:
       - "${CONFIG_UI_PORT:-3001}:3000"
     networks:

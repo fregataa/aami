@@ -1,8 +1,11 @@
 package api
 
 import (
+	"log/slog"
+
 	"github.com/fregataa/aami/config-server/internal/api/handler"
 	"github.com/fregataa/aami/config-server/internal/api/middleware"
+	"github.com/fregataa/aami/config-server/internal/config"
 	"github.com/fregataa/aami/config-server/internal/pkg/alertmanager"
 	"github.com/fregataa/aami/config-server/internal/pkg/jobmanager"
 	"github.com/fregataa/aami/config-server/internal/pkg/prometheus"
@@ -20,6 +23,8 @@ type Server struct {
 	prometheusClient   *prometheus.PrometheusClient
 	alertmanagerClient *alertmanager.AlertmanagerClient
 	jobManager         *jobmanager.Manager
+	defaultsConfig     *config.DefaultsConfig
+	logger             *slog.Logger
 }
 
 // NewServer creates a new API server
@@ -77,6 +82,12 @@ func (s *Server) SetJobManager(manager *jobmanager.Manager) {
 // JobManager returns the job manager instance
 func (s *Server) JobManager() *jobmanager.Manager {
 	return s.jobManager
+}
+
+// SetDefaultsConfig sets the defaults configuration for seed operations
+func (s *Server) SetDefaultsConfig(cfg *config.DefaultsConfig, logger *slog.Logger) {
+	s.defaultsConfig = cfg
+	s.logger = logger
 }
 
 // SetupRouter configures all routes and middleware
@@ -300,6 +311,26 @@ func (s *Server) SetupRouter() *gin.Engine {
 				jobs.GET("/stats", jobHandler.GetStats)
 				jobs.GET("/:id", jobHandler.GetByID)
 				jobs.DELETE("/:id", jobHandler.Cancel)
+			}
+		}
+
+		// Admin routes
+		if s.defaultsConfig != nil {
+			logger := s.logger
+			if logger == nil {
+				logger = slog.Default()
+			}
+			defaultsLoader := service.NewDefaultsLoaderService(
+				s.defaultsConfig,
+				s.rm.AlertTemplate,
+				s.rm.ScriptTemplate,
+				logger,
+			)
+			adminHandler := handler.NewAdminHandler(defaultsLoader)
+
+			admin := v1.Group("/admin")
+			{
+				admin.POST("/seed", adminHandler.Seed)
 			}
 		}
 	}

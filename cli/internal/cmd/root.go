@@ -70,6 +70,7 @@ func init() {
 	rootCmd.AddCommand(targetCmd)
 	rootCmd.AddCommand(bootstrapTokenCmd)
 	rootCmd.AddCommand(configCmd)
+	rootCmd.AddCommand(seedCmd)
 	rootCmd.AddCommand(versionCmd)
 }
 

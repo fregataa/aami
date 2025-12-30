@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { ScriptTemplate } from '@/types/api'
+import type { ScriptTemplate, PaginatedResponse } from '@/types/api'
 
 export interface CreateScriptTemplateRequest {
   name: string
@@ -26,7 +26,10 @@ export interface VerifyHashResponse {
 }
 
 export const scriptTemplatesApi = {
-  list: () => api.get<ScriptTemplate[]>('/api/v1/script-templates'),
+  list: async () => {
+    const response = await api.get<PaginatedResponse<ScriptTemplate>>('/api/v1/script-templates')
+    return response.data
+  },
 
   getById: (id: string) => api.get<ScriptTemplate>(`/api/v1/script-templates/${id}`),
 

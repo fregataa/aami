@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { BootstrapToken } from '@/types/api'
+import type { BootstrapToken, PaginatedResponse } from '@/types/api'
 
 export interface CreateBootstrapTokenRequest {
   name: string
@@ -17,13 +17,11 @@ export interface UpdateBootstrapTokenRequest {
   max_uses?: number
 }
 
-export interface BootstrapTokenListResponse {
-  tokens: BootstrapToken[]
-  total: number
-}
-
 export const bootstrapTokensApi = {
-  list: () => api.get<BootstrapTokenListResponse>('/api/v1/bootstrap-tokens'),
+  list: async () => {
+    const response = await api.get<PaginatedResponse<BootstrapToken>>('/api/v1/bootstrap-tokens')
+    return response.data
+  },
 
   getById: (id: string) => api.get<BootstrapToken>(`/api/v1/bootstrap-tokens/${id}`),
 

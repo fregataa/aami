@@ -49,6 +49,9 @@ COPY --from=builder /build/config-server .
 # Copy migrations (needed at runtime)
 COPY --from=builder /build/migrations ./migrations
 
+# Copy default templates for seed API
+COPY --from=builder /build/configs ./configs
+
 # Create directory for file SD outputs and logs
 RUN mkdir -p /app/data /app/logs && \
     chown -R appuser:appuser /app

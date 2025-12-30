@@ -8,8 +8,7 @@ export function useBootstrapTokens() {
   )
 
   return {
-    tokens: data?.tokens ?? [],
-    total: data?.total ?? 0,
+    tokens: data ?? [],
     isLoading,
     error,
     mutate,

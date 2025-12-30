@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { Group } from '@/types/api'
+import type { Group, PaginatedResponse } from '@/types/api'
 
 export interface CreateGroupRequest {
   name: string
@@ -18,7 +18,10 @@ export interface UpdateGroupRequest {
 }
 
 export const groupsApi = {
-  list: () => api.get<Group[]>('/api/v1/groups'),
+  list: async () => {
+    const response = await api.get<PaginatedResponse<Group>>('/api/v1/groups')
+    return response.data
+  },
 
   getById: (id: string) => api.get<Group>(`/api/v1/groups/${id}`),
 

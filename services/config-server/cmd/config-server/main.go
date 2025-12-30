@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fregataa/aami/config-server/internal/api"
+	"github.com/fregataa/aami/config-server/internal/config"
 	"github.com/fregataa/aami/config-server/internal/pkg/prometheus"
 	"github.com/fregataa/aami/config-server/internal/repository"
 	"github.com/fregataa/aami/config-server/internal/service"
@@ -23,10 +24,10 @@ func main() {
 	slogger := slog.New(logHandler)
 
 	// Load configuration from environment
-	config := loadConfig()
+	cfg := loadConfig()
 
 	// Create repository manager with database connection
-	rm, err := repository.NewManager(config.DBConfig)
+	rm, err := repository.NewManager(cfg.DBConfig)
 	if err != nil {
 		log.Fatalf("Failed to create repository manager: %v", err)
 	}
@@ -42,14 +43,14 @@ func main() {
 	var prometheusClient *prometheus.PrometheusClient
 	var ruleGenerator *service.PrometheusRuleGenerator
 
-	if config.PrometheusConfig.RulePath != "" {
+	if cfg.PrometheusConfig.RulePath != "" {
 		// Initialize file manager
 		fileManagerConfig := prometheus.RuleFileManagerConfig{
-			BasePath:         config.PrometheusConfig.RulePath,
-			BackupPath:       config.PrometheusConfig.BackupPath,
-			EnableValidation: config.PrometheusConfig.ValidateRules,
-			EnableBackup:     config.PrometheusConfig.BackupEnabled,
-			PromtoolPath:     config.PrometheusConfig.PromtoolPath,
+			BasePath:         cfg.PrometheusConfig.RulePath,
+			BackupPath:       cfg.PrometheusConfig.BackupPath,
+			EnableValidation: cfg.PrometheusConfig.ValidateRules,
+			EnableBackup:     cfg.PrometheusConfig.BackupEnabled,
+			PromtoolPath:     cfg.PrometheusConfig.PromtoolPath,
 		}
 		fileManager, err = prometheus.NewRuleFileManager(fileManagerConfig, slogger)
 		if err != nil {
@@ -57,11 +58,11 @@ func main() {
 		}
 	}
 
-	if config.PrometheusConfig.URL != "" && config.PrometheusConfig.ReloadEnabled {
+	if cfg.PrometheusConfig.URL != "" && cfg.PrometheusConfig.ReloadEnabled {
 		// Initialize Prometheus client
 		clientConfig := prometheus.PrometheusClientConfig{
-			BaseURL: config.PrometheusConfig.URL,
-			Timeout: config.PrometheusConfig.ReloadTimeout,
+			BaseURL: cfg.PrometheusConfig.URL,
+			Timeout: cfg.PrometheusConfig.ReloadTimeout,
 		}
 		prometheusClient = prometheus.NewPrometheusClient(clientConfig, slogger)
 	}
@@ -78,10 +79,14 @@ func main() {
 
 	// Create and setup API server with Prometheus components
 	server := api.NewServerWithPrometheus(rm, ruleGenerator, fileManager, prometheusClient)
+
+	// Set defaults config for seed API
+	server.SetDefaultsConfig(&cfg.DefaultsConfig, slogger)
+
 	router := server.SetupRouter()
 
 	// Start server
-	addr := fmt.Sprintf(":%s", config.Port)
+	addr := fmt.Sprintf(":%s", cfg.Port)
 	log.Printf("Starting config-server on %s", addr)
 	if err := router.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
@@ -93,6 +98,7 @@ type Config struct {
 	DBConfig         repository.Config
 	Port             string
 	PrometheusConfig PrometheusConfig
+	DefaultsConfig   config.DefaultsConfig
 }
 
 // PrometheusConfig holds Prometheus integration configuration
@@ -133,6 +139,11 @@ func loadConfig() Config {
 			BackupEnabled: getEnvBool("PROMETHEUS_BACKUP_ENABLED", true),
 			BackupPath:    getEnv("PROMETHEUS_BACKUP_PATH", ""),
 		},
+		DefaultsConfig: config.DefaultsConfig{
+			AlertTemplatesFile:  getEnv("SEED_ALERT_TEMPLATES_FILE", "configs/defaults/alert-templates.yaml"),
+			ScriptTemplatesFile: getEnv("SEED_SCRIPT_TEMPLATES_FILE", "configs/defaults/script-templates.yaml"),
+			ScriptsDir:          getEnv("SEED_SCRIPTS_DIR", "configs/defaults/scripts"),
+		},
 	}
 }
 
@@ -164,7 +175,6 @@ func validateSchema(rm *repository.Manager) error {
 
 	// List of required tables
 	requiredTables := []string{
-		"namespaces",
 		"groups",
 		"targets",
 		"target_groups",
