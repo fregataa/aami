@@ -468,7 +468,7 @@ install_dynamic_check() {
     print_step 6 8 "Installing dynamic check..."
 
     if [[ "$DRY_RUN" == true ]]; then
-        print_substep "info" "[DRY-RUN] Would install dynamic-check.sh and cron job"
+        print_substep "info" "[DRY-RUN] Would install dynamic check script and cron job"
         return 0
     fi
 
@@ -481,27 +481,57 @@ install_dynamic_check() {
     mkdir -p "$install_dir"
     mkdir -p "$textfile_dir"
 
-    # Install dynamic-check.sh
-    if [[ -f "${script_dir}/dynamic-check.sh" ]]; then
-        cp "${script_dir}/dynamic-check.sh" "${install_dir}/"
-    else
-        # Download from Config Server or GitHub
-        if ! curl -fsSL "${CONFIG_SERVER}/scripts/node/dynamic-check.sh" -o "${install_dir}/dynamic-check.sh" 2>/dev/null; then
-            if ! curl -fsSL "https://raw.githubusercontent.com/fregataa/aami/main/scripts/node/dynamic-check.sh" -o "${install_dir}/dynamic-check.sh" 2>/dev/null; then
-                print_substep "warn" "Could not download dynamic-check.sh, skipping"
-                return 0
+    # Prefer Python version if Python 3 is available
+    local use_python=false
+    local script_name=""
+    local cron_command=""
+
+    if command -v python3 &> /dev/null; then
+        # Try to install Python version
+        if [[ -f "${script_dir}/dynamic_check.py" ]]; then
+            cp "${script_dir}/dynamic_check.py" "${install_dir}/"
+            use_python=true
+        else
+            # Download from Config Server or GitHub
+            if curl -fsSL "${CONFIG_SERVER}/scripts/node/dynamic_check.py" -o "${install_dir}/dynamic_check.py" 2>/dev/null; then
+                use_python=true
+            elif curl -fsSL "https://raw.githubusercontent.com/fregataa/aami/main/scripts/node/dynamic_check.py" -o "${install_dir}/dynamic_check.py" 2>/dev/null; then
+                use_python=true
             fi
+        fi
+
+        if [[ "$use_python" == true ]]; then
+            chmod +x "${install_dir}/dynamic_check.py"
+            script_name="dynamic_check.py"
+            cron_command="python3 ${install_dir}/dynamic_check.py --config-server ${CONFIG_SERVER} --textfile-dir ${textfile_dir}"
+            print_substep "ok" "dynamic_check.py installed (Python)"
         fi
     fi
 
-    chmod +x "${install_dir}/dynamic-check.sh"
-    print_substep "ok" "dynamic-check.sh installed"
+    # Fallback to bash version if Python not available
+    if [[ "$use_python" == false ]]; then
+        if [[ -f "${script_dir}/dynamic-check.sh" ]]; then
+            cp "${script_dir}/dynamic-check.sh" "${install_dir}/"
+        else
+            # Download from Config Server or GitHub
+            if ! curl -fsSL "${CONFIG_SERVER}/scripts/node/dynamic-check.sh" -o "${install_dir}/dynamic-check.sh" 2>/dev/null; then
+                if ! curl -fsSL "https://raw.githubusercontent.com/fregataa/aami/main/scripts/node/dynamic-check.sh" -o "${install_dir}/dynamic-check.sh" 2>/dev/null; then
+                    print_substep "warn" "Could not download dynamic check script, skipping"
+                    return 0
+                fi
+            fi
+        fi
+        chmod +x "${install_dir}/dynamic-check.sh"
+        script_name="dynamic-check.sh"
+        cron_command="${install_dir}/dynamic-check.sh --server ${CONFIG_SERVER} --output-dir ${textfile_dir}"
+        print_substep "ok" "dynamic-check.sh installed (Bash)"
+    fi
 
     # Create cron job
     local cron_file="/etc/cron.d/aami-dynamic-check"
     cat > "$cron_file" << EOF
 # AAMI Dynamic Check - runs every minute
-* * * * * root ${install_dir}/dynamic-check.sh --server ${CONFIG_SERVER} --output-dir ${textfile_dir} >> /var/log/aami-dynamic-check.log 2>&1
+* * * * * root ${cron_command} >> /var/log/aami-dynamic-check.log 2>&1
 EOF
 
     chmod 644 "$cron_file"
@@ -509,7 +539,11 @@ EOF
 
     # Run first check
     print_substep "info" "Running initial check..."
-    "${install_dir}/dynamic-check.sh" --server "${CONFIG_SERVER}" --output-dir "${textfile_dir}" 2>/dev/null || true
+    if [[ "$use_python" == true ]]; then
+        python3 "${install_dir}/dynamic_check.py" --config-server "${CONFIG_SERVER}" --textfile-dir "${textfile_dir}" 2>/dev/null || true
+    else
+        "${install_dir}/dynamic-check.sh" --server "${CONFIG_SERVER}" --output-dir "${textfile_dir}" 2>/dev/null || true
+    fi
 
     return 0
 }

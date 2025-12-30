@@ -116,7 +116,8 @@ After successful installation:
 Available scripts:
 - `bootstrap.sh` - One-line bootstrap script for auto-registration
 - `install-node-exporter.sh` - Install Prometheus Node Exporter
-- `dynamic-check.sh` - Execute dynamic checks from Config Server
+- `dynamic_check.py` - Execute dynamic checks from Config Server (Python, recommended)
+- `dynamic-check.sh` - Execute dynamic checks from Config Server (Bash, legacy)
 - `install-dcgm-exporter.sh` - Install NVIDIA DCGM Exporter (planned)
 - `install-all-smi.sh` - Install all-smi for multi-vendor GPU support (planned)
 - `uninstall.sh` - Remove all monitoring agents (planned)
@@ -170,6 +171,30 @@ sudo ./install-node-exporter.sh
 # Custom port and version
 sudo ./install-node-exporter.sh --version 1.7.0 --port 9100
 ```
+
+#### Dynamic Check Script (`dynamic_check.py`)
+
+Fetches and executes dynamic checks from Config Server. Two versions available:
+- **Python version** (`dynamic_check.py`): Recommended. No jq dependency, better error handling.
+- **Bash version** (`dynamic-check.sh`): Legacy. Requires jq.
+
+```bash
+# Manual execution
+python3 dynamic_check.py --config-server http://config-server:8080
+
+# Debug mode
+python3 dynamic_check.py --config-server http://config-server:8080 --debug
+
+# Typically runs via cron (installed by bootstrap.sh)
+* * * * * /usr/local/bin/dynamic_check.py
+```
+
+Options:
+- `-c, --config-server URL` - Config Server URL
+- `--hostname NAME` - Override hostname
+- `-d, --debug` - Enable debug logging
+- `--textfile-dir PATH` - Textfile collector directory
+- `--check-scripts-dir PATH` - Check scripts directory
 
 ### Database Scripts
 - **Location**: `db/`
