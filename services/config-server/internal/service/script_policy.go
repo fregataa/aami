@@ -237,6 +237,22 @@ func (s *ScriptPolicyService) GetEffectiveChecksByTargetID(ctx context.Context, 
 	return effectiveChecks, nil
 }
 
+// GetEffectiveChecksByHostname retrieves all effective checks for a target by hostname
+// This endpoint is used by node scripts that only know their hostname
+func (s *ScriptPolicyService) GetEffectiveChecksByHostname(ctx context.Context, hostname string) ([]domain.EffectiveCheck, error) {
+	// Find target by hostname
+	target, err := s.targetRepo.GetByHostname(ctx, hostname)
+	if err != nil {
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrNotFound
+		}
+		return nil, err
+	}
+
+	// Delegate to existing method
+	return s.GetEffectiveChecksByTargetID(ctx, target.ID)
+}
+
 // GetEffectiveChecksByGroup retrieves all effective checks for a group
 func (s *ScriptPolicyService) GetEffectiveChecksByGroup(ctx context.Context, groupID string) ([]action.ScriptPolicyResult, error) {
 	// Verify group exists

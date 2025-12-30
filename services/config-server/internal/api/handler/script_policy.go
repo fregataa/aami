@@ -138,6 +138,20 @@ func (h *ScriptPolicyHandler) GetEffectiveChecksByTargetID(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.ToEffectiveCheckResponseList(checks))
 }
 
+// GetEffectiveChecksByHostname handles GET /checks/target/hostname/:hostname
+// This endpoint is used by node scripts that only know their hostname
+func (h *ScriptPolicyHandler) GetEffectiveChecksByHostname(c *gin.Context) {
+	hostname := c.Param("hostname")
+
+	checks, err := h.policyService.GetEffectiveChecksByHostname(c.Request.Context(), hostname)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.ToEffectiveCheckResponseList(checks))
+}
+
 // Update handles PUT /check-instances/:id
 func (h *ScriptPolicyHandler) Update(c *gin.Context) {
 	id := c.Param("id")

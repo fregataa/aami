@@ -205,7 +205,7 @@ class DynamicCheckRunner:
 
     def _fetch_effective_checks(self) -> Optional[list[CheckInfo]]:
         """Fetch effective checks from Config Server."""
-        url = f"{self.config_server_url.rstrip('/')}/api/v1/checks/node/{self.hostname}"
+        url = f"{self.config_server_url.rstrip('/')}/api/v1/checks/target/hostname/{self.hostname}"
         self.logger.debug(f"Fetching effective checks from: {url}")
 
         try:

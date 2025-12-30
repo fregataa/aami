@@ -245,9 +245,12 @@ func (s *Server) SetupRouter() *gin.Engine {
 			scriptPolicies.POST("/restore", scriptPolicyHandler.RestoreResource)
 		}
 
-		// Node API: Get effective checks by target ID
+		// Node API: Get effective checks by target ID or hostname
 		checks := v1.Group("/checks")
 		{
+			// Hostname-based lookup (for node scripts)
+			checks.GET("/target/hostname/:hostname", scriptPolicyHandler.GetEffectiveChecksByHostname)
+			// UUID-based lookup
 			checks.GET("/target/:targetId", scriptPolicyHandler.GetEffectiveChecksByTargetID)
 		}
 

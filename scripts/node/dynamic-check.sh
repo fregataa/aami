@@ -137,7 +137,7 @@ debug "Check Scripts Directory: $CHECK_SCRIPTS_DIR"
 
 # Fetch effective checks from Config Server
 fetch_effective_checks() {
-    local url="${CONFIG_SERVER_URL}/api/v1/checks/node/${HOSTNAME}"
+    local url="${CONFIG_SERVER_URL}/api/v1/checks/target/hostname/${HOSTNAME}"
     local temp_file=$(mktemp)
 
     debug "Fetching effective checks from: $url"
