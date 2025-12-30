@@ -695,6 +695,62 @@ register_with_server() {
     fi
 }
 
+# Step 7.5: Register exporters with Config Server
+register_exporters() {
+    print_step "7.5" 8 "Registering exporters..."
+
+    if [[ "$DRY_RUN" == true ]]; then
+        print_substep "info" "[DRY-RUN] Would register exporters"
+        return 0
+    fi
+
+    if [[ -z "$REGISTERED_TARGET_ID" ]]; then
+        print_substep "fail" "No target ID available"
+        return 1
+    fi
+
+    # Register Node Exporter
+    local node_payload="{
+        \"target_id\": \"${REGISTERED_TARGET_ID}\",
+        \"type\": \"node_exporter\",
+        \"port\": ${NODE_EXPORTER_PORT},
+        \"enabled\": true
+    }"
+
+    local response
+    response=$(curl -sf -X POST "${CONFIG_SERVER}/api/v1/exporters" \
+        -H "Content-Type: application/json" \
+        -d "$node_payload" 2>/dev/null) || true
+
+    if [[ -n "$response" ]]; then
+        print_substep "ok" "Node Exporter registered (port ${NODE_EXPORTER_PORT})"
+    else
+        print_substep "warn" "Failed to register Node Exporter"
+    fi
+
+    # Register all-smi if installed
+    if [[ "$INSTALL_ALL_SMI" == true ]]; then
+        local allsmi_payload="{
+            \"target_id\": \"${REGISTERED_TARGET_ID}\",
+            \"type\": \"all_smi\",
+            \"port\": ${ALL_SMI_PORT},
+            \"enabled\": true
+        }"
+
+        response=$(curl -sf -X POST "${CONFIG_SERVER}/api/v1/exporters" \
+            -H "Content-Type: application/json" \
+            -d "$allsmi_payload" 2>/dev/null) || true
+
+        if [[ -n "$response" ]]; then
+            print_substep "ok" "all-smi registered (port ${ALL_SMI_PORT})"
+        else
+            print_substep "warn" "Failed to register all-smi"
+        fi
+    fi
+
+    return 0
+}
+
 # Step 8: Verify registration
 verify_registration() {
     print_step 8 8 "Verifying registration..."
@@ -820,6 +876,8 @@ main() {
         print_error "Failed to register with Config Server."
         exit 1
     fi
+
+    register_exporters
 
     verify_registration
 

@@ -64,6 +64,16 @@ scrape_configs:
       - source_labels: [__address__]
         target_label: instance
 
+  # all-smi - Multi-vendor AI accelerator metrics
+  # Uses HTTP Service Discovery from Config Server
+  - job_name: 'all-smi'
+    http_sd_configs:
+      - url: 'http://config-server:8080/api/v1/sd/prometheus/active?exporter_type=all_smi'
+        refresh_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+
   # Custom Exporters
   # Uses HTTP Service Discovery from Config Server
   - job_name: 'custom-exporters'
