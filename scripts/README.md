@@ -6,7 +6,8 @@ This directory contains utility scripts for deployment, maintenance, and automat
 
 ```
 scripts/
-├── preflight-check.sh  # Pre-installation system validation
+├── preflight_check.py  # Pre-installation system validation (Python)
+├── preflight-check.sh  # Pre-installation system validation (Bash, legacy)
 ├── install-server.sh   # One-command Config Server installation
 ├── node/               # Node agent installation scripts
 └── db/                 # Database management scripts
@@ -16,8 +17,12 @@ scripts/
 
 ### Preflight Check Script
 
-- **Location**: `preflight-check.sh`
+- **Location**: `preflight_check.py` (recommended) or `preflight-check.sh` (legacy)
 - **Purpose**: Validate system requirements before AAMI installation
+
+Two versions are available:
+- **Python version** (`preflight_check.py`): Recommended. Better structured, easier to test, cleaner JSON output.
+- **Bash version** (`preflight-check.sh`): Legacy. Use when Python 3 is not available.
 
 The preflight check script verifies:
 - System requirements (CPU, RAM, disk space, OS version)
@@ -29,17 +34,20 @@ The preflight check script verifies:
 
 Example usage:
 ```bash
-# Server mode check
-./preflight-check.sh --mode server
+# Server mode check (Python)
+python3 preflight_check.py --mode server
 
 # Node mode check with Config Server connectivity test
-./preflight-check.sh --mode node --server https://config.example.com
+python3 preflight_check.py --mode node --server https://config.example.com
 
 # Auto-fix common issues
-./preflight-check.sh --mode server --fix
+python3 preflight_check.py --mode server --fix
 
 # JSON output for CI/CD pipelines
-./preflight-check.sh --mode server --json
+python3 preflight_check.py --mode node --json
+
+# Legacy bash version (same options)
+./preflight-check.sh --mode server
 ```
 
 Options:

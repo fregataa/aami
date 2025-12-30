@@ -327,23 +327,39 @@ run_preflight_checks() {
     fi
 
     # Check if preflight script exists locally or download it
+    # Prefer Python version if Python 3 is available
     local preflight_script=""
-    if [[ -f "${INSTALL_DIR}/scripts/preflight-check.sh" ]]; then
-        preflight_script="${INSTALL_DIR}/scripts/preflight-check.sh"
-    elif [[ -f "$(dirname "$0")/preflight-check.sh" ]]; then
-        preflight_script="$(dirname "$0")/preflight-check.sh"
-    else
-        # Download preflight script
-        print_substep "info" "Downloading preflight check script..."
-        local temp_script
-        temp_script=$(mktemp)
-        if ! curl -fsSL "${GITHUB_RAW}/main/scripts/preflight-check.sh" -o "$temp_script" 2>/dev/null; then
-            print_substep "warn" "Could not download preflight script, running basic checks"
-            run_basic_checks
-            return $?
+    local use_python=false
+
+    if command -v python3 &> /dev/null; then
+        if [[ -f "${INSTALL_DIR}/scripts/preflight_check.py" ]]; then
+            preflight_script="${INSTALL_DIR}/scripts/preflight_check.py"
+            use_python=true
+        elif [[ -f "$(dirname "$0")/preflight_check.py" ]]; then
+            preflight_script="$(dirname "$0")/preflight_check.py"
+            use_python=true
         fi
-        chmod +x "$temp_script"
-        preflight_script="$temp_script"
+    fi
+
+    # Fallback to bash version
+    if [[ -z "$preflight_script" ]]; then
+        if [[ -f "${INSTALL_DIR}/scripts/preflight-check.sh" ]]; then
+            preflight_script="${INSTALL_DIR}/scripts/preflight-check.sh"
+        elif [[ -f "$(dirname "$0")/preflight-check.sh" ]]; then
+            preflight_script="$(dirname "$0")/preflight-check.sh"
+        else
+            # Download preflight script
+            print_substep "info" "Downloading preflight check script..."
+            local temp_script
+            temp_script=$(mktemp)
+            if ! curl -fsSL "${GITHUB_RAW}/main/scripts/preflight-check.sh" -o "$temp_script" 2>/dev/null; then
+                print_substep "warn" "Could not download preflight script, running basic checks"
+                run_basic_checks
+                return $?
+            fi
+            chmod +x "$temp_script"
+            preflight_script="$temp_script"
+        fi
     fi
 
     # Run preflight checks
@@ -354,7 +370,14 @@ run_preflight_checks() {
 
     print_verbose "Running: $preflight_script $preflight_args"
 
-    if bash "$preflight_script" $preflight_args; then
+    local run_result
+    if [[ "$use_python" == true ]]; then
+        run_result=$(python3 "$preflight_script" $preflight_args && echo "success" || echo "failed")
+    else
+        run_result=$(bash "$preflight_script" $preflight_args && echo "success" || echo "failed")
+    fi
+
+    if [[ "$run_result" == "success" ]]; then
         print_substep "ok" "All preflight checks passed"
         return 0
     else
