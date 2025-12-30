@@ -10,6 +10,7 @@ scripts/
 ├── preflight-check.sh  # Pre-installation system validation (Bash, legacy)
 ├── install-server.sh   # One-command Config Server installation
 ├── node/               # Node agent installation scripts
+├── systemd/            # Systemd service files
 └── db/                 # Database management scripts
 ```
 
@@ -116,10 +117,10 @@ After successful installation:
 Available scripts:
 - `bootstrap.sh` - One-line bootstrap script for auto-registration
 - `install-node-exporter.sh` - Install Prometheus Node Exporter
+- `install-all-smi.sh` - Install all-smi multi-vendor AI accelerator exporter
 - `dynamic_check.py` - Execute dynamic checks from Config Server (Python, recommended)
 - `dynamic-check.sh` - Execute dynamic checks from Config Server (Bash, legacy)
 - `install-dcgm-exporter.sh` - Install NVIDIA DCGM Exporter (planned)
-- `install-all-smi.sh` - Install all-smi for multi-vendor GPU support (planned)
 - `uninstall.sh` - Remove all monitoring agents (planned)
 
 #### Bootstrap Script (`bootstrap.sh`)
@@ -159,6 +160,7 @@ Options:
 - `--dry-run` - Preview without executing
 - `--skip-preflight` - Skip preflight checks
 - `--skip-gpu` - Skip GPU detection
+- `--install-all-smi` - Install all-smi multi-vendor GPU exporter (port: 9401)
 - `--verbose` - Enable verbose output
 
 #### Install Node Exporter (`install-node-exporter.sh`)
@@ -171,6 +173,30 @@ sudo ./install-node-exporter.sh
 # Custom port and version
 sudo ./install-node-exporter.sh --version 1.7.0 --port 9100
 ```
+
+#### Install all-smi (`install-all-smi.sh`)
+
+Standalone script to install all-smi multi-vendor AI accelerator exporter:
+```bash
+# Install with defaults (port 9401)
+sudo ./install-all-smi.sh
+
+# Custom port and version
+sudo ./install-all-smi.sh --version 0.5.0 --port 9401
+```
+
+Supported accelerators:
+- NVIDIA GPUs (CUDA)
+- AMD GPUs (ROCm)
+- Intel Gaudi NPUs
+- Google Cloud TPUs
+- Apple Silicon GPUs
+- Tenstorrent, Rebellions, Furiosa NPUs
+
+Options:
+- `-v, --version VERSION` - all-smi version (default: 0.5.0)
+- `-p, --port PORT` - Listen port (default: 9401)
+- `-h, --help` - Show help message
 
 #### Dynamic Check Script (`dynamic_check.py`)
 

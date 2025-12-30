@@ -1,0 +1,22 @@
+[Unit]
+Description=all-smi Multi-Vendor AI Accelerator Metrics Exporter
+Documentation=https://github.com/lablup/all-smi
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=all_smi
+Group=all_smi
+Type=simple
+ExecStart=/usr/local/bin/all-smi serve --port ${ALL_SMI_PORT}
+Restart=on-failure
+RestartSec=5s
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

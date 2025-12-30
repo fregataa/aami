@@ -16,6 +16,7 @@
 #   --dry-run              Show what would be done without executing
 #   --skip-preflight       Skip preflight checks (not recommended)
 #   --skip-gpu             Skip GPU detection and exporter installation
+#   --install-all-smi      Install all-smi multi-vendor GPU exporter
 #   --unattended           Non-interactive mode
 #   --verbose              Enable verbose output
 #   --help                 Show this help message
@@ -33,6 +34,7 @@ readonly SCRIPT_VERSION="1.0.0"
 # Default values
 DEFAULT_PORT="9100"
 DEFAULT_DCGM_PORT="9400"
+DEFAULT_ALL_SMI_PORT="9401"
 
 # Colors
 RED='\033[0;31m'
@@ -48,11 +50,13 @@ BOOTSTRAP_TOKEN=""
 CONFIG_SERVER=""
 NODE_EXPORTER_PORT="$DEFAULT_PORT"
 DCGM_EXPORTER_PORT="$DEFAULT_DCGM_PORT"
+ALL_SMI_PORT="$DEFAULT_ALL_SMI_PORT"
 declare -a LABELS=()
 GROUP_ID=""
 DRY_RUN=false
 SKIP_PREFLIGHT=false
 SKIP_GPU=false
+INSTALL_ALL_SMI=false
 UNATTENDED=false
 VERBOSE=false
 
@@ -151,6 +155,7 @@ Optional:
   --dry-run              Show what would be done without executing
   --skip-preflight       Skip preflight checks (not recommended)
   --skip-gpu             Skip GPU detection and exporter installation
+  --install-all-smi      Install all-smi multi-vendor GPU exporter (port: ${DEFAULT_ALL_SMI_PORT})
   --unattended           Non-interactive mode
   --verbose              Enable verbose output
   --help                 Show this help message
@@ -206,6 +211,10 @@ parse_args() {
                 ;;
             --skip-gpu)
                 SKIP_GPU=true
+                shift
+                ;;
+            --install-all-smi)
+                INSTALL_ALL_SMI=true
                 shift
                 ;;
             --unattended)
@@ -463,6 +472,67 @@ install_node_exporter() {
     return 0
 }
 
+# Step 5.5: Install all-smi (optional)
+install_all_smi() {
+    if [[ "$INSTALL_ALL_SMI" != true ]]; then
+        return 0
+    fi
+
+    print_step "5.5" 8 "Installing all-smi multi-vendor GPU exporter..."
+
+    if [[ "$DRY_RUN" == true ]]; then
+        print_substep "info" "[DRY-RUN] Would install all-smi on port ${ALL_SMI_PORT}"
+        return 0
+    fi
+
+    # Check if already installed
+    if systemctl is-active --quiet all-smi 2>/dev/null; then
+        print_substep "info" "all-smi already running"
+        return 0
+    fi
+
+    # Get script directory
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+    # Try to use local install script first
+    if [[ -f "${script_dir}/install-all-smi.sh" ]]; then
+        print_substep "info" "Using local install script..."
+        bash "${script_dir}/install-all-smi.sh" --port "$ALL_SMI_PORT"
+    else
+        # Download and run install script
+        print_substep "info" "Downloading install script..."
+        local temp_script
+        temp_script=$(mktemp)
+        if curl -fsSL "${CONFIG_SERVER}/scripts/node/install-all-smi.sh" -o "$temp_script" 2>/dev/null; then
+            chmod +x "$temp_script"
+            bash "$temp_script" --port "$ALL_SMI_PORT"
+            rm -f "$temp_script"
+        else
+            # Try GitHub directly
+            if curl -fsSL "https://raw.githubusercontent.com/fregataa/aami/main/scripts/node/install-all-smi.sh" -o "$temp_script" 2>/dev/null; then
+                chmod +x "$temp_script"
+                bash "$temp_script" --port "$ALL_SMI_PORT"
+                rm -f "$temp_script"
+            else
+                print_substep "fail" "Failed to download install script"
+                return 1
+            fi
+        fi
+    fi
+
+    # Verify installation
+    sleep 2
+    if systemctl is-active --quiet all-smi; then
+        print_substep "ok" "all-smi installed and running on port ${ALL_SMI_PORT}"
+    else
+        print_substep "fail" "all-smi installation failed"
+        return 1
+    fi
+
+    return 0
+}
+
 # Step 6: Install dynamic check
 install_dynamic_check() {
     print_step 6 8 "Installing dynamic check..."
@@ -650,6 +720,15 @@ verify_registration() {
         fi
     fi
 
+    # Check all-smi if installed
+    if [[ "$INSTALL_ALL_SMI" == true ]]; then
+        if curl -sf "http://localhost:${ALL_SMI_PORT}/metrics" &>/dev/null; then
+            print_substep "ok" "all-smi metrics accessible on port ${ALL_SMI_PORT}"
+        else
+            print_substep "warn" "all-smi metrics not accessible"
+        fi
+    fi
+
     # Verify target in Config Server
     if [[ -n "$REGISTERED_TARGET_ID" ]]; then
         if curl -sf "${CONFIG_SERVER}/api/v1/targets/${REGISTERED_TARGET_ID}" &>/dev/null; then
@@ -682,6 +761,9 @@ print_summary() {
     echo ""
     echo -e "${BOLD}  Installed Components:${NC}"
     echo -e "    - Node Exporter:    ${CYAN}http://localhost:${NODE_EXPORTER_PORT}/metrics${NC}"
+    if [[ "$INSTALL_ALL_SMI" == true ]]; then
+        echo -e "    - all-smi:          ${CYAN}http://localhost:${ALL_SMI_PORT}/metrics${NC}"
+    fi
     if [[ -n "$DETECTED_GPU_VENDOR" ]]; then
         echo -e "    - GPU:              ${CYAN}${DETECTED_GPU_COUNT}x ${DETECTED_GPU_MODEL}${NC}"
     fi
@@ -724,6 +806,11 @@ main() {
 
     if ! install_node_exporter; then
         print_error "Failed to install Node Exporter."
+        exit 1
+    fi
+
+    if ! install_all_smi; then
+        print_error "Failed to install all-smi."
         exit 1
     fi
 
