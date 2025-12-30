@@ -14,16 +14,15 @@ type Manager struct {
 	db *gorm.DB
 
 	// Repository instances
-	Namespace      NamespaceRepository
 	Group          GroupRepository
 	Target         TargetRepository
 	TargetGroup    TargetGroupRepository
 	Exporter       ExporterRepository
 	ScriptTemplate ScriptTemplateRepository
 	ScriptPolicy   ScriptPolicyRepository
-	AlertTemplate    AlertTemplateRepository
-	AlertRule        AlertRuleRepository
-	BootstrapToken   BootstrapTokenRepository
+	AlertTemplate  AlertTemplateRepository
+	AlertRule      AlertRuleRepository
+	BootstrapToken BootstrapTokenRepository
 }
 
 // Config holds database configuration
@@ -60,7 +59,6 @@ func NewManagerWithDB(db *gorm.DB) *Manager {
 func newManagerWithDB(db *gorm.DB) *Manager {
 	return &Manager{
 		db:             db,
-		Namespace:      NewNamespaceRepository(db),
 		Group:          NewGroupRepository(db),
 		Target:         NewTargetRepository(db),
 		TargetGroup:    NewTargetGroupRepository(db),

@@ -18,7 +18,6 @@ type TargetService struct {
 	targetRepo      repository.TargetRepository
 	targetGroupRepo repository.TargetGroupRepository
 	groupRepo       repository.GroupRepository
-	namespaceRepo   repository.NamespaceRepository
 }
 
 // NewTargetService creates a new TargetService
@@ -26,13 +25,11 @@ func NewTargetService(
 	targetRepo repository.TargetRepository,
 	targetGroupRepo repository.TargetGroupRepository,
 	groupRepo repository.GroupRepository,
-	namespaceRepo repository.NamespaceRepository,
 ) *TargetService {
 	return &TargetService{
 		targetRepo:      targetRepo,
 		targetGroupRepo: targetGroupRepo,
 		groupRepo:       groupRepo,
-		namespaceRepo:   namespaceRepo,
 	}
 }
 
@@ -95,17 +92,10 @@ func (s *TargetService) Create(ctx context.Context, act action.CreateTarget) (ac
 
 	// Create Default Own Group if needed
 	if shouldCreateDefaultOwn {
-		// Find or create default namespace
-		namespace, err := s.getOrCreateDefaultNamespace(ctx)
-		if err != nil {
-			return action.TargetResult{}, fmt.Errorf("failed to get default namespace: %w", err)
-		}
-
 		// Create default own group
 		defaultGroup := &domain.Group{
 			ID:           uuid.New().String(),
 			Name:         fmt.Sprintf("target-%s", target.Hostname),
-			NamespaceID:  namespace.ID,
 			Description:  fmt.Sprintf("Default group for target %s", target.Hostname),
 			Priority:     100,
 			IsDefaultOwn: true,
@@ -140,35 +130,6 @@ func (s *TargetService) Create(ctx context.Context, act action.CreateTarget) (ac
 	}
 
 	return action.NewTargetResult(target), nil
-}
-
-// getOrCreateDefaultNamespace finds or creates the default namespace
-func (s *TargetService) getOrCreateDefaultNamespace(ctx context.Context) (*domain.Namespace, error) {
-	const defaultNamespaceName = "default"
-
-	ns, err := s.namespaceRepo.GetByName(ctx, defaultNamespaceName)
-	if err == nil {
-		return ns, nil
-	}
-
-	if !errors.Is(err, domainerrors.ErrNotFound) {
-		return nil, err
-	}
-
-	// Create default namespace
-	newNS := &domain.Namespace{
-		ID:             uuid.New().String(),
-		Name:           defaultNamespaceName,
-		Description:    "Default namespace for auto-created groups",
-		PolicyPriority: 100,
-		MergeStrategy:  domain.MergeStrategyMerge,
-	}
-
-	if err := s.namespaceRepo.Create(ctx, newNS); err != nil {
-		return nil, err
-	}
-
-	return newNS, nil
 }
 
 // GetByID retrieves a target by ID

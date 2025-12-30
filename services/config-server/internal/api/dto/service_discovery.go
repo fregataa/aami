@@ -30,7 +30,6 @@ type ServiceDiscoveryFilterRequest struct {
 	Status       string            `form:"status"`
 	ExporterType string            `form:"exporter_type"`
 	GroupID      string            `form:"group_id"`
-	NamespaceID  string            `form:"namespace_id"`
 	EnabledOnly  bool              `form:"enabled_only"`
 	Labels       map[string]string `form:"labels"`
 }
@@ -54,10 +53,6 @@ func (r *ServiceDiscoveryFilterRequest) ToDomainFilter() *domain.ServiceDiscover
 
 	if r.GroupID != "" {
 		filter.GroupID = &r.GroupID
-	}
-
-	if r.NamespaceID != "" {
-		filter.NamespaceID = &r.NamespaceID
 	}
 
 	return filter

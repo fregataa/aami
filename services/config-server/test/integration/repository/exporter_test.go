@@ -20,10 +20,10 @@ func TestExporterRepository_Create(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group and target
-	group := testutil.NewTestGroup("production", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("production")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	target := testutil.NewTestTarget("server1", "192.168.1.10", group.ID)
+	target := testutil.NewTestTarget("server1", "192.168.1.10", []domain.Group{*group})
 	require.NoError(t, targetRepo.Create(ctx, target))
 
 	// Create exporter
@@ -45,10 +45,10 @@ func TestExporterRepository_GetByID(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group, target, and exporter
-	group := testutil.NewTestGroup("staging", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("staging")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	target := testutil.NewTestTarget("server2", "192.168.1.20", group.ID)
+	target := testutil.NewTestTarget("server2", "192.168.1.20", []domain.Group{*group})
 	require.NoError(t, targetRepo.Create(ctx, target))
 
 	exporter := testutil.NewTestExporter(target.ID, domain.ExporterTypeDCGMExporter, 9400)
@@ -84,28 +84,29 @@ func TestExporterRepository_Update(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group, target, and exporter
-	group := testutil.NewTestGroup("dev", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("dev")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	target := testutil.NewTestTarget("server3", "192.168.1.30", group.ID)
+	target := testutil.NewTestTarget("server3", "192.168.1.30", []domain.Group{*group})
 	require.NoError(t, targetRepo.Create(ctx, target))
 
 	exporter := testutil.NewTestExporter(target.ID, domain.ExporterTypeNodeExporter, 9100)
 	require.NoError(t, exporterRepo.Create(ctx, exporter))
 
 	// Update it
-	exporter.Enabled = false
 	exporter.ScrapeInterval = "30s"
-	exporter.Config["custom_option"] = "value"
+	if exporter.Config.CustomParams == nil {
+		exporter.Config.CustomParams = make(map[string]interface{})
+	}
+	exporter.Config.CustomParams["custom_option"] = "value"
 	err := exporterRepo.Update(ctx, exporter)
 	require.NoError(t, err)
 
 	// Verify update
 	retrieved, err := exporterRepo.GetByID(ctx, exporter.ID)
 	require.NoError(t, err)
-	assert.False(t, retrieved.Enabled)
 	assert.Equal(t, "30s", retrieved.ScrapeInterval)
-	assert.Equal(t, "value", retrieved.Config["custom_option"])
+	assert.Equal(t, "value", retrieved.Config.CustomParams["custom_option"])
 }
 
 func TestExporterRepository_Delete(t *testing.T) {
@@ -118,10 +119,10 @@ func TestExporterRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group, target, and exporter
-	group := testutil.NewTestGroup("temp", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("temp")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	target := testutil.NewTestTarget("server-temp", "192.168.1.99", group.ID)
+	target := testutil.NewTestTarget("server-temp", "192.168.1.99", []domain.Group{*group})
 	require.NoError(t, targetRepo.Create(ctx, target))
 
 	exporter := testutil.NewTestExporter(target.ID, domain.ExporterTypeCustom, 9090)
@@ -146,10 +147,10 @@ func TestExporterRepository_GetByTargetID(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group and target
-	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("prod")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	target := testutil.NewTestTarget("server1", "192.168.1.1", group.ID)
+	target := testutil.NewTestTarget("server1", "192.168.1.1", []domain.Group{*group})
 	require.NoError(t, targetRepo.Create(ctx, target))
 
 	// Create multiple exporters for the same target
@@ -182,11 +183,11 @@ func TestExporterRepository_GetByType(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group and target
-	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("prod")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	target1 := testutil.NewTestTarget("server1", "192.168.1.1", group.ID)
-	target2 := testutil.NewTestTarget("server2", "192.168.1.2", group.ID)
+	target1 := testutil.NewTestTarget("server1", "192.168.1.1", []domain.Group{*group})
+	target2 := testutil.NewTestTarget("server2", "192.168.1.2", []domain.Group{*group})
 	require.NoError(t, targetRepo.Create(ctx, target1))
 	require.NoError(t, targetRepo.Create(ctx, target2))
 
@@ -220,10 +221,10 @@ func TestExporterRepository_List(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group and target
-	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("prod")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	target := testutil.NewTestTarget("server1", "192.168.1.1", group.ID)
+	target := testutil.NewTestTarget("server1", "192.168.1.1", []domain.Group{*group})
 	require.NoError(t, targetRepo.Create(ctx, target))
 
 	// Create multiple exporters
@@ -250,10 +251,10 @@ func TestExporterRepository_Validation(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group and target
-	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("prod")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	target := testutil.NewTestTarget("server1", "192.168.1.1", group.ID)
+	target := testutil.NewTestTarget("server1", "192.168.1.1", []domain.Group{*group})
 	require.NoError(t, targetRepo.Create(ctx, target))
 
 	// Create exporter with validation
@@ -291,10 +292,10 @@ func TestExporterRepository_GetEndpoint(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group and target
-	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("prod")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	target := testutil.NewTestTarget("server1", "192.168.1.10", group.ID)
+	target := testutil.NewTestTarget("server1", "192.168.1.10", []domain.Group{*group})
 	require.NoError(t, targetRepo.Create(ctx, target))
 
 	// Create exporter

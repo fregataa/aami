@@ -62,9 +62,8 @@ func (s *Server) SetupRouter() *gin.Engine {
 	s.router.HEAD("/health/live", healthHandler.CheckLiveness)
 
 	// Initialize services
-	namespaceService := service.NewNamespaceService(s.rm.Namespace, s.rm.Group, s.rm.Target)
-	groupService := service.NewGroupService(s.rm.Group, s.rm.Namespace)
-	targetService := service.NewTargetService(s.rm.Target, s.rm.TargetGroup, s.rm.Group, s.rm.Namespace)
+	groupService := service.NewGroupService(s.rm.Group)
+	targetService := service.NewTargetService(s.rm.Target, s.rm.TargetGroup, s.rm.Group)
 	exporterService := service.NewExporterService(s.rm.Exporter, s.rm.Target)
 	alertTemplateService := service.NewAlertTemplateService(s.rm.AlertTemplate)
 	// Use Prometheus components if available, include target repo for effective rules
@@ -73,12 +72,11 @@ func (s *Server) SetupRouter() *gin.Engine {
 		s.ruleGenerator, s.prometheusClient,
 	)
 	scriptTemplateService := service.NewScriptTemplateService(s.rm.ScriptTemplate, s.rm.ScriptPolicy)
-	scriptPolicyService := service.NewScriptPolicyService(s.rm.ScriptPolicy, s.rm.ScriptTemplate, s.rm.Namespace, s.rm.Group, s.rm.Target)
+	scriptPolicyService := service.NewScriptPolicyService(s.rm.ScriptPolicy, s.rm.ScriptTemplate, s.rm.Group, s.rm.Target)
 	bootstrapTokenService := service.NewBootstrapTokenService(s.rm.BootstrapToken, s.rm.Group, targetService)
 	serviceDiscoveryService := service.NewServiceDiscoveryService(s.rm.Target)
 
 	// Initialize handlers
-	namespaceHandler := handler.NewNamespaceHandler(namespaceService)
 	groupHandler := handler.NewGroupHandler(groupService)
 	targetHandler := handler.NewTargetHandler(targetService)
 	exporterHandler := handler.NewExporterHandler(exporterService)
@@ -95,22 +93,6 @@ func (s *Server) SetupRouter() *gin.Engine {
 	// API v1 routes
 	v1 := s.router.Group("/api/v1")
 	{
-		// Namespace routes
-		namespaces := v1.Group("/namespaces")
-		{
-			namespaces.POST("", namespaceHandler.Create)
-			namespaces.GET("", namespaceHandler.List)
-			namespaces.GET("/all", namespaceHandler.GetAll)
-			namespaces.GET("/stats", namespaceHandler.GetAllStats)
-			namespaces.GET("/:id", namespaceHandler.GetByID)
-			namespaces.GET("/name/:name", namespaceHandler.GetByName)
-			namespaces.PUT("/:id", namespaceHandler.Update)
-			namespaces.POST("/delete", namespaceHandler.DeleteResource)
-			namespaces.POST("/purge", namespaceHandler.PurgeResource)
-			namespaces.POST("/restore", namespaceHandler.RestoreResource)
-			namespaces.GET("/:id/stats", namespaceHandler.GetStats)
-		}
-
 		// Group routes
 		groups := v1.Group("/groups")
 		{
@@ -121,7 +103,6 @@ func (s *Server) SetupRouter() *gin.Engine {
 			groups.POST("/delete", groupHandler.DeleteResource)
 			groups.POST("/purge", groupHandler.PurgeResource)
 			groups.POST("/restore", groupHandler.RestoreResource)
-			groups.GET("/namespace/:namespace_id", groupHandler.GetByNamespaceID)
 			groups.GET("/:id/children", groupHandler.GetChildren)
 			groups.GET("/:id/ancestors", groupHandler.GetAncestors)
 		}
@@ -244,13 +225,11 @@ func (s *Server) SetupRouter() *gin.Engine {
 			sd.GET("/prometheus", serviceDiscoveryHandler.GetPrometheusTargets)
 			sd.GET("/prometheus/active", serviceDiscoveryHandler.GetActivePrometheusTargets)
 			sd.GET("/prometheus/group/:groupId", serviceDiscoveryHandler.GetPrometheusTargetsByGroup)
-			sd.GET("/prometheus/namespace/:namespaceId", serviceDiscoveryHandler.GetPrometheusTargetsByNamespace)
 
 			// Prometheus File Service Discovery
 			sd.POST("/prometheus/file", serviceDiscoveryHandler.GenerateFileSD)
 			sd.POST("/prometheus/file/active", serviceDiscoveryHandler.GenerateActiveFileSD)
 			sd.POST("/prometheus/file/group/:groupId", serviceDiscoveryHandler.GenerateGroupFileSD)
-			sd.POST("/prometheus/file/namespace/:namespaceId", serviceDiscoveryHandler.GenerateNamespaceFileSD)
 		}
 
 		// Prometheus rule management routes

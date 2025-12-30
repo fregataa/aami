@@ -131,19 +131,6 @@ func (h *GroupHandler) List(c *gin.Context) {
 	respondList(c, dto.ToGroupResponseList(listResult.Items), listResult.Total, pagination)
 }
 
-// GetByNamespaceID handles GET /groups/namespace/:namespace_id
-func (h *GroupHandler) GetByNamespaceID(c *gin.Context) {
-	namespaceID := c.Param("namespace_id")
-
-	results, err := h.groupService.GetByNamespaceID(c.Request.Context(), namespaceID)
-	if err != nil {
-		respondError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, dto.ToGroupResponseList(results))
-}
-
 // GetChildren handles GET /groups/:id/children
 func (h *GroupHandler) GetChildren(c *gin.Context) {
 	id := c.Param("id")

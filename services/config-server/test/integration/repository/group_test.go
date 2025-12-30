@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/fregataa/aami/config-server/internal/domain"
 	"github.com/fregataa/aami/config-server/test/testutil"
 )
 
@@ -17,7 +16,7 @@ func TestGroupRepository_Create(t *testing.T) {
 	repo := repoManager.Group
 	ctx := context.Background()
 
-	group := testutil.NewTestGroup("production", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("production")
 
 	err := repo.Create(ctx, group)
 	require.NoError(t, err)
@@ -32,7 +31,7 @@ func TestGroupRepository_GetByID(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a group
-	group := testutil.NewTestGroup("staging", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("staging")
 	err := repo.Create(ctx, group)
 	require.NoError(t, err)
 
@@ -41,7 +40,6 @@ func TestGroupRepository_GetByID(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, group.ID, retrieved.ID)
 	assert.Equal(t, group.Name, retrieved.Name)
-	assert.Equal(t, group.Namespace, retrieved.Namespace)
 }
 
 func TestGroupRepository_GetByID_NotFound(t *testing.T) {
@@ -63,7 +61,7 @@ func TestGroupRepository_Update(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a group
-	group := testutil.NewTestGroup("dev", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("dev")
 	err := repo.Create(ctx, group)
 	require.NoError(t, err)
 
@@ -88,7 +86,7 @@ func TestGroupRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a group
-	group := testutil.NewTestGroup("temp", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("temp")
 	err := repo.Create(ctx, group)
 	require.NoError(t, err)
 
@@ -109,9 +107,9 @@ func TestGroupRepository_List(t *testing.T) {
 	ctx := context.Background()
 
 	// Create multiple groups
-	group1 := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
-	group2 := testutil.NewTestGroup("staging", domain.NamespaceEnvironment)
-	group3 := testutil.NewTestGroup("dev", domain.NamespaceLogical)
+	group1 := testutil.NewTestGroup("prod")
+	group2 := testutil.NewTestGroup("staging")
+	group3 := testutil.NewTestGroup("dev")
 
 	require.NoError(t, repo.Create(ctx, group1))
 	require.NoError(t, repo.Create(ctx, group2))
@@ -124,33 +122,6 @@ func TestGroupRepository_List(t *testing.T) {
 	assert.GreaterOrEqual(t, total, 3)
 }
 
-func TestGroupRepository_GetByNamespace(t *testing.T) {
-	repoManager, cleanup := testutil.SetupTestDB(t)
-	defer cleanup()
-
-	repo := repoManager.Group
-	ctx := context.Background()
-
-	// Create groups in different namespaces
-	env1 := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
-	env2 := testutil.NewTestGroup("staging", domain.NamespaceEnvironment)
-	logical := testutil.NewTestGroup("ml-team", domain.NamespaceLogical)
-
-	require.NoError(t, repo.Create(ctx, env1))
-	require.NoError(t, repo.Create(ctx, env2))
-	require.NoError(t, repo.Create(ctx, logical))
-
-	// List by namespace
-	envGroups, err := repo.GetByNamespace(ctx, domain.NamespaceEnvironment)
-	require.NoError(t, err)
-	assert.GreaterOrEqual(t, len(envGroups), 2)
-
-	// Verify all groups are in environment namespace
-	for _, g := range envGroups {
-		assert.Equal(t, domain.NamespaceEnvironment, g.Namespace)
-	}
-}
-
 func TestGroupRepository_GetChildren(t *testing.T) {
 	repoManager, cleanup := testutil.SetupTestDB(t)
 	defer cleanup()
@@ -159,12 +130,12 @@ func TestGroupRepository_GetChildren(t *testing.T) {
 	ctx := context.Background()
 
 	// Create parent group
-	parent := testutil.NewTestGroup("us", domain.NamespaceEnvironment)
+	parent := testutil.NewTestGroup("us")
 	require.NoError(t, repo.Create(ctx, parent))
 
 	// Create child groups
-	child1 := testutil.NewTestGroupWithParent("us-west", domain.NamespaceEnvironment, parent.ID)
-	child2 := testutil.NewTestGroupWithParent("us-east", domain.NamespaceEnvironment, parent.ID)
+	child1 := testutil.NewTestGroupWithParent("us-west", parent.ID)
+	child2 := testutil.NewTestGroupWithParent("us-east", parent.ID)
 
 	require.NoError(t, repo.Create(ctx, child1))
 	require.NoError(t, repo.Create(ctx, child2))
@@ -189,13 +160,13 @@ func TestGroupRepository_GetAncestors(t *testing.T) {
 	ctx := context.Background()
 
 	// Create hierarchy: root -> child -> grandchild
-	root := testutil.NewTestGroup("root", domain.NamespaceEnvironment)
+	root := testutil.NewTestGroup("root")
 	require.NoError(t, repo.Create(ctx, root))
 
-	child := testutil.NewTestGroupWithParent("child", domain.NamespaceEnvironment, root.ID)
+	child := testutil.NewTestGroupWithParent("child", root.ID)
 	require.NoError(t, repo.Create(ctx, child))
 
-	grandchild := testutil.NewTestGroupWithParent("grandchild", domain.NamespaceEnvironment, child.ID)
+	grandchild := testutil.NewTestGroupWithParent("grandchild", child.ID)
 	require.NoError(t, repo.Create(ctx, grandchild))
 
 	// Get ancestors of grandchild
@@ -223,17 +194,17 @@ func TestGroupRepository_HierarchicalOperations(t *testing.T) {
 	// └── branch2
 	//     └── leaf3
 
-	root := testutil.NewTestGroup("root", domain.NamespaceEnvironment)
+	root := testutil.NewTestGroup("root")
 	require.NoError(t, repo.Create(ctx, root))
 
-	branch1 := testutil.NewTestGroupWithParent("branch1", domain.NamespaceEnvironment, root.ID)
-	branch2 := testutil.NewTestGroupWithParent("branch2", domain.NamespaceEnvironment, root.ID)
+	branch1 := testutil.NewTestGroupWithParent("branch1", root.ID)
+	branch2 := testutil.NewTestGroupWithParent("branch2", root.ID)
 	require.NoError(t, repo.Create(ctx, branch1))
 	require.NoError(t, repo.Create(ctx, branch2))
 
-	leaf1 := testutil.NewTestGroupWithParent("leaf1", domain.NamespaceEnvironment, branch1.ID)
-	leaf2 := testutil.NewTestGroupWithParent("leaf2", domain.NamespaceEnvironment, branch1.ID)
-	leaf3 := testutil.NewTestGroupWithParent("leaf3", domain.NamespaceEnvironment, branch2.ID)
+	leaf1 := testutil.NewTestGroupWithParent("leaf1", branch1.ID)
+	leaf2 := testutil.NewTestGroupWithParent("leaf2", branch1.ID)
+	leaf3 := testutil.NewTestGroupWithParent("leaf3", branch2.ID)
 	require.NoError(t, repo.Create(ctx, leaf1))
 	require.NoError(t, repo.Create(ctx, leaf2))
 	require.NoError(t, repo.Create(ctx, leaf3))
@@ -261,17 +232,17 @@ func TestGroupRepository_CascadeDelete(t *testing.T) {
 	ctx := context.Background()
 
 	// Create parent and child
-	parent := testutil.NewTestGroup("parent", domain.NamespaceEnvironment)
+	parent := testutil.NewTestGroup("parent")
 	require.NoError(t, repo.Create(ctx, parent))
 
-	child := testutil.NewTestGroupWithParent("child", domain.NamespaceEnvironment, parent.ID)
+	child := testutil.NewTestGroupWithParent("child", parent.ID)
 	require.NoError(t, repo.Create(ctx, child))
 
-	// Delete parent (should cascade to child due to ON DELETE CASCADE)
-	err := repo.Delete(ctx, parent.ID)
+	// Purge parent (hard delete - should cascade to child due to ON DELETE CASCADE)
+	err := repo.Purge(ctx, parent.ID)
 	require.NoError(t, err)
 
-	// Verify both are deleted
+	// Verify both are deleted (hard deleted, not found)
 	_, err = repo.GetByID(ctx, parent.ID)
 	assert.Error(t, err)
 

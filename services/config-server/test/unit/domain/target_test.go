@@ -98,17 +98,17 @@ func TestTarget_IsHealthy(t *testing.T) {
 }
 
 func TestTarget_Creation(t *testing.T) {
-	groupID := "group-123"
-	target := testutil.NewTestTarget("server-01", "192.168.1.1", groupID)
+	group := testutil.NewTestGroup("production")
+	target := testutil.NewTestTarget("server-01", "192.168.1.1", []domain.Group{*group})
 
 	assert.NotEmpty(t, target.ID)
 	assert.Equal(t, "server-01", target.Hostname)
-	assert.NotEmpty(t, target.IPAddress)
-	assert.Equal(t, groupID, target.PrimaryGroupID)
+	assert.Equal(t, "192.168.1.1", target.IPAddress)
+	assert.Len(t, target.Groups, 1)
+	assert.Equal(t, group.ID, target.Groups[0].ID)
 	assert.Equal(t, domain.TargetStatusActive, target.Status)
 	assert.NotNil(t, target.Labels)
 	assert.NotNil(t, target.Metadata)
-	assert.NotNil(t, target.LastSeen)
 	assert.NotZero(t, target.CreatedAt)
 	assert.NotZero(t, target.UpdatedAt)
 }

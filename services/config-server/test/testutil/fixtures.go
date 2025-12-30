@@ -3,29 +3,15 @@ package testutil
 import (
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/fregataa/aami/config-server/internal/domain"
+	"github.com/google/uuid"
 )
 
-// NewTestNamespace creates a test namespace with default values
-func NewTestNamespace(name string, policyPriority int) *domain.Namespace {
-	return &domain.Namespace{
-		ID:             uuid.New().String(),
-		Name:           name,
-		Description:    "Test namespace: " + name,
-		PolicyPriority: policyPriority,
-		MergeStrategy:  domain.MergeStrategyMerge,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
-	}
-}
-
 // NewTestGroup creates a test group with default values
-func NewTestGroup(name string, namespaceID string) *domain.Group {
+func NewTestGroup(name string) *domain.Group {
 	return &domain.Group{
 		ID:           uuid.New().String(),
 		Name:         name,
-		NamespaceID:  namespaceID,
 		Description:  "Test group: " + name,
 		Priority:     100,
 		IsDefaultOwn: false,
@@ -36,8 +22,8 @@ func NewTestGroup(name string, namespaceID string) *domain.Group {
 }
 
 // NewTestGroupWithParent creates a test group with a parent
-func NewTestGroupWithParent(name string, namespaceID string, parentID string) *domain.Group {
-	group := NewTestGroup(name, namespaceID)
+func NewTestGroupWithParent(name string, parentID string) *domain.Group {
+	group := NewTestGroup(name)
 	group.ParentID = &parentID
 	return group
 }
@@ -59,11 +45,10 @@ func NewTestTarget(hostname string, ipAddress string, groups []domain.Group) *do
 }
 
 // NewTestTargetWithDefaultGroup creates a test target with a default own group
-func NewTestTargetWithDefaultGroup(hostname string, ipAddress string, namespace *domain.Namespace) *domain.Target {
+func NewTestTargetWithDefaultGroup(hostname string, ipAddress string) *domain.Target {
 	defaultGroup := &domain.Group{
 		ID:           uuid.New().String(),
 		Name:         "target-" + hostname,
-		NamespaceID:  namespace.ID,
 		Description:  "Default group for " + hostname,
 		Priority:     100,
 		IsDefaultOwn: true,

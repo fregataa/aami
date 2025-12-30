@@ -41,17 +41,10 @@ func NewPrometheusSDTarget(target *Target, exporter *Exporter) *PrometheusSDTarg
 		for i, group := range target.Groups {
 			labels[fmt.Sprintf("group_%d", i)] = group.Name
 			labels[fmt.Sprintf("group_%d_id", i)] = group.ID
-			if group.Namespace != nil {
-				labels[fmt.Sprintf("group_%d_namespace", i)] = group.Namespace.Name
-			}
 		}
 		// Add primary group (first group) as default
 		labels["group"] = target.Groups[0].Name
 		labels["group_id"] = target.Groups[0].ID
-		if target.Groups[0].Namespace != nil {
-			labels["namespace"] = target.Groups[0].Namespace.Name
-			labels["namespace_id"] = target.Groups[0].Namespace.ID
-		}
 	}
 
 	return &PrometheusSDTarget{
@@ -62,10 +55,9 @@ func NewPrometheusSDTarget(target *Target, exporter *Exporter) *PrometheusSDTarg
 
 // ServiceDiscoveryFilter represents filters for service discovery query
 type ServiceDiscoveryFilter struct {
-	Status        *TargetStatus         `json:"status,omitempty"`
-	ExporterType  *ExporterType         `json:"exporter_type,omitempty"`
-	GroupID       *string               `json:"group_id,omitempty"`
-	NamespaceID   *string               `json:"namespace_id,omitempty"`
-	Labels        map[string]string     `json:"labels,omitempty"`
-	EnabledOnly   bool                  `json:"enabled_only"`
+	Status       *TargetStatus     `json:"status,omitempty"`
+	ExporterType *ExporterType     `json:"exporter_type,omitempty"`
+	GroupID      *string           `json:"group_id,omitempty"`
+	Labels       map[string]string `json:"labels,omitempty"`
+	EnabledOnly  bool              `json:"enabled_only"`
 }

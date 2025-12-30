@@ -129,7 +129,7 @@ func TestDefaultPortForType(t *testing.T) {
 
 func TestExporter_Creation(t *testing.T) {
 	targetID := "target-123"
-	exporter := testutil.NewTestExporter(targetID, domain.ExporterTypeNodeExporter)
+	exporter := testutil.NewTestExporter(targetID, domain.ExporterTypeNodeExporter, 9100)
 
 	assert.NotEmpty(t, exporter.ID)
 	assert.Equal(t, targetID, exporter.TargetID)
@@ -172,9 +172,9 @@ func TestExporter_AllTypes(t *testing.T) {
 
 func TestExporter_GetEndpointWithTarget(t *testing.T) {
 	// Integration test: exporter endpoint generation with target IP
-	groupID := "group-123"
-	target := testutil.NewTestTarget("server-01", groupID)
-	exporter := testutil.NewTestExporter(target.ID, domain.ExporterTypeNodeExporter)
+	group := testutil.NewTestGroup("production")
+	target := testutil.NewTestTarget("server-01", "192.168.1.100", []domain.Group{*group})
+	exporter := testutil.NewTestExporter(target.ID, domain.ExporterTypeNodeExporter, 9100)
 
 	endpoint := exporter.GetEndpoint(*target)
 

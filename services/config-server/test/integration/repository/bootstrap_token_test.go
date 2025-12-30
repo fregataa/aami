@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/fregataa/aami/config-server/internal/domain"
 	"github.com/fregataa/aami/config-server/test/testutil"
 )
 
@@ -15,19 +14,13 @@ func TestBootstrapTokenRepository_Create(t *testing.T) {
 	repoManager, cleanup := testutil.SetupTestDB(t)
 	defer cleanup()
 
-	groupRepo := repoManager.Group
 	tokenRepo := repoManager.BootstrapToken
 	ctx := context.Background()
-
-	// Create a group
-	group := testutil.NewTestGroup("production", domain.NamespaceEnvironment)
-	err := groupRepo.Create(ctx, group)
-	require.NoError(t, err)
 
 	// Create a bootstrap token
 	token := testutil.NewTestBootstrapToken("test-token")
 
-	err = tokenRepo.Create(ctx, token)
+	err := tokenRepo.Create(ctx, token)
 	require.NoError(t, err)
 	assert.NotEmpty(t, token.ID)
 	assert.NotEmpty(t, token.Token)
@@ -37,13 +30,8 @@ func TestBootstrapTokenRepository_GetByID(t *testing.T) {
 	repoManager, cleanup := testutil.SetupTestDB(t)
 	defer cleanup()
 
-	groupRepo := repoManager.Group
 	tokenRepo := repoManager.BootstrapToken
 	ctx := context.Background()
-
-	// Create group and token
-	group := testutil.NewTestGroup("staging", domain.NamespaceEnvironment)
-	require.NoError(t, groupRepo.Create(ctx, group))
 
 	token := testutil.NewTestBootstrapToken("staging-token")
 	require.NoError(t, tokenRepo.Create(ctx, token))
@@ -54,7 +42,6 @@ func TestBootstrapTokenRepository_GetByID(t *testing.T) {
 	assert.Equal(t, token.ID, retrieved.ID)
 	assert.Equal(t, token.Name, retrieved.Name)
 	assert.Equal(t, token.Token, retrieved.Token)
-	assert.Equal(t, token.DefaultGroupID, retrieved.DefaultGroupID)
 }
 
 func TestBootstrapTokenRepository_GetByID_NotFound(t *testing.T) {
@@ -72,13 +59,8 @@ func TestBootstrapTokenRepository_GetByToken(t *testing.T) {
 	repoManager, cleanup := testutil.SetupTestDB(t)
 	defer cleanup()
 
-	groupRepo := repoManager.Group
 	tokenRepo := repoManager.BootstrapToken
 	ctx := context.Background()
-
-	// Create group and token
-	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
-	require.NoError(t, groupRepo.Create(ctx, group))
 
 	token := testutil.NewTestBootstrapToken("prod-token")
 	require.NoError(t, tokenRepo.Create(ctx, token))
@@ -105,13 +87,8 @@ func TestBootstrapTokenRepository_Update(t *testing.T) {
 	repoManager, cleanup := testutil.SetupTestDB(t)
 	defer cleanup()
 
-	groupRepo := repoManager.Group
 	tokenRepo := repoManager.BootstrapToken
 	ctx := context.Background()
-
-	// Create group and token
-	group := testutil.NewTestGroup("dev", domain.NamespaceEnvironment)
-	require.NoError(t, groupRepo.Create(ctx, group))
 
 	token := testutil.NewTestBootstrapToken("dev-token")
 	require.NoError(t, tokenRepo.Create(ctx, token))
@@ -135,13 +112,8 @@ func TestBootstrapTokenRepository_Delete(t *testing.T) {
 	repoManager, cleanup := testutil.SetupTestDB(t)
 	defer cleanup()
 
-	groupRepo := repoManager.Group
 	tokenRepo := repoManager.BootstrapToken
 	ctx := context.Background()
-
-	// Create group and token
-	group := testutil.NewTestGroup("temp", domain.NamespaceEnvironment)
-	require.NoError(t, groupRepo.Create(ctx, group))
 
 	token := testutil.NewTestBootstrapToken("temp-token")
 	require.NoError(t, tokenRepo.Create(ctx, token))
@@ -159,13 +131,8 @@ func TestBootstrapTokenRepository_List(t *testing.T) {
 	repoManager, cleanup := testutil.SetupTestDB(t)
 	defer cleanup()
 
-	groupRepo := repoManager.Group
 	tokenRepo := repoManager.BootstrapToken
 	ctx := context.Background()
-
-	// Create a group
-	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
-	require.NoError(t, groupRepo.Create(ctx, group))
 
 	// Create multiple tokens
 	token1 := testutil.NewTestBootstrapToken("token1")
@@ -187,13 +154,8 @@ func TestBootstrapTokenRepository_IsValid(t *testing.T) {
 	repoManager, cleanup := testutil.SetupTestDB(t)
 	defer cleanup()
 
-	groupRepo := repoManager.Group
 	tokenRepo := repoManager.BootstrapToken
 	ctx := context.Background()
-
-	// Create group
-	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
-	require.NoError(t, groupRepo.Create(ctx, group))
 
 	// Create valid token
 	validToken := testutil.NewTestBootstrapToken("valid-token")
@@ -219,13 +181,8 @@ func TestBootstrapTokenRepository_CanUse(t *testing.T) {
 	repoManager, cleanup := testutil.SetupTestDB(t)
 	defer cleanup()
 
-	groupRepo := repoManager.Group
 	tokenRepo := repoManager.BootstrapToken
 	ctx := context.Background()
-
-	// Create group and token
-	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
-	require.NoError(t, groupRepo.Create(ctx, group))
 
 	token := testutil.NewTestBootstrapToken("test-token")
 	require.NoError(t, tokenRepo.Create(ctx, token))
@@ -252,13 +209,8 @@ func TestBootstrapTokenRepository_IncrementUses(t *testing.T) {
 	repoManager, cleanup := testutil.SetupTestDB(t)
 	defer cleanup()
 
-	groupRepo := repoManager.Group
 	tokenRepo := repoManager.BootstrapToken
 	ctx := context.Background()
-
-	// Create group and token
-	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
-	require.NoError(t, groupRepo.Create(ctx, group))
 
 	token := testutil.NewTestBootstrapToken("test-token")
 	require.NoError(t, tokenRepo.Create(ctx, token))
@@ -295,13 +247,8 @@ func TestBootstrapTokenRepository_IncrementUses_Exhausted(t *testing.T) {
 	repoManager, cleanup := testutil.SetupTestDB(t)
 	defer cleanup()
 
-	groupRepo := repoManager.Group
 	tokenRepo := repoManager.BootstrapToken
 	ctx := context.Background()
-
-	// Create group and token
-	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
-	require.NoError(t, groupRepo.Create(ctx, group))
 
 	token := testutil.NewTestBootstrapToken("test-token")
 	token.Uses = token.MaxUses // Already exhausted
@@ -317,13 +264,8 @@ func TestBootstrapTokenRepository_IsExpired(t *testing.T) {
 	repoManager, cleanup := testutil.SetupTestDB(t)
 	defer cleanup()
 
-	groupRepo := repoManager.Group
 	tokenRepo := repoManager.BootstrapToken
 	ctx := context.Background()
-
-	// Create group
-	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
-	require.NoError(t, groupRepo.Create(ctx, group))
 
 	// Create token that expires in the future
 	futureToken := testutil.NewTestBootstrapToken("future-token")
@@ -342,13 +284,8 @@ func TestBootstrapTokenRepository_RemainingUses(t *testing.T) {
 	repoManager, cleanup := testutil.SetupTestDB(t)
 	defer cleanup()
 
-	groupRepo := repoManager.Group
 	tokenRepo := repoManager.BootstrapToken
 	ctx := context.Background()
-
-	// Create group and token
-	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
-	require.NoError(t, groupRepo.Create(ctx, group))
 
 	token := testutil.NewTestBootstrapToken("test-token")
 	require.NoError(t, tokenRepo.Create(ctx, token))
@@ -375,14 +312,10 @@ func TestBootstrapTokenRepository_UsageScenario(t *testing.T) {
 	repoManager, cleanup := testutil.SetupTestDB(t)
 	defer cleanup()
 
-	groupRepo := repoManager.Group
 	tokenRepo := repoManager.BootstrapToken
 	ctx := context.Background()
 
-	// Create group and token with limited uses
-	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
-	require.NoError(t, groupRepo.Create(ctx, group))
-
+	// Create token with limited uses
 	token := testutil.NewTestBootstrapToken("limited-token")
 	token.MaxUses = 3
 	require.NoError(t, tokenRepo.Create(ctx, token))
@@ -410,38 +343,4 @@ func TestBootstrapTokenRepository_UsageScenario(t *testing.T) {
 	// Try to use again (should fail)
 	err = retrieved.IncrementUses()
 	assert.Error(t, err)
-}
-
-func TestBootstrapTokenRepository_GetByGroupID(t *testing.T) {
-	repoManager, cleanup := testutil.SetupTestDB(t)
-	defer cleanup()
-
-	groupRepo := repoManager.Group
-	tokenRepo := repoManager.BootstrapToken
-	ctx := context.Background()
-
-	// Create groups
-	group1 := testutil.NewTestGroup("group1", domain.NamespaceEnvironment)
-	group2 := testutil.NewTestGroup("group2", domain.NamespaceEnvironment)
-	require.NoError(t, groupRepo.Create(ctx, group1))
-	require.NoError(t, groupRepo.Create(ctx, group2))
-
-	// Create tokens for different groups
-	token1 := testutil.NewTestBootstrapToken("token1")
-	token2 := testutil.NewTestBootstrapToken("token2")
-	token3 := testutil.NewTestBootstrapToken("token3")
-
-	require.NoError(t, tokenRepo.Create(ctx, token1))
-	require.NoError(t, tokenRepo.Create(ctx, token2))
-	require.NoError(t, tokenRepo.Create(ctx, token3))
-
-	// Get tokens by group
-	group1Tokens, err := tokenRepo.GetByGroupID(ctx, group1.ID)
-	require.NoError(t, err)
-	assert.Len(t, group1Tokens, 2)
-
-	// Verify all tokens belong to group1
-	for _, tok := range group1Tokens {
-		assert.Equal(t, group1.ID, tok.DefaultGroupID)
-	}
 }

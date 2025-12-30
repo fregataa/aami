@@ -7,7 +7,6 @@ import (
 // CreateGroupRequest represents a request to create a new group
 type CreateGroupRequest struct {
 	Name        string            `json:"name" binding:"required,min=1,max=100"`
-	NamespaceID string            `json:"namespace_id" binding:"required,uuid"`
 	ParentID    *string           `json:"parent_id,omitempty" binding:"omitempty,uuid"`
 	Description string            `json:"description" binding:"omitempty,max=500"`
 	Priority    int               `json:"priority" binding:"omitempty,min=0,max=1000"`
@@ -18,7 +17,6 @@ type CreateGroupRequest struct {
 func (r *CreateGroupRequest) ToAction() action.CreateGroup {
 	return action.CreateGroup{
 		Name:        r.Name,
-		NamespaceID: r.NamespaceID,
 		ParentID:    r.ParentID,
 		Description: r.Description,
 		Priority:    r.Priority,
@@ -46,19 +44,10 @@ func (r *UpdateGroupRequest) ToAction() action.UpdateGroup {
 	}
 }
 
-// NamespaceInfo represents namespace information in responses
-type NamespaceInfo struct {
-	ID             string `json:"id"`
-	Name           string `json:"name"`
-	PolicyPriority int    `json:"policy_priority"`
-}
-
 // GroupResponse represents a group in API responses
 type GroupResponse struct {
 	ID          string            `json:"id"`
 	Name        string            `json:"name"`
-	NamespaceID string            `json:"namespace_id"`
-	Namespace   *NamespaceInfo    `json:"namespace,omitempty"`
 	ParentID    *string           `json:"parent_id,omitempty"`
 	Description string            `json:"description"`
 	Priority    int               `json:"priority"`
@@ -68,10 +57,9 @@ type GroupResponse struct {
 
 // ToGroupResponse converts action.GroupResult to GroupResponse
 func ToGroupResponse(result action.GroupResult) GroupResponse {
-	resp := GroupResponse{
+	return GroupResponse{
 		ID:          result.ID,
 		Name:        result.Name,
-		NamespaceID: result.NamespaceID,
 		ParentID:    result.ParentID,
 		Description: result.Description,
 		Priority:    result.Priority,
@@ -81,17 +69,6 @@ func ToGroupResponse(result action.GroupResult) GroupResponse {
 			UpdatedAt: result.UpdatedAt,
 		},
 	}
-
-	// Include namespace info if loaded
-	if result.Namespace != nil {
-		resp.Namespace = &NamespaceInfo{
-			ID:             result.Namespace.ID,
-			Name:           result.Namespace.Name,
-			PolicyPriority: result.Namespace.PolicyPriority,
-		}
-	}
-
-	return resp
 }
 
 // ToGroupResponseList converts a slice of action.GroupResult to slice of GroupResponse

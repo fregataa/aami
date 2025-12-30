@@ -13,42 +13,26 @@ import (
 
 // GroupService handles business logic for groups
 type GroupService struct {
-	groupRepo     repository.GroupRepository
-	namespaceRepo repository.NamespaceRepository
+	groupRepo repository.GroupRepository
 }
 
 // NewGroupService creates a new GroupService
-func NewGroupService(groupRepo repository.GroupRepository, namespaceRepo repository.NamespaceRepository) *GroupService {
+func NewGroupService(groupRepo repository.GroupRepository) *GroupService {
 	return &GroupService{
-		groupRepo:     groupRepo,
-		namespaceRepo: namespaceRepo,
+		groupRepo: groupRepo,
 	}
 }
 
 // Create creates a new group
 func (s *GroupService) Create(ctx context.Context, act action.CreateGroup) (action.GroupResult, error) {
-	// Validate namespace exists
-	namespace, err := s.namespaceRepo.GetByID(ctx, act.NamespaceID)
-	if err != nil {
-		if errors.Is(err, domainerrors.ErrNotFound) {
-			return action.GroupResult{}, domainerrors.NewValidationError("namespace_id", "namespace not found")
-		}
-		return action.GroupResult{}, err
-	}
-
 	// Validate parent exists if specified
 	if act.ParentID != nil {
-		parent, err := s.groupRepo.GetByID(ctx, *act.ParentID)
+		_, err := s.groupRepo.GetByID(ctx, *act.ParentID)
 		if err != nil {
 			if errors.Is(err, domainerrors.ErrNotFound) {
 				return action.GroupResult{}, domainerrors.ErrForeignKeyViolation
 			}
 			return action.GroupResult{}, err
-		}
-
-		// Ensure parent is in the same namespace
-		if parent.NamespaceID != act.NamespaceID {
-			return action.GroupResult{}, domainerrors.NewValidationError("parent_id", "parent must be in the same namespace")
 		}
 
 		// Check for circular references
@@ -57,10 +41,10 @@ func (s *GroupService) Create(ctx context.Context, act action.CreateGroup) (acti
 		}
 	}
 
-	// Set default priority based on namespace if not specified
+	// Set default priority if not specified
 	priority := act.Priority
 	if priority == 0 {
-		priority = namespace.PolicyPriority
+		priority = 100 // Default priority
 	}
 
 	// Initialize metadata if nil
@@ -72,7 +56,6 @@ func (s *GroupService) Create(ctx context.Context, act action.CreateGroup) (acti
 	group := &domain.Group{
 		ID:          uuid.New().String(),
 		Name:        act.Name,
-		NamespaceID: act.NamespaceID,
 		ParentID:    act.ParentID,
 		Description: act.Description,
 		Priority:    priority,
@@ -82,9 +65,6 @@ func (s *GroupService) Create(ctx context.Context, act action.CreateGroup) (acti
 	if err := s.groupRepo.Create(ctx, group); err != nil {
 		return action.GroupResult{}, err
 	}
-
-	// Load namespace for response
-	group.Namespace = namespace
 
 	return action.NewGroupResult(group), nil
 }
@@ -119,17 +99,12 @@ func (s *GroupService) Update(ctx context.Context, id string, act action.UpdateG
 
 	if act.ParentID != nil {
 		// Validate parent exists
-		parent, err := s.groupRepo.GetByID(ctx, *act.ParentID)
+		_, err := s.groupRepo.GetByID(ctx, *act.ParentID)
 		if err != nil {
 			if errors.Is(err, domainerrors.ErrNotFound) {
 				return action.GroupResult{}, domainerrors.ErrForeignKeyViolation
 			}
 			return action.GroupResult{}, err
-		}
-
-		// Ensure parent is in the same namespace
-		if parent.Namespace != group.Namespace {
-			return action.GroupResult{}, domainerrors.NewValidationError("parent_id", "parent must be in the same namespace")
 		}
 
 		// Check for circular references
@@ -202,23 +177,6 @@ func (s *GroupService) List(ctx context.Context, pagination action.Pagination) (
 
 	results := action.NewGroupResultList(groups)
 	return action.NewListResult(results, pagination, total), nil
-}
-
-// GetByNamespaceID retrieves groups by namespace ID
-func (s *GroupService) GetByNamespaceID(ctx context.Context, namespaceID string) ([]action.GroupResult, error) {
-	// Validate namespace exists
-	_, err := s.namespaceRepo.GetByID(ctx, namespaceID)
-	if err != nil {
-		if errors.Is(err, domainerrors.ErrNotFound) {
-			return nil, domainerrors.NewValidationError("namespace_id", "namespace not found")
-		}
-		return nil, err
-	}
-	groups, err := s.groupRepo.GetByNamespaceID(ctx, namespaceID)
-	if err != nil {
-		return nil, err
-	}
-	return action.NewGroupResultList(groups), nil
 }
 
 // GetChildren retrieves child groups of a parent group

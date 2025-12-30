@@ -54,21 +54,6 @@ func (h *ServiceDiscoveryHandler) GetPrometheusTargetsByGroup(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.ToPrometheusSDTargetResponseList(targets))
 }
 
-// GetPrometheusTargetsByNamespace handles GET /api/v1/sd/prometheus/namespace/:namespaceId
-// Returns targets for a specific namespace
-func (h *ServiceDiscoveryHandler) GetPrometheusTargetsByNamespace(c *gin.Context) {
-	namespaceID := c.Param("namespaceId")
-	enabledOnly := c.DefaultQuery("enabled_only", "false") == "true"
-
-	targets, err := h.sdService.GetPrometheusTargetsForNamespace(c.Request.Context(), namespaceID, enabledOnly)
-	if err != nil {
-		respondError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, dto.ToPrometheusSDTargetResponseList(targets))
-}
-
 // GetActivePrometheusTargets handles GET /api/v1/sd/prometheus/active
 // Returns only active targets with enabled exporters
 func (h *ServiceDiscoveryHandler) GetActivePrometheusTargets(c *gin.Context) {
@@ -152,31 +137,5 @@ func (h *ServiceDiscoveryHandler) GenerateGroupFileSD(c *gin.Context) {
 		"message":  "Group file SD generated successfully",
 		"path":     req.OutputPath,
 		"group_id": groupID,
-	})
-}
-
-// GenerateNamespaceFileSD handles POST /api/v1/sd/prometheus/file/namespace/:namespaceId
-// Generates a file SD JSON for a specific namespace
-func (h *ServiceDiscoveryHandler) GenerateNamespaceFileSD(c *gin.Context) {
-	namespaceID := c.Param("namespaceId")
-	var req struct {
-		OutputPath  string `json:"output_path" binding:"required"`
-		EnabledOnly bool   `json:"enabled_only"`
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if err := h.sdService.GenerateNamespaceFileSD(c.Request.Context(), namespaceID, req.OutputPath, req.EnabledOnly); err != nil {
-		respondError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message":      "Namespace file SD generated successfully",
-		"path":         req.OutputPath,
-		"namespace_id": namespaceID,
 	})
 }

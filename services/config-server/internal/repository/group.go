@@ -12,20 +12,18 @@ import (
 
 // GroupModel is the GORM model for database operations
 type GroupModel struct {
-	ID           string          `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	Name         string          `gorm:"not null;index"`
-	NamespaceID  string          `gorm:"type:uuid;not null;index"`
-	Namespace    *NamespaceModel `gorm:"foreignKey:NamespaceID"`
-	ParentID     *string         `gorm:"type:uuid;index"`
-	Parent       *GroupModel     `gorm:"foreignKey:ParentID"`
-	Children     []GroupModel    `gorm:"foreignKey:ParentID"`
-	Description  string          `gorm:"type:text"`
-	Priority     int             `gorm:"not null;default:100"`
-	IsDefaultOwn bool            `gorm:"not null;default:false;index"`
-	Metadata     JSONB           `gorm:"type:jsonb;default:'{}'"`
-	DeletedAt    gorm.DeletedAt  `gorm:"index"`
-	CreatedAt    time.Time       `gorm:"autoCreateTime"`
-	UpdatedAt    time.Time       `gorm:"autoUpdateTime"`
+	ID           string         `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	Name         string         `gorm:"not null;index"`
+	ParentID     *string        `gorm:"type:uuid;index"`
+	Parent       *GroupModel    `gorm:"foreignKey:ParentID"`
+	Children     []GroupModel   `gorm:"foreignKey:ParentID"`
+	Description  string         `gorm:"type:text"`
+	Priority     int            `gorm:"not null;default:100"`
+	IsDefaultOwn bool           `gorm:"not null;default:false;index"`
+	Metadata     JSONB          `gorm:"type:jsonb;default:'{}'"`
+	DeletedAt    gorm.DeletedAt `gorm:"index"`
+	CreatedAt    time.Time      `gorm:"autoCreateTime"`
+	UpdatedAt    time.Time      `gorm:"autoUpdateTime"`
 }
 
 // TableName specifies the table name for GORM
@@ -68,7 +66,6 @@ func ToGroupModel(g *domain.Group) *GroupModel {
 	model := &GroupModel{
 		ID:           g.ID,
 		Name:         g.Name,
-		NamespaceID:  g.NamespaceID,
 		ParentID:     g.ParentID,
 		Description:  g.Description,
 		Priority:     g.Priority,
@@ -96,7 +93,6 @@ func (m *GroupModel) ToDomain() *domain.Group {
 	g := &domain.Group{
 		ID:           m.ID,
 		Name:         m.Name,
-		NamespaceID:  m.NamespaceID,
 		ParentID:     m.ParentID,
 		Description:  m.Description,
 		Priority:     m.Priority,
@@ -108,11 +104,6 @@ func (m *GroupModel) ToDomain() *domain.Group {
 	if m.DeletedAt.Valid {
 		deletedAt := m.DeletedAt.Time
 		g.DeletedAt = &deletedAt
-	}
-
-	// Convert Namespace if loaded
-	if m.Namespace != nil {
-		g.Namespace = m.Namespace.ToDomain()
 	}
 
 	// Convert Parent if loaded
@@ -136,7 +127,6 @@ func (m *GroupModel) ToDomain() *domain.Group {
 type GroupRepository interface {
 	Create(ctx context.Context, group *domain.Group) error
 	GetByID(ctx context.Context, id string) (*domain.Group, error)
-	GetByNamespaceID(ctx context.Context, namespaceID string) ([]domain.Group, error)
 	Update(ctx context.Context, group *domain.Group) error
 	Delete(ctx context.Context, id string) error  // Soft delete (sets deleted_at)
 	Purge(ctx context.Context, id string) error   // Hard delete (permanent removal)
@@ -144,7 +134,6 @@ type GroupRepository interface {
 	List(ctx context.Context, page, limit int) ([]domain.Group, int, error)
 	GetChildren(ctx context.Context, parentID string) ([]domain.Group, error)
 	GetAncestors(ctx context.Context, groupID string) ([]domain.Group, error)
-	CountByNamespaceID(ctx context.Context, namespaceID string) (int64, error)
 }
 
 // groupRepository implements GroupRepository interface using GORM
@@ -171,7 +160,6 @@ func (r *groupRepository) Create(ctx context.Context, group *domain.Group) error
 func (r *groupRepository) GetByID(ctx context.Context, id string) (*domain.Group, error) {
 	var model GroupModel
 	err := r.db.WithContext(ctx).
-		Preload("Namespace").
 		Preload("Parent").
 		Preload("Children").
 		First(&model, "id = ?", id).Error
@@ -179,25 +167,6 @@ func (r *groupRepository) GetByID(ctx context.Context, id string) (*domain.Group
 		return nil, fromGormError(err)
 	}
 	return model.ToDomain(), nil
-}
-
-// GetByNamespace retrieves all groups in a namespace
-func (r *groupRepository) GetByNamespaceID(ctx context.Context, namespaceID string) ([]domain.Group, error) {
-	var models []GroupModel
-	err := r.db.WithContext(ctx).
-		Where("namespace_id = ?", namespaceID).
-		Preload("Namespace").
-		Order("name ASC").
-		Find(&models).Error
-	if err != nil {
-		return nil, fromGormError(err)
-	}
-
-	groups := make([]domain.Group, len(models))
-	for i, model := range models {
-		groups[i] = *model.ToDomain()
-	}
-	return groups, nil
 }
 
 // Update updates an existing group
@@ -284,11 +253,11 @@ func (r *groupRepository) GetAncestors(ctx context.Context, groupID string) ([]d
 	// Recursive CTE to get all ancestors
 	query := `
 		WITH RECURSIVE ancestors AS (
-			SELECT id, name, namespace_id, parent_id, description, priority, metadata, created_at, updated_at
+			SELECT id, name, parent_id, description, priority, metadata, created_at, updated_at
 			FROM groups
 			WHERE id = ?
 			UNION ALL
-			SELECT g.id, g.name, g.namespace_id, g.parent_id, g.description, g.priority, g.metadata, g.created_at, g.updated_at
+			SELECT g.id, g.name, g.parent_id, g.description, g.priority, g.metadata, g.created_at, g.updated_at
 			FROM groups g
 			INNER JOIN ancestors a ON g.id = a.parent_id
 		)
@@ -306,14 +275,4 @@ func (r *groupRepository) GetAncestors(ctx context.Context, groupID string) ([]d
 		ancestors[i] = *model.ToDomain()
 	}
 	return ancestors, nil
-}
-
-// CountByNamespaceID counts the number of groups in a specific namespace
-func (r *groupRepository) CountByNamespaceID(ctx context.Context, namespaceID string) (int64, error) {
-	var count int64
-	err := r.db.WithContext(ctx).
-		Model(&GroupModel{}).
-		Where("namespace_id = ?", namespaceID).
-		Count(&count).Error
-	return count, fromGormError(err)
 }

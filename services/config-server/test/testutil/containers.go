@@ -112,7 +112,10 @@ func createPostgresContainer(ctx context.Context) (*PostgresContainer, error) {
 	}, nil
 }
 
-// runMigrations runs the SQL migration files against the database
+// runMigrations runs the initial schema migration against the database
+// For tests, we only need the initial schema (001_initial_schema.sql) which contains
+// the complete current schema. Incremental migrations (002-005) are for existing
+// deployments that need to upgrade from older schemas.
 func runMigrations(db *gorm.DB) error {
 	// Get the project root directory
 	projectRoot, err := getProjectRoot()
@@ -120,7 +123,7 @@ func runMigrations(db *gorm.DB) error {
 		return fmt.Errorf("failed to get project root: %w", err)
 	}
 
-	// Read migration file
+	// Only run the initial schema migration for fresh test databases
 	migrationPath := filepath.Join(projectRoot, "migrations", "001_initial_schema.sql")
 	migrationSQL, err := os.ReadFile(migrationPath)
 	if err != nil {
@@ -165,7 +168,7 @@ func TruncateAllTables(t *testing.T, manager *repository.Manager) {
 	t.Helper()
 
 	tables := []string{
-		"target_secondary_groups",
+		"target_groups",
 		"exporters",
 		"alert_rules",
 		"bootstrap_tokens",

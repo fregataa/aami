@@ -48,15 +48,17 @@ func TestAlertTemplate_RenderQuery(t *testing.T) {
 	tests := []struct {
 		name          string
 		queryTemplate string
-		config        map[string]interface{}
+		config        domain.AlertRuleConfig
 		want          string
 		wantErr       bool
 	}{
 		{
 			name:          "render query with threshold",
 			queryTemplate: "cpu_usage > {{ .threshold }}",
-			config: map[string]interface{}{
-				"threshold": 80,
+			config: domain.AlertRuleConfig{
+				TemplateVars: map[string]interface{}{
+					"threshold": 80,
+				},
 			},
 			want:    "cpu_usage > 80",
 			wantErr: false,
@@ -64,9 +66,11 @@ func TestAlertTemplate_RenderQuery(t *testing.T) {
 		{
 			name:          "render query with multiple variables",
 			queryTemplate: "metric > {{ .threshold }} for {{ .duration }}",
-			config: map[string]interface{}{
-				"threshold": 90,
-				"duration":  "5m",
+			config: domain.AlertRuleConfig{
+				TemplateVars: map[string]interface{}{
+					"threshold": 90,
+					"duration":  "5m",
+				},
 			},
 			want:    "metric > 90 for 5m",
 			wantErr: false,
@@ -74,14 +78,14 @@ func TestAlertTemplate_RenderQuery(t *testing.T) {
 		{
 			name:          "render query with missing variable renders empty",
 			queryTemplate: "cpu_usage > {{ .threshold }}",
-			config:        map[string]interface{}{},
+			config:        domain.AlertRuleConfig{},
 			want:          "cpu_usage > <no value>",
 			wantErr:       false,
 		},
 		{
 			name:          "render query with no template variables",
 			queryTemplate: "cpu_usage > 80",
-			config:        map[string]interface{}{},
+			config:        domain.AlertRuleConfig{},
 			want:          "cpu_usage > 80",
 			wantErr:       false,
 		},
@@ -105,19 +109,19 @@ func TestAlertTemplate_RenderQuery(t *testing.T) {
 
 func TestMergeStrategy(t *testing.T) {
 	tests := []struct {
-		name         string
+		name          string
 		mergeStrategy string
-		want         bool
+		want          bool
 	}{
 		{
-			name:         "merge strategy is valid",
+			name:          "merge strategy is valid",
 			mergeStrategy: "merge",
-			want:         true,
+			want:          true,
 		},
 		{
-			name:         "override strategy is valid",
+			name:          "override strategy is valid",
 			mergeStrategy: "override",
-			want:         true,
+			want:          true,
 		},
 	}
 
@@ -139,7 +143,7 @@ func TestAlertTemplate_Creation(t *testing.T) {
 	assert.NotEmpty(t, template.Description)
 	assert.Equal(t, domain.AlertSeverityWarning, template.Severity)
 	assert.NotEmpty(t, template.QueryTemplate)
-	assert.NotNil(t, template.DefaultConfig)
+	assert.NotNil(t, template.DefaultConfig.TemplateVars)
 	assert.NotZero(t, template.CreatedAt)
 	assert.NotZero(t, template.UpdatedAt)
 }
@@ -151,9 +155,10 @@ func TestAlertRule_Creation(t *testing.T) {
 
 	assert.NotEmpty(t, rule.ID)
 	assert.Equal(t, groupID, rule.GroupID)
-	assert.Equal(t, templateID, rule.TemplateID)
+	assert.NotNil(t, rule.CreatedFromTemplateID)
+	assert.Equal(t, templateID, *rule.CreatedFromTemplateID)
 	assert.True(t, rule.Enabled)
-	assert.NotNil(t, rule.Config)
+	assert.NotNil(t, rule.Config.TemplateVars)
 	assert.Equal(t, "override", rule.MergeStrategy)
 	assert.Equal(t, 100, rule.Priority)
 	assert.NotZero(t, rule.CreatedAt)
@@ -171,10 +176,10 @@ func TestAlertTemplate_WithDefaultConfig(t *testing.T) {
 	template := testutil.NewTestAlertTemplate("test_alert", domain.AlertSeverityInfo)
 
 	// Verify default config exists
-	assert.NotNil(t, template.DefaultConfig)
+	assert.NotNil(t, template.DefaultConfig.TemplateVars)
 
 	// Test rendering with default config
-	rendered, err := template.RenderQuery(template.DefaultConfig)
+	rendered, err := template.RenderQuery(domain.AlertRuleConfig{})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, rendered)
 }

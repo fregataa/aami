@@ -44,20 +44,6 @@ func (s *ServiceDiscoveryService) GetPrometheusTargets(ctx context.Context, filt
 			continue
 		}
 
-		// Apply namespace filter
-		if filter.NamespaceID != nil {
-			hasNamespace := false
-			for _, group := range target.Groups {
-				if group.NamespaceID == *filter.NamespaceID {
-					hasNamespace = true
-					break
-				}
-			}
-			if !hasNamespace {
-				continue
-			}
-		}
-
 		// Apply label filters
 		if len(filter.Labels) > 0 {
 			matchesAll := true
@@ -97,15 +83,6 @@ func (s *ServiceDiscoveryService) GetPrometheusTargets(ctx context.Context, filt
 func (s *ServiceDiscoveryService) GetPrometheusTargetsForGroup(ctx context.Context, groupID string, enabledOnly bool) ([]domain.PrometheusSDTarget, error) {
 	filter := &domain.ServiceDiscoveryFilter{
 		GroupID:     &groupID,
-		EnabledOnly: enabledOnly,
-	}
-	return s.GetPrometheusTargets(ctx, filter)
-}
-
-// GetPrometheusTargetsForNamespace returns targets for a specific namespace
-func (s *ServiceDiscoveryService) GetPrometheusTargetsForNamespace(ctx context.Context, namespaceID string, enabledOnly bool) ([]domain.PrometheusSDTarget, error) {
-	filter := &domain.ServiceDiscoveryFilter{
-		NamespaceID: &namespaceID,
 		EnabledOnly: enabledOnly,
 	}
 	return s.GetPrometheusTargets(ctx, filter)
@@ -170,15 +147,6 @@ func (s *ServiceDiscoveryService) GenerateActiveFileSD(ctx context.Context, outp
 func (s *ServiceDiscoveryService) GenerateGroupFileSD(ctx context.Context, groupID, outputPath string, enabledOnly bool) error {
 	filter := &domain.ServiceDiscoveryFilter{
 		GroupID:     &groupID,
-		EnabledOnly: enabledOnly,
-	}
-	return s.GenerateFileSD(ctx, outputPath, filter)
-}
-
-// GenerateNamespaceFileSD generates a file SD JSON for a specific namespace
-func (s *ServiceDiscoveryService) GenerateNamespaceFileSD(ctx context.Context, namespaceID, outputPath string, enabledOnly bool) error {
-	filter := &domain.ServiceDiscoveryFilter{
-		NamespaceID: &namespaceID,
 		EnabledOnly: enabledOnly,
 	}
 	return s.GenerateFileSD(ctx, outputPath, filter)

@@ -68,7 +68,7 @@ func TestAlertTemplateRepository_Update(t *testing.T) {
 	// Update it
 	template.Description = "Updated description"
 	template.Severity = domain.AlertSeverityCritical
-	template.DefaultConfig["new_key"] = "new_value"
+	template.DefaultConfig.TemplateVars["new_key"] = "new_value"
 	err := templateRepo.Update(ctx, template)
 	require.NoError(t, err)
 
@@ -77,7 +77,7 @@ func TestAlertTemplateRepository_Update(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "Updated description", retrieved.Description)
 	assert.Equal(t, domain.AlertSeverityCritical, retrieved.Severity)
-	assert.Equal(t, "new_value", retrieved.DefaultConfig["new_key"])
+	assert.Equal(t, "new_value", retrieved.DefaultConfig.TemplateVars["new_key"])
 }
 
 func TestAlertTemplateRepository_Delete(t *testing.T) {
@@ -159,16 +159,24 @@ func TestAlertTemplateRepository_RenderQuery(t *testing.T) {
 	// Create template with query template
 	template := testutil.NewTestAlertTemplate("cpu-alert", domain.AlertSeverityWarning)
 	template.QueryTemplate = "cpu_usage > {{.threshold}}"
-	template.DefaultConfig["threshold"] = 80
+	template.DefaultConfig = domain.AlertRuleConfig{
+		TemplateVars: map[string]interface{}{
+			"threshold": 80,
+		},
+	}
 	require.NoError(t, templateRepo.Create(ctx, template))
 
-	// Test RenderQuery with default config
-	query, err := template.RenderQuery(nil)
+	// Test RenderQuery with empty config (uses defaults)
+	query, err := template.RenderQuery(domain.AlertRuleConfig{})
 	require.NoError(t, err)
 	assert.Equal(t, "cpu_usage > 80", query)
 
-	// Test RenderQuery with custom config
-	query, err = template.RenderQuery(map[string]interface{}{"threshold": 90})
+	// Test RenderQuery with custom config (overrides default)
+	query, err = template.RenderQuery(domain.AlertRuleConfig{
+		TemplateVars: map[string]interface{}{
+			"threshold": 90,
+		},
+	})
 	require.NoError(t, err)
 	assert.Equal(t, "cpu_usage > 90", query)
 }
@@ -185,7 +193,7 @@ func TestAlertRuleRepository_Create(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group and template
-	group := testutil.NewTestGroup("production", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("production")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
 	template := testutil.NewTestAlertTemplate("high-cpu", domain.AlertSeverityWarning)
@@ -209,7 +217,7 @@ func TestAlertRuleRepository_GetByID(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group, template, and rule
-	group := testutil.NewTestGroup("staging", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("staging")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
 	template := testutil.NewTestAlertTemplate("memory-alert", domain.AlertSeverityCritical)
@@ -223,7 +231,8 @@ func TestAlertRuleRepository_GetByID(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, rule.ID, retrieved.ID)
 	assert.Equal(t, rule.GroupID, retrieved.GroupID)
-	assert.Equal(t, rule.TemplateID, retrieved.TemplateID)
+	assert.NotNil(t, retrieved.CreatedFromTemplateID)
+	assert.Equal(t, *rule.CreatedFromTemplateID, *retrieved.CreatedFromTemplateID)
 }
 
 func TestAlertRuleRepository_GetByID_NotFound(t *testing.T) {
@@ -247,7 +256,7 @@ func TestAlertRuleRepository_Update(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group, template, and rule
-	group := testutil.NewTestGroup("dev", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("dev")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
 	template := testutil.NewTestAlertTemplate("disk-alert", domain.AlertSeverityWarning)
@@ -257,8 +266,7 @@ func TestAlertRuleRepository_Update(t *testing.T) {
 	require.NoError(t, ruleRepo.Create(ctx, rule))
 
 	// Update it
-	rule.Enabled = false
-	rule.Config["threshold"] = 95
+	rule.Config.TemplateVars["threshold"] = 95
 	rule.MergeStrategy = "override"
 	rule.Priority = 200
 	err := ruleRepo.Update(ctx, rule)
@@ -267,8 +275,7 @@ func TestAlertRuleRepository_Update(t *testing.T) {
 	// Verify update
 	retrieved, err := ruleRepo.GetByID(ctx, rule.ID)
 	require.NoError(t, err)
-	assert.False(t, retrieved.Enabled)
-	assert.Equal(t, 95, retrieved.Config["threshold"])
+	assert.Equal(t, float64(95), retrieved.Config.TemplateVars["threshold"])
 	assert.Equal(t, "override", retrieved.MergeStrategy)
 	assert.Equal(t, 200, retrieved.Priority)
 }
@@ -283,7 +290,7 @@ func TestAlertRuleRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group, template, and rule
-	group := testutil.NewTestGroup("temp", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("temp")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
 	template := testutil.NewTestAlertTemplate("temp-alert", domain.AlertSeverityInfo)
@@ -311,8 +318,8 @@ func TestAlertRuleRepository_GetByGroupID(t *testing.T) {
 	ctx := context.Background()
 
 	// Create groups and template
-	group1 := testutil.NewTestGroup("group1", domain.NamespaceEnvironment)
-	group2 := testutil.NewTestGroup("group2", domain.NamespaceEnvironment)
+	group1 := testutil.NewTestGroup("group1")
+	group2 := testutil.NewTestGroup("group2")
 	require.NoError(t, groupRepo.Create(ctx, group1))
 	require.NoError(t, groupRepo.Create(ctx, group2))
 
@@ -349,7 +356,7 @@ func TestAlertRuleRepository_GetByTemplateID(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group and templates
-	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("prod")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
 	template1 := testutil.NewTestAlertTemplate("template1", domain.AlertSeverityWarning)
@@ -371,9 +378,10 @@ func TestAlertRuleRepository_GetByTemplateID(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, template1Rules, 2)
 
-	// Verify all rules use template1
+	// Verify all rules were created from template1
 	for _, r := range template1Rules {
-		assert.Equal(t, template1.ID, r.TemplateID)
+		assert.NotNil(t, r.CreatedFromTemplateID)
+		assert.Equal(t, template1.ID, *r.CreatedFromTemplateID)
 	}
 }
 
@@ -387,10 +395,10 @@ func TestAlertRuleRepository_MergeStrategy(t *testing.T) {
 	ctx := context.Background()
 
 	// Create parent and child groups
-	parent := testutil.NewTestGroup("parent", domain.NamespaceEnvironment)
+	parent := testutil.NewTestGroup("parent")
 	require.NoError(t, groupRepo.Create(ctx, parent))
 
-	child := testutil.NewTestGroupWithParent("child", domain.NamespaceEnvironment, parent.ID)
+	child := testutil.NewTestGroupWithParent("child", parent.ID)
 	require.NoError(t, groupRepo.Create(ctx, child))
 
 	template := testutil.NewTestAlertTemplate("cpu-alert", domain.AlertSeverityWarning)
@@ -398,21 +406,21 @@ func TestAlertRuleRepository_MergeStrategy(t *testing.T) {
 
 	// Create parent rule
 	parentRule := testutil.NewTestAlertRule(parent.ID, template.ID)
-	parentRule.Config["threshold"] = 80
-	parentRule.Config["duration"] = "5m"
+	parentRule.Config.TemplateVars["threshold"] = 80
+	parentRule.Config.TemplateVars["duration"] = "5m"
 	parentRule.MergeStrategy = "merge"
 	require.NoError(t, ruleRepo.Create(ctx, parentRule))
 
 	// Create child rule with merge strategy
 	childRule := testutil.NewTestAlertRule(child.ID, template.ID)
-	childRule.Config["threshold"] = 90
+	childRule.Config.TemplateVars["threshold"] = 90
 	childRule.MergeStrategy = "merge"
 	require.NoError(t, ruleRepo.Create(ctx, childRule))
 
 	// Test MergeWith method
 	merged := childRule.MergeWith(parentRule)
-	assert.Equal(t, "5m", merged.Config["duration"])  // From parent
-	assert.Equal(t, 90, merged.Config["threshold"])   // From child (overrides)
+	assert.Equal(t, "5m", merged.Config.TemplateVars["duration"])       // From parent
+	assert.Equal(t, float64(90), merged.Config.TemplateVars["threshold"]) // From child (overrides)
 }
 
 func TestAlertRuleRepository_List(t *testing.T) {
@@ -425,7 +433,7 @@ func TestAlertRuleRepository_List(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group and template
-	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("prod")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
 	template := testutil.NewTestAlertTemplate("cpu-alert", domain.AlertSeverityWarning)

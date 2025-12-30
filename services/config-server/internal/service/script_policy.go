@@ -13,27 +13,24 @@ import (
 
 // ScriptPolicyService handles business logic for script policies
 type ScriptPolicyService struct {
-	policyRepo    repository.ScriptPolicyRepository
-	templateRepo  repository.ScriptTemplateRepository
-	namespaceRepo repository.NamespaceRepository
-	groupRepo     repository.GroupRepository
-	targetRepo    repository.TargetRepository
+	policyRepo   repository.ScriptPolicyRepository
+	templateRepo repository.ScriptTemplateRepository
+	groupRepo    repository.GroupRepository
+	targetRepo   repository.TargetRepository
 }
 
 // NewScriptPolicyService creates a new ScriptPolicyService
 func NewScriptPolicyService(
 	policyRepo repository.ScriptPolicyRepository,
 	templateRepo repository.ScriptTemplateRepository,
-	namespaceRepo repository.NamespaceRepository,
 	groupRepo repository.GroupRepository,
 	targetRepo repository.TargetRepository,
 ) *ScriptPolicyService {
 	return &ScriptPolicyService{
-		policyRepo:    policyRepo,
-		templateRepo:  templateRepo,
-		namespaceRepo: namespaceRepo,
-		groupRepo:     groupRepo,
-		targetRepo:    targetRepo,
+		policyRepo:   policyRepo,
+		templateRepo: templateRepo,
+		groupRepo:    groupRepo,
+		targetRepo:   targetRepo,
 	}
 }
 

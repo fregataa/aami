@@ -20,12 +20,12 @@ func TestTargetRepository_Create(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a group first
-	group := testutil.NewTestGroup("production", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("production")
 	err := groupRepo.Create(ctx, group)
 	require.NoError(t, err)
 
 	// Create a target
-	target := testutil.NewTestTarget("server1", "192.168.1.10", group.ID)
+	target := testutil.NewTestTarget("server1", "192.168.1.10", []domain.Group{*group})
 
 	err = targetRepo.Create(ctx, target)
 	require.NoError(t, err)
@@ -42,10 +42,10 @@ func TestTargetRepository_GetByID(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group and target
-	group := testutil.NewTestGroup("staging", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("staging")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	target := testutil.NewTestTarget("server2", "192.168.1.20", group.ID)
+	target := testutil.NewTestTarget("server2", "192.168.1.20", []domain.Group{*group})
 	require.NoError(t, targetRepo.Create(ctx, target))
 
 	// Retrieve it
@@ -54,7 +54,8 @@ func TestTargetRepository_GetByID(t *testing.T) {
 	assert.Equal(t, target.ID, retrieved.ID)
 	assert.Equal(t, target.Hostname, retrieved.Hostname)
 	assert.Equal(t, target.IPAddress, retrieved.IPAddress)
-	assert.Equal(t, target.PrimaryGroupID, retrieved.PrimaryGroupID)
+	assert.Len(t, retrieved.Groups, 1)
+	assert.Equal(t, group.ID, retrieved.Groups[0].ID)
 }
 
 func TestTargetRepository_GetByID_NotFound(t *testing.T) {
@@ -77,10 +78,10 @@ func TestTargetRepository_Update(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group and target
-	group := testutil.NewTestGroup("dev", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("dev")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	target := testutil.NewTestTarget("server3", "192.168.1.30", group.ID)
+	target := testutil.NewTestTarget("server3", "192.168.1.30", []domain.Group{*group})
 	require.NoError(t, targetRepo.Create(ctx, target))
 
 	// Update it
@@ -107,10 +108,10 @@ func TestTargetRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group and target
-	group := testutil.NewTestGroup("temp", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("temp")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	target := testutil.NewTestTarget("server-temp", "192.168.1.99", group.ID)
+	target := testutil.NewTestTarget("server-temp", "192.168.1.99", []domain.Group{*group})
 	require.NoError(t, targetRepo.Create(ctx, target))
 
 	// Delete it
@@ -131,13 +132,13 @@ func TestTargetRepository_List(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a group
-	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("prod")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
 	// Create multiple targets
-	target1 := testutil.NewTestTarget("server1", "192.168.1.1", group.ID)
-	target2 := testutil.NewTestTarget("server2", "192.168.1.2", group.ID)
-	target3 := testutil.NewTestTarget("server3", "192.168.1.3", group.ID)
+	target1 := testutil.NewTestTarget("server1", "192.168.1.1", []domain.Group{*group})
+	target2 := testutil.NewTestTarget("server2", "192.168.1.2", []domain.Group{*group})
+	target3 := testutil.NewTestTarget("server3", "192.168.1.3", []domain.Group{*group})
 
 	require.NoError(t, targetRepo.Create(ctx, target1))
 	require.NoError(t, targetRepo.Create(ctx, target2))
@@ -159,15 +160,15 @@ func TestTargetRepository_GetByGroupID(t *testing.T) {
 	ctx := context.Background()
 
 	// Create groups
-	group1 := testutil.NewTestGroup("group1", domain.NamespaceEnvironment)
-	group2 := testutil.NewTestGroup("group2", domain.NamespaceEnvironment)
+	group1 := testutil.NewTestGroup("group1")
+	group2 := testutil.NewTestGroup("group2")
 	require.NoError(t, groupRepo.Create(ctx, group1))
 	require.NoError(t, groupRepo.Create(ctx, group2))
 
 	// Create targets in different groups
-	target1 := testutil.NewTestTarget("server1", "192.168.1.1", group1.ID)
-	target2 := testutil.NewTestTarget("server2", "192.168.1.2", group1.ID)
-	target3 := testutil.NewTestTarget("server3", "192.168.1.3", group2.ID)
+	target1 := testutil.NewTestTarget("server1", "192.168.1.1", []domain.Group{*group1})
+	target2 := testutil.NewTestTarget("server2", "192.168.1.2", []domain.Group{*group1})
+	target3 := testutil.NewTestTarget("server3", "192.168.1.3", []domain.Group{*group2})
 
 	require.NoError(t, targetRepo.Create(ctx, target1))
 	require.NoError(t, targetRepo.Create(ctx, target2))
@@ -180,7 +181,14 @@ func TestTargetRepository_GetByGroupID(t *testing.T) {
 
 	// Verify all targets belong to group1
 	for _, tgt := range group1Targets {
-		assert.Equal(t, group1.ID, tgt.PrimaryGroupID)
+		hasGroup := false
+		for _, g := range tgt.Groups {
+			if g.ID == group1.ID {
+				hasGroup = true
+				break
+			}
+		}
+		assert.True(t, hasGroup, "Target should belong to group1")
 	}
 }
 
@@ -193,10 +201,10 @@ func TestTargetRepository_UpdateStatus(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group and target
-	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("prod")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	target := testutil.NewTestTarget("server1", "192.168.1.1", group.ID)
+	target := testutil.NewTestTarget("server1", "192.168.1.1", []domain.Group{*group})
 	require.NoError(t, targetRepo.Create(ctx, target))
 	assert.Equal(t, domain.TargetStatusActive, target.Status)
 
@@ -220,10 +228,10 @@ func TestTargetRepository_UpdateLastSeen(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group and target
-	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("prod")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	target := testutil.NewTestTarget("server1", "192.168.1.1", group.ID)
+	target := testutil.NewTestTarget("server1", "192.168.1.1", []domain.Group{*group})
 	require.NoError(t, targetRepo.Create(ctx, target))
 	assert.Nil(t, target.LastSeen)
 
@@ -248,10 +256,10 @@ func TestTargetRepository_GetByHostname(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group and target
-	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("prod")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
-	target := testutil.NewTestTarget("unique-hostname", "192.168.1.1", group.ID)
+	target := testutil.NewTestTarget("unique-hostname", "192.168.1.1", []domain.Group{*group})
 	require.NoError(t, targetRepo.Create(ctx, target))
 
 	// Get by hostname
@@ -281,20 +289,20 @@ func TestTargetRepository_HealthCheck(t *testing.T) {
 	ctx := context.Background()
 
 	// Create group
-	group := testutil.NewTestGroup("prod", domain.NamespaceEnvironment)
+	group := testutil.NewTestGroup("prod")
 	require.NoError(t, groupRepo.Create(ctx, group))
 
 	// Create healthy target (recently seen)
-	healthyTarget := testutil.NewTestTarget("healthy", "192.168.1.1", group.ID)
+	healthyTarget := testutil.NewTestTarget("healthy", "192.168.1.1", []domain.Group{*group})
 	healthyTarget.UpdateLastSeen()
 	require.NoError(t, targetRepo.Create(ctx, healthyTarget))
 
 	// Create unhealthy target (not seen)
-	unhealthyTarget := testutil.NewTestTarget("unhealthy", "192.168.1.2", group.ID)
+	unhealthyTarget := testutil.NewTestTarget("unhealthy", "192.168.1.2", []domain.Group{*group})
 	require.NoError(t, targetRepo.Create(ctx, unhealthyTarget))
 
 	// Create down target
-	downTarget := testutil.NewTestTarget("down", "192.168.1.3", group.ID)
+	downTarget := testutil.NewTestTarget("down", "192.168.1.3", []domain.Group{*group})
 	downTarget.UpdateStatus(domain.TargetStatusDown)
 	require.NoError(t, targetRepo.Create(ctx, downTarget))
 

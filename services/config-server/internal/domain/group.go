@@ -2,12 +2,10 @@ package domain
 
 import "time"
 
-// Group represents a hierarchical organizational unit within a namespace
+// Group represents a hierarchical organizational unit
 type Group struct {
 	ID           string            `json:"id"`
 	Name         string            `json:"name"`
-	NamespaceID  string            `json:"namespace_id"`
-	Namespace    *Namespace        `json:"namespace,omitempty"`
 	ParentID     *string           `json:"parent_id,omitempty"`
 	Parent       *Group            `json:"-"`
 	Children     []Group           `json:"-"`
@@ -25,15 +23,10 @@ func (g *Group) IsRoot() bool {
 	return g.ParentID == nil
 }
 
-// GetPriority returns the calculated priority for this group
-// Priority is based on namespace priority and can be overridden at group level
+// GetPriority returns the priority for this group
 func (g *Group) GetPriority() int {
 	if g.Priority != 0 {
 		return g.Priority
-	}
-	// If namespace is loaded, use its priority
-	if g.Namespace != nil {
-		return g.Namespace.PolicyPriority
 	}
 	// Default priority
 	return 100

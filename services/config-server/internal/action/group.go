@@ -13,7 +13,6 @@ import (
 // CreateGroup represents the action to create a group
 type CreateGroup struct {
 	Name        string
-	NamespaceID string
 	ParentID    *string
 	Description string
 	Priority    int
@@ -38,8 +37,6 @@ type UpdateGroup struct {
 type GroupResult struct {
 	ID           string
 	Name         string
-	NamespaceID  string
-	Namespace    *NamespaceResult
 	ParentID     *string
 	Description  string
 	Priority     int
@@ -53,7 +50,6 @@ type GroupResult struct {
 func (r *GroupResult) FromDomain(g *domain.Group) {
 	r.ID = g.ID
 	r.Name = g.Name
-	r.NamespaceID = g.NamespaceID
 	r.ParentID = g.ParentID
 	r.Description = g.Description
 	r.Priority = g.Priority
@@ -61,13 +57,6 @@ func (r *GroupResult) FromDomain(g *domain.Group) {
 	r.Metadata = g.Metadata
 	r.CreatedAt = g.CreatedAt
 	r.UpdatedAt = g.UpdatedAt
-
-	// Convert nested namespace if loaded
-	if g.Namespace != nil {
-		ns := NamespaceResult{}
-		ns.FromDomain(g.Namespace)
-		r.Namespace = &ns
-	}
 }
 
 // NewGroupResult creates GroupResult from domain.Group

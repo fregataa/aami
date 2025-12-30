@@ -1,7 +1,7 @@
 -- AAMI Config Server - Unified Database Schema
--- Consolidated from migrations 001-009
--- Created: 2024-12-29
+-- Updated: 2025-12-30
 -- Description: Complete schema with all tables, indexes, and default data
+-- NOTE: This is the current production schema after namespace removal refactoring
 
 -- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -10,24 +10,10 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- TABLES
 -- ============================================================================
 
--- Namespaces table: Logical grouping of groups
-CREATE TABLE IF NOT EXISTS namespaces (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(50) NOT NULL UNIQUE,
-    description TEXT,
-    policy_priority INTEGER NOT NULL DEFAULT 100,
-    merge_strategy VARCHAR(20) NOT NULL DEFAULT 'merge' CHECK (merge_strategy IN ('override', 'merge')),
-    metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    deleted_at TIMESTAMP
-);
-
--- Groups table: Hierarchical organization with namespace
+-- Groups table: Hierarchical organization (without namespace)
 CREATE TABLE IF NOT EXISTS groups (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
-    namespace_id UUID REFERENCES namespaces(id) ON DELETE RESTRICT,
     parent_id UUID REFERENCES groups(id) ON DELETE CASCADE,
     description TEXT,
     priority INTEGER NOT NULL DEFAULT 100,
@@ -94,25 +80,27 @@ CREATE TABLE IF NOT EXISTS alert_templates (
 CREATE TABLE IF NOT EXISTS alert_rules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-    template_id VARCHAR(100) REFERENCES alert_templates(id) ON DELETE SET NULL,
+    created_from_template_id VARCHAR(100) REFERENCES alert_templates(id) ON DELETE SET NULL,
+    created_from_template_name VARCHAR(255),
     name VARCHAR(255) NOT NULL,
     description TEXT,
     severity VARCHAR(20) NOT NULL CHECK (severity IN ('critical', 'warning', 'info')),
     query_template TEXT NOT NULL,
+    default_config JSONB DEFAULT '{}',
     enabled BOOLEAN NOT NULL DEFAULT true,
     config JSONB NOT NULL DEFAULT '{}',
     merge_strategy VARCHAR(20) NOT NULL DEFAULT 'override' CHECK (merge_strategy IN ('override', 'merge')),
-    priority INTEGER NOT NULL,
+    priority INTEGER NOT NULL DEFAULT 100,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMP
 );
 
--- Check templates table: Reusable check script definitions
-CREATE TABLE IF NOT EXISTS check_templates (
+-- Script templates table: Reusable script definitions (renamed from check_templates/monitoring_scripts)
+CREATE TABLE IF NOT EXISTS script_templates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
-    check_type VARCHAR(255) NOT NULL,
+    script_type VARCHAR(255) NOT NULL,
     script_content TEXT NOT NULL,
     language VARCHAR(50) NOT NULL DEFAULT 'bash',
     default_config JSONB NOT NULL DEFAULT '{}',
@@ -123,16 +111,16 @@ CREATE TABLE IF NOT EXISTS check_templates (
     deleted_at TIMESTAMP
 );
 
--- Check instances table: Check configurations at specific scopes (with template snapshot)
-CREATE TABLE IF NOT EXISTS check_instances (
+-- Script policies table: Script configurations at group level (renamed from check_instances)
+CREATE TABLE IF NOT EXISTS script_policies (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    template_id UUID REFERENCES check_templates(id) ON DELETE SET NULL,
+    created_from_template_id UUID REFERENCES script_templates(id) ON DELETE SET NULL,
+    created_from_template_name VARCHAR(255),
     name VARCHAR(255) NOT NULL,
-    check_type VARCHAR(100) NOT NULL,
+    script_type VARCHAR(100) NOT NULL,
     script_content TEXT NOT NULL,
     language VARCHAR(50) NOT NULL DEFAULT 'bash',
-    scope VARCHAR(20) NOT NULL CHECK (scope IN ('global', 'namespace', 'group')),
-    namespace_id UUID REFERENCES namespaces(id) ON DELETE CASCADE,
+    scope VARCHAR(20) NOT NULL CHECK (scope IN ('global', 'group')),
     group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
     config JSONB NOT NULL DEFAULT '{}',
     enabled BOOLEAN NOT NULL DEFAULT true,
@@ -144,12 +132,11 @@ CREATE TABLE IF NOT EXISTS check_instances (
     deleted_at TIMESTAMP
 );
 
--- Bootstrap tokens table: Auto-registration tokens
+-- Bootstrap tokens table: Auto-registration tokens (without default_group_id)
 CREATE TABLE IF NOT EXISTS bootstrap_tokens (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     token VARCHAR(255) NOT NULL UNIQUE,
     name VARCHAR(255) NOT NULL,
-    default_group_id UUID NOT NULL REFERENCES groups(id) ON DELETE RESTRICT,
     max_uses INTEGER NOT NULL CHECK (max_uses > 0),
     uses INTEGER NOT NULL DEFAULT 0 CHECK (uses >= 0),
     expires_at TIMESTAMP NOT NULL,
@@ -163,12 +150,7 @@ CREATE TABLE IF NOT EXISTS bootstrap_tokens (
 -- INDEXES
 -- ============================================================================
 
--- Namespaces indexes
-CREATE INDEX IF NOT EXISTS idx_namespaces_name ON namespaces(name) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_namespaces_deleted_at ON namespaces(deleted_at);
-
 -- Groups indexes
-CREATE INDEX IF NOT EXISTS idx_groups_namespace ON groups(namespace_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_groups_parent ON groups(parent_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_groups_name ON groups(name) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_groups_is_default_own ON groups(is_default_own) WHERE deleted_at IS NULL;
@@ -194,20 +176,19 @@ CREATE INDEX IF NOT EXISTS idx_alert_templates_deleted_at ON alert_templates(del
 
 -- Alert rules indexes
 CREATE INDEX IF NOT EXISTS idx_alert_rules_group ON alert_rules(group_id) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_alert_rules_template ON alert_rules(template_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_alert_rules_created_from_template_id ON alert_rules(created_from_template_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_alert_rules_deleted_at ON alert_rules(deleted_at);
 
--- Check templates indexes
-CREATE INDEX IF NOT EXISTS idx_check_templates_check_type ON check_templates(check_type) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_check_templates_name ON check_templates(name) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_check_templates_deleted_at ON check_templates(deleted_at);
+-- Script templates indexes
+CREATE INDEX IF NOT EXISTS idx_script_templates_script_type ON script_templates(script_type) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_script_templates_name ON script_templates(name) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_script_templates_deleted_at ON script_templates(deleted_at);
 
--- Check instances indexes
-CREATE INDEX IF NOT EXISTS idx_check_instances_template ON check_instances(template_id) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_check_instances_scope ON check_instances(scope) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_check_instances_namespace ON check_instances(namespace_id) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_check_instances_group ON check_instances(group_id) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_check_instances_deleted_at ON check_instances(deleted_at);
+-- Script policies indexes
+CREATE INDEX IF NOT EXISTS idx_script_policies_created_from_template_id ON script_policies(created_from_template_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_script_policies_scope ON script_policies(scope) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_script_policies_group ON script_policies(group_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_script_policies_deleted_at ON script_policies(deleted_at);
 
 -- Bootstrap tokens indexes
 CREATE INDEX IF NOT EXISTS idx_bootstrap_tokens_token ON bootstrap_tokens(token) WHERE deleted_at IS NULL;
