@@ -41,9 +41,9 @@ The Config Server follows a Clean Architecture pattern with clear separation of 
 
 ## Getting Started
 
-📚 **Quick Start Guide**: [QUICKSTART.md](./QUICKSTART.md) - 상세한 구동 방법 (로컬/클라우드)
+📚 **Quick Start Guide**: [QUICKSTART.md](./QUICKSTART.md) - Detailed setup instructions (local/cloud)
 
-### Fastest Way - Docker Compose (권장)
+### Fastest Way - Docker Compose (Recommended)
 
 ```bash
 # 1. Clone the repository
@@ -77,7 +77,7 @@ go build -o config-server ./cmd/config-server
 ./config-server
 ```
 
-자세한 구동 방법은 [QUICKSTART.md](./QUICKSTART.md)를 참조하세요.
+For detailed setup instructions, please refer to [QUICKSTART.md](./QUICKSTART.md).
 
 ## CLI Tool
 
@@ -281,7 +281,7 @@ kubectl logs -f deployment/config-server -n aami
 kubectl port-forward svc/config-server 8080:80 -n aami
 ```
 
-자세한 내용은 [k8s/README.md](./k8s/README.md)를 참조하세요.
+For more details, please refer to [k8s/README.md](./k8s/README.md).
 
 ## Configuration
 
