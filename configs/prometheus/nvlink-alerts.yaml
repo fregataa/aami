@@ -1,0 +1,123 @@
+# AAMI NVLink Alert Rules
+# See https://github.com/fregataa/aami for documentation
+
+groups:
+  - name: nvlink_alerts
+    rules:
+      # NVLink Errors
+      - alert: NVLinkCRCError
+        expr: increase(DCGM_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_TOTAL[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NVLink CRC errors on {{ $labels.instance }}"
+          description: "GPU {{ $labels.gpu }} has {{ $value }} NVLink CRC flit errors in the last 5 minutes"
+
+      - alert: NVLinkCRCErrorCritical
+        expr: increase(DCGM_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_TOTAL[1h]) > 100
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High NVLink CRC error rate on {{ $labels.instance }}"
+          description: "GPU {{ $labels.gpu }} has {{ $value }} NVLink CRC errors in the last hour. Check interconnect health."
+
+      - alert: NVLinkDataCRCError
+        expr: increase(DCGM_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_TOTAL[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NVLink data CRC errors on {{ $labels.instance }}"
+          description: "GPU {{ $labels.gpu }} has {{ $value }} NVLink data CRC errors"
+
+      # NVLink Replay Errors
+      - alert: NVLinkReplayError
+        expr: increase(DCGM_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_TOTAL[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NVLink replay errors on {{ $labels.instance }}"
+          description: "GPU {{ $labels.gpu }} has {{ $value }} NVLink replay errors. May indicate degraded link quality."
+
+      - alert: NVLinkReplayErrorCritical
+        expr: increase(DCGM_FI_DEV_NVLINK_REPLAY_ERROR_COUNT_TOTAL[1h]) > 1000
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Excessive NVLink replay errors on {{ $labels.instance }}"
+          description: "GPU {{ $labels.gpu }} has {{ $value }} replay errors. Link may be failing."
+
+      # NVLink Recovery Errors
+      - alert: NVLinkRecoveryError
+        expr: increase(DCGM_FI_DEV_NVLINK_RECOVERY_ERROR_COUNT_TOTAL[1h]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "NVLink recovery error on {{ $labels.instance }}"
+          description: "GPU {{ $labels.gpu }} experienced NVLink recovery. Check for hardware issues."
+
+      # NVLink Bandwidth Degradation
+      - alert: NVLinkBandwidthDegraded
+        expr: |
+          DCGM_FI_DEV_NVLINK_BANDWIDTH_TOTAL <
+          (DCGM_FI_DEV_NVLINK_BANDWIDTH_TOTAL offset 24h) * 0.8
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NVLink bandwidth degraded on {{ $labels.instance }}"
+          description: "GPU {{ $labels.gpu }} NVLink bandwidth is 20% lower than 24h ago"
+
+      # NVLink Link Down
+      - alert: NVLinkLinkDown
+        expr: DCGM_FI_DEV_NVLINK_LINK_COUNT < 4
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "NVLink links down on {{ $labels.instance }}"
+          description: "GPU {{ $labels.gpu }} has only {{ $value }} active NVLink links (expected 4+)"
+
+  - name: nvlink_topology_alerts
+    rules:
+      # P2P Communication Issues
+      - alert: GPUP2PDisabled
+        expr: nvidia_gpu_p2p_enabled == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "GPU P2P disabled on {{ $labels.instance }}"
+          description: "P2P communication between GPUs is disabled. Check IOMMU and ACS settings."
+
+      # NVSwitch Errors (for DGX systems)
+      - alert: NVSwitchError
+        expr: increase(nvswitch_fatal_errors_total[5m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "NVSwitch fatal error on {{ $labels.instance }}"
+          description: "NVSwitch reported fatal errors. Check NVSwitch health."
+
+      - alert: NVSwitchNonFatalError
+        expr: increase(nvswitch_nonfatal_errors_total[1h]) > 10
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NVSwitch non-fatal errors on {{ $labels.instance }}"
+          description: "NVSwitch has {{ $value }} non-fatal errors in the last hour"
+
+      # Topology Change Detection
+      - alert: GPUTopologyChange
+        expr: |
+          changes(nvidia_gpu_count[1h]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "GPU topology change detected on {{ $labels.instance }}"
+          description: "Number of GPUs changed. A GPU may have gone offline or come online."
