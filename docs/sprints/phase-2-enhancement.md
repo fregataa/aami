@@ -6,6 +6,106 @@
 - **Goal**: Differentiation features, operational convenience
 - **Prerequisites**: Phase 1 MVP completed
 
+---
+
+## Sprint Task Breakdown
+
+### Epic 1: NVLink Topology Visualization (Week 1)
+
+| ID | Sub-task | Files | Dependencies | Status |
+|----|----------|-------|--------------|--------|
+| 1.1 | NVLink type definitions | `internal/nvlink/types.go` | - | ⬜ |
+| 1.2 | nvidia-smi topology parser | `internal/nvlink/collector.go` | 1.1, SSH Executor | ⬜ |
+| 1.3 | ASCII renderer (4/8 GPU layouts) | `internal/nvlink/renderer.go` | 1.1 | ⬜ |
+| 1.4 | CLI topology command | `internal/cli/topology.go` | 1.2, 1.3 | ⬜ |
+| 1.5 | NVLink alert rules | `configs/prometheus/nvlink-alerts.yaml` | - | ⬜ |
+
+**Commands**: `aami topology <node>`, `aami topology all`
+
+### Epic 2: GPU Health Score (Week 2)
+
+| ID | Sub-task | Files | Dependencies | Status |
+|----|----------|-------|--------------|--------|
+| 2.1 | Health score type definitions | `internal/health/types.go` | - | ⬜ |
+| 2.2 | Prometheus query client | `internal/health/prometheus.go` | 2.1 | ⬜ |
+| 2.3 | Score calculation logic | `internal/health/calculator.go` | 2.1, 2.2 | ⬜ |
+| 2.4 | CLI health command | `internal/cli/health.go` | 2.3 | ⬜ |
+
+**Commands**: `aami health`, `aami health <node>`
+
+**Score Weights**:
+- Temperature: 20%
+- ECC Errors: 25%
+- Xid Errors: 25%
+- NVLink Status: 15%
+- Uptime: 15%
+
+### Epic 3: Upgrade & Backup (Week 3)
+
+| ID | Sub-task | Files | Dependencies | Status |
+|----|----------|-------|--------------|--------|
+| 3.1 | Version checker (GitHub API) | `internal/upgrade/checker.go` | - | ⬜ |
+| 3.2 | Upgrader with rollback support | `internal/upgrade/upgrader.go` | 3.1 | ⬜ |
+| 3.3 | Backup creation | `internal/backup/backup.go` | - | ⬜ |
+| 3.4 | Restore logic | `internal/backup/restore.go` | 3.3 | ⬜ |
+| 3.5 | CLI upgrade/backup commands | `internal/cli/upgrade.go`, `backup.go` | 3.2, 3.4 | ⬜ |
+
+**Commands**:
+- `aami upgrade --check` - Check for updates
+- `aami upgrade` - Perform upgrade
+- `aami upgrade --rollback` - Rollback to previous version
+- `aami backup create [--include-data]` - Create backup
+- `aami backup restore <file> [--config-only]` - Restore from backup
+
+### Epic 4: Operations Tools (Week 3-4)
+
+| ID | Sub-task | Files | Dependencies | Status |
+|----|----------|-------|--------------|--------|
+| 4.1 | Diagnose command | `internal/cli/diagnose.go` | Phase 1 complete | ⬜ |
+| 4.2 | Config diff command | `internal/cli/diff.go` | Phase 1 complete | ⬜ |
+
+**Commands**:
+- `aami diagnose` - System diagnostics (config, components, nodes)
+- `aami diff` - Show pending configuration changes
+
+---
+
+## Implementation Order
+
+```
+Week 1: Epic 1 (NVLink Topology)
+  └─ 1.1 → 1.2 → 1.3 → 1.4 → 1.5
+
+Week 2: Epic 2 (Health Score)
+  └─ 2.1 → 2.2 → 2.3 → 2.4
+
+Week 3: Epic 3 (Upgrade/Backup)
+  └─ 3.1 → 3.2 ─┐
+                ├─→ 3.5
+  └─ 3.3 → 3.4 ─┘
+
+Week 3-4: Epic 4 (Operations)
+  └─ 4.1 → 4.2
+```
+
+---
+
+## Acceptance Criteria Summary
+
+| Feature | Command | Expected Output |
+|---------|---------|-----------------|
+| Topology | `aami topology gpu-node-01` | ASCII art with NVLink status |
+| Topology issues | `aami topology gpu-node-01` (with errors) | Degraded links highlighted |
+| Cluster health | `aami health` | Summary with overall score |
+| Node health | `aami health gpu-node-01` | Detailed component scores |
+| Upgrade check | `aami upgrade --check` | Table of versions |
+| Backup create | `aami backup create` | `Backup created: aami-backup-YYYY-MM-DD.tar.gz` |
+| Backup restore | `aami backup restore backup.tar.gz` | `Restore complete` |
+| Diagnose | `aami diagnose` | Status of all components |
+| Config diff | `aami diff` | List of pending changes |
+
+---
+
 ## New Files
 
 ```
