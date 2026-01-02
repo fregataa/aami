@@ -1,0 +1,216 @@
+# AAMI Slurm Integration Alert Rules
+# These rules correlate GPU metrics with Slurm job execution
+
+groups:
+  - name: slurm_gpu_correlation
+    interval: 30s
+    rules:
+      # Alert when GPU errors occur on nodes running jobs
+      - alert: SlurmJobGPUXidError
+        expr: |
+          DCGM_FI_DEV_XID_ERRORS > 0
+          and on(instance) (slurm_node_state == 1)  # Node is allocated
+        for: 0m
+        labels:
+          severity: critical
+          category: slurm
+        annotations:
+          summary: "GPU Xid error on Slurm node {{ $labels.instance }}"
+          description: |
+            Xid {{ $value }} error detected on GPU {{ $labels.gpu }} while running Slurm jobs.
+            This may cause job failures. Consider draining the node.
+          runbook_url: "https://docs.nvidia.com/deploy/xid-errors/index.html"
+          action: "aami slurm drain {{ $labels.instance | reReplaceAll \":.*\" \"\" }}"
+
+      # High GPU temperature on busy node
+      - alert: SlurmJobGPUOverheating
+        expr: |
+          DCGM_FI_DEV_GPU_TEMP > 85
+          and on(instance) (slurm_node_state == 1)
+        for: 5m
+        labels:
+          severity: warning
+          category: slurm
+        annotations:
+          summary: "GPU overheating on active Slurm node {{ $labels.instance }}"
+          description: |
+            GPU {{ $labels.gpu }} temperature {{ $value }}°C exceeds threshold.
+            Jobs may experience thermal throttling or failures.
+
+      # ECC errors during job execution
+      - alert: SlurmJobGPUECCError
+        expr: |
+          increase(DCGM_FI_DEV_ECC_DBE_VOL_TOTAL[5m]) > 0
+          and on(instance) (slurm_node_state == 1)
+        for: 0m
+        labels:
+          severity: critical
+          category: slurm
+        annotations:
+          summary: "Uncorrectable ECC error on Slurm node {{ $labels.instance }}"
+          description: |
+            Double-bit ECC error detected on GPU {{ $labels.gpu }}.
+            Running jobs may produce incorrect results. Drain node immediately.
+          action: "aami slurm drain {{ $labels.instance | reReplaceAll \":.*\" \"\" }} --reason 'ECC Error'"
+
+      # GPU memory usage critical during job
+      - alert: SlurmJobGPUMemoryExhausted
+        expr: |
+          (DCGM_FI_DEV_FB_USED / DCGM_FI_DEV_FB_TOTAL) > 0.95
+          and on(instance) (slurm_node_state == 1)
+        for: 5m
+        labels:
+          severity: warning
+          category: slurm
+        annotations:
+          summary: "GPU memory nearly exhausted on {{ $labels.instance }}"
+          description: |
+            GPU {{ $labels.gpu }} memory usage is {{ $value | humanizePercentage }}.
+            Jobs may fail with out-of-memory errors.
+
+  - name: slurm_node_health
+    interval: 60s
+    rules:
+      # Node drained due to GPU issues
+      - alert: SlurmNodeDrainedGPU
+        expr: slurm_node_state{state="drain"} == 1 and slurm_node_drain_reason =~ ".*GPU.*|.*AAMI.*"
+        for: 0m
+        labels:
+          severity: info
+          category: slurm
+        annotations:
+          summary: "Slurm node {{ $labels.node }} drained for GPU issues"
+          description: |
+            Node {{ $labels.node }} has been drained.
+            Reason: {{ $labels.reason }}
+            Run GPU diagnostics before resuming.
+
+      # Multiple GPU errors on same node (pattern detection)
+      - alert: SlurmNodeRepeatedGPUFailures
+        expr: |
+          count by (instance) (
+            increase(DCGM_FI_DEV_XID_ERRORS[1h]) > 0
+          ) >= 3
+        for: 0m
+        labels:
+          severity: critical
+          category: slurm
+        annotations:
+          summary: "Repeated GPU failures on {{ $labels.instance }}"
+          description: |
+            Node {{ $labels.instance }} has experienced 3+ GPU errors in the last hour.
+            This node should be drained and inspected.
+          action: "aami slurm drain {{ $labels.instance | reReplaceAll \":.*\" \"\" }} --reason 'Repeated GPU failures'"
+
+      # Node has unhealthy GPUs
+      - alert: SlurmNodeUnhealthyGPUs
+        expr: |
+          (
+            count by (instance) (DCGM_FI_DEV_GPU_TEMP > 0) -
+            count by (instance) (DCGM_FI_DEV_GPU_TEMP > 0 and DCGM_FI_DEV_GPU_TEMP < 85)
+          ) > 0
+        for: 10m
+        labels:
+          severity: warning
+          category: slurm
+        annotations:
+          summary: "Node {{ $labels.instance }} has unhealthy GPUs"
+          description: |
+            One or more GPUs on {{ $labels.instance }} are in unhealthy state.
+            Consider draining node for maintenance.
+
+  - name: slurm_job_efficiency
+    interval: 60s
+    rules:
+      # Low GPU utilization during job
+      - alert: SlurmJobLowGPUUtilization
+        expr: |
+          avg by (instance) (DCGM_FI_DEV_GPU_UTIL) < 10
+          and on(instance) (slurm_node_state == 1)
+        for: 30m
+        labels:
+          severity: info
+          category: slurm
+        annotations:
+          summary: "Low GPU utilization on active node {{ $labels.instance }}"
+          description: |
+            Average GPU utilization is only {{ $value | printf "%.1f" }}%.
+            Jobs may not be efficiently using allocated GPUs.
+
+      # Power throttling affecting jobs
+      - alert: SlurmJobPowerThrottling
+        expr: |
+          DCGM_FI_DEV_POWER_VIOLATION > 0
+          and on(instance) (slurm_node_state == 1)
+        for: 5m
+        labels:
+          severity: warning
+          category: slurm
+        annotations:
+          summary: "GPU power throttling on {{ $labels.instance }}"
+          description: |
+            GPU {{ $labels.gpu }} is power throttling, which may slow down running jobs.
+            Check power limits and cooling.
+
+  - name: slurm_capacity
+    interval: 60s
+    rules:
+      # All GPU nodes drained
+      - alert: SlurmNoGPUNodesAvailable
+        expr: |
+          count(slurm_node_state{partition=~".*gpu.*"} == 0) == 0
+        for: 5m
+        labels:
+          severity: critical
+          category: slurm
+        annotations:
+          summary: "No GPU nodes available in Slurm"
+          description: |
+            All GPU nodes are either down, drained, or allocated.
+            New GPU jobs cannot be scheduled.
+
+      # High percentage of nodes drained
+      - alert: SlurmHighNodeDrainRate
+        expr: |
+          (
+            count(slurm_node_state{state="drain"}) /
+            count(slurm_node_state)
+          ) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+          category: slurm
+        annotations:
+          summary: "High percentage of Slurm nodes drained"
+          description: |
+            More than 20% of Slurm nodes are in DRAIN state.
+            This may indicate a systemic issue.
+
+# Recording rules for efficient queries
+  - name: slurm_recording_rules
+    interval: 60s
+    rules:
+      # GPU health score per node
+      - record: slurm:node:gpu_health_score
+        expr: |
+          100 * (
+            1 - clamp_max(DCGM_FI_DEV_XID_ERRORS, 1)
+          ) * (
+            1 - clamp_max((DCGM_FI_DEV_GPU_TEMP - 80) / 20, 1)
+          )
+
+      # Jobs affected by GPU issues (count)
+      - record: slurm:jobs:gpu_affected:count
+        expr: |
+          count(
+            DCGM_FI_DEV_XID_ERRORS > 0
+            and on(instance) slurm_node_state == 1
+          )
+
+      # Average GPU utilization during jobs
+      - record: slurm:jobs:gpu_utilization:avg
+        expr: |
+          avg(
+            DCGM_FI_DEV_GPU_UTIL
+            and on(instance) slurm_node_state == 1
+          )
