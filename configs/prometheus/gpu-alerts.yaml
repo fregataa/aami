@@ -1,0 +1,145 @@
+# AAMI GPU Alert Rules - Production Preset
+# See https://github.com/fregataa/aami for documentation
+
+groups:
+  - name: gpu_alerts
+    rules:
+      # Temperature Alerts
+      - alert: GPUTemperatureCritical
+        expr: DCGM_FI_DEV_GPU_TEMP > 85
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "GPU temperature critical on {{ $labels.instance }}"
+          description: "GPU {{ $labels.gpu }} temperature is {{ $value }}°C (threshold: 85°C)"
+
+      - alert: GPUTemperatureWarning
+        expr: DCGM_FI_DEV_GPU_TEMP > 75
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "GPU temperature warning on {{ $labels.instance }}"
+          description: "GPU {{ $labels.gpu }} temperature is {{ $value }}°C (threshold: 75°C)"
+
+      # Memory Alerts
+      - alert: GPUMemoryHigh
+        expr: DCGM_FI_DEV_FB_USED / DCGM_FI_DEV_FB_TOTAL * 100 > 95
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "GPU memory usage high on {{ $labels.instance }}"
+          description: "GPU {{ $labels.gpu }} memory usage is {{ $value | printf \"%.1f\" }}%"
+
+      - alert: GPUMemoryLeak
+        expr: |
+          (DCGM_FI_DEV_FB_USED / DCGM_FI_DEV_FB_TOTAL * 100 > 95)
+          and
+          (DCGM_FI_DEV_GPU_UTIL < 5)
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Possible GPU memory leak on {{ $labels.instance }}"
+          description: "GPU {{ $labels.gpu }} has high memory usage ({{ $value | printf \"%.1f\" }}%) but low utilization"
+
+      # ECC Errors
+      - alert: GPUECCErrorsCritical
+        expr: increase(DCGM_FI_DEV_ECC_DBE_VOL_TOTAL[24h]) > 100
+        labels:
+          severity: critical
+        annotations:
+          summary: "High ECC error count on {{ $labels.instance }}"
+          description: "GPU {{ $labels.gpu }} has reported {{ $value }} double-bit ECC errors in 24h. Consider GPU replacement."
+
+      - alert: GPUECCErrorsWarning
+        expr: increase(DCGM_FI_DEV_ECC_SBE_VOL_TOTAL[24h]) > 1000
+        labels:
+          severity: warning
+        annotations:
+          summary: "Elevated single-bit ECC errors on {{ $labels.instance }}"
+          description: "GPU {{ $labels.gpu }} has reported {{ $value }} single-bit ECC errors in 24h"
+
+      # Xid Errors
+      - alert: GPUXidError
+        expr: increase(DCGM_FI_DEV_XID_ERRORS[5m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Xid error on {{ $labels.instance }}"
+          description: "GPU {{ $labels.gpu }} reported Xid error. Run 'aami explain xid <code>' for details."
+
+      # NVLink Errors
+      - alert: GPUNVLinkError
+        expr: increase(DCGM_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_TOTAL[1h]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "NVLink error on {{ $labels.instance }}"
+          description: "GPU {{ $labels.gpu }} has NVLink CRC errors"
+
+      # Power Alerts
+      - alert: GPUPowerLimitReached
+        expr: DCGM_FI_DEV_POWER_USAGE / DCGM_FI_DEV_POWER_LIMIT * 100 > 95
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "GPU power limit reached on {{ $labels.instance }}"
+          description: "GPU {{ $labels.gpu }} is at {{ $value | printf \"%.1f\" }}% of power limit"
+
+  - name: node_alerts
+    rules:
+      # Node Availability
+      - alert: NodeDown
+        expr: up{job="node"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Node {{ $labels.instance }} is down"
+          description: "Node exporter has been unreachable for more than 1 minute"
+
+      - alert: DCGMExporterDown
+        expr: up{job="dcgm"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "DCGM exporter down on {{ $labels.instance }}"
+          description: "DCGM exporter has been unreachable for more than 2 minutes"
+
+      # Disk Space
+      - alert: NodeDiskSpaceLow
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Root filesystem has less than 10% space available"
+
+      # Memory
+      - alert: NodeMemoryPressure
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "System memory usage is above 90%"
+
+      # CPU
+      - alert: NodeHighCPU
+        expr: |
+          100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage has been above 90% for more than 10 minutes"

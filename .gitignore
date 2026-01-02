@@ -16,6 +16,7 @@
 tmp/
 
 # Go binaries
+bin/
 cli/aami
 *.exe
 
