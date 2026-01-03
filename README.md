@@ -258,46 +258,64 @@ prometheus:
 
 | Area | Technology |
 |------|------------|
-| CLI/Backend | Go 1.21+ |
-| Web UI | React + TypeScript |
+| CLI | Go 1.21+ (single binary) |
 | Monitoring | Prometheus, Grafana, Alertmanager |
-| GPU Metrics | DCGM Exporter |
+| GPU Metrics | DCGM Exporter (NVIDIA), ROCm Exporter (AMD, planned) |
 | Configuration Storage | YAML (No DB) |
-| Node Communication | SSH (No Agent) |
+| Node Communication | SSH (Agentless) |
+| Large Scale | Prometheus Federation |
+| Scheduler Integration | Slurm |
 
 ## Project Structure
 
 ```
 aami/
-├── cli/                    # AAMI CLI (Go)
-├── config/                 # Default configuration templates
+├── cmd/                    # Application entrypoints
+├── internal/               # Core packages
+│   ├── cli/                # CLI commands
+│   ├── config/             # Configuration management
+│   ├── ssh/                # SSH executor
+│   ├── installer/          # Component installers
+│   ├── xid/                # Xid error interpretation
+│   ├── health/             # GPU health scoring
+│   ├── nvlink/             # NVLink topology
+│   ├── federation/         # Prometheus federation
+│   ├── slurm/              # Slurm integration
+│   ├── multicluster/       # Multi-cluster management
+│   ├── backup/             # Backup & restore
+│   └── upgrade/            # Upgrade management
+├── configs/                # Default configuration templates
 ├── docs/                   # Documentation
 ├── examples/               # Examples
 ├── scripts/                # Installation/utility scripts
-├── services/
-│   ├── config-server/      # Config Server API (Go)
-│   └── web-ui/             # Web UI (React)
 └── deploy/
     └── offline/            # Air-gap bundles
 ```
 
 ## Roadmap
 
-### Phase 1: MVP (4-6 weeks)
-- [ ] One-click installation (`aami init`)
-- [ ] Air-gap bundler (`aami bundle`)
-- [ ] Node management CLI (`aami nodes`)
-- [ ] Alert presets (`aami alerts`)
-- [ ] Xid interpretation (`aami explain xid`)
+### Phase 1: MVP ✅
+- [x] One-click installation (`aami init`)
+- [x] Air-gap bundler (`aami bundle`)
+- [x] Node management CLI (`aami nodes`)
+- [x] Alert presets (`aami alerts`)
+- [x] Xid interpretation (`aami explain xid`)
 
-### Phase 2: Enhancement (3-4 weeks)
-- [ ] NVLink topology visualization
-- [ ] GPU Health Score
-- [ ] Upgrade/Backup
+### Phase 2: Enhancement ✅
+- [x] NVLink topology visualization
+- [x] GPU Health Score
+- [x] Upgrade/Backup
+- [x] Operations tools
 
-### Phase 3: Scale
-- [ ] Slurm integration
-- [ ] Federation support (1k+ nodes)
+### Phase 3: Scale ✅
+- [x] Prometheus Federation (1k+ nodes)
+- [x] Slurm integration (Job-GPU correlation)
+- [x] Multi-cluster management
+
+### Phase 4: AMD GPU Support (Planned)
+- [ ] ROCm exporter integration
+- [ ] AMD error code interpretation
+- [ ] Unified alert rules for NVIDIA/AMD
 
 ## Contributing
 
